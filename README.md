@@ -9,6 +9,11 @@ which is available in RHEL-7. If this failes it tries to use the
 system-config-firewall interface which is available in RHEL-6 and in RHEL-7
 as an alternative.
 
+Supported Distributions
+-----------------------
+* RHEL-6+, CentOS-6+
+* Fedora
+
 Limitations
 -----------
 
@@ -43,104 +48,166 @@ If you want to add forwarding rules to an interface that also is masqueraded,
 then the masquerading rules needs to be sorted before the forwarding rule.
 
 
-Usage
------
-
-This configures the firewall:
-
-    $ ansible-playbook -i hostname, example-firewall.yml
-
-
 Variables
 ---------
 
 These are the variables that can be passed to the role:
 
-    firewall_setup_default_solution: false
+### firewall_setup_default_solution
+
+```
+firewall_setup_default_solution: false
+```
 
 This turns off the installation and start of the default firewall solution for the specific Fedora or RHEL release. This is intended for users of system-config-firewall on RHEL-7 or Fedora releases.
 
-    service: 'ftp'
-    service: [ 'ftp', 'tftp' ]
+### service
 
 Name of a service or service list to add or remove inbound access to. The service needs to be defined in firewalld or system-config-firewall/lokkit configuration.
 
-    port: '443/tcp'
-    port: [ '443/tcp', '443/udp' ]
+```
+service: 'ftp'
+service: [ 'ftp', 'tftp' ]
+```
+
+### port
 
 Port or port range or a list of them to add or remove inbound access to. It needs to be in the format ```<port>[-<port>]/<protocol>```.
 
-    trust: 'eth0'
-    trust: [ 'eth0', 'eth1' ]
+```
+port: '443/tcp'
+port: [ '443/tcp', '443/udp' ]
+```
 
-Interface to add or remove to the trusted interfaces.
+### trust
 
-    trust_by_mac: "00:11:22:33:44:55"
-    trust_by_mac: [ "00:11:22:33:44:55", "00:11:22:33:44:56" ]
+Interface to add or remove from the trusted interfaces.
+
+```
+trust: 'eth0'
+trust: [ 'eth0', 'eth1' ]
+```
+
+### trust_by_mac
 
 Interface to add or remove to the trusted interfaces by MAC address or MAC address list. Each MAC address will automatically be mapped to the interface that is using this MAC address.
 
-    masq: 'eth2'
-    masq: [ 'eth2', 'eth3' ]
+```
+trust_by_mac: "00:11:22:33:44:55"
+trust_by_mac: [ "00:11:22:33:44:55", "00:11:22:33:44:56" ]
+```
+
+### masq
 
 Interface to add or remove to the interfaces that are masqueraded.
 
-    masq_by_mac: "11:22:33:44:55:66"
-    masq_by_mac: [ "11:22:33:44:55:66", "11:22:33:44:55:67", ]
+```
+masq: 'eth2'
+masq: [ 'eth2', 'eth3' ]
+```
+
+### masq_by_mac
 
 Interface to add or remove to the interfaces that are masqueraded by MAC address or MAC address list. Each MAC address will automatically be mapped to the interface that is using this MAC address.
 
-    forward_port: 'eth0;447/tcp;;1.2.3.4'
-    forward_port: [ 'eth0;447/tcp;;1.2.3.4', 'eth0;448/tcp;;1.2.3.5' ]
+```
+masq_by_mac: "11:22:33:44:55:66"
+masq_by_mac: [ "11:22:33:44:55:66", "11:22:33:44:55:67", ]
+```
+
+### forward_port
 
 Add or remove port forwarding for ports or port ranges over an interface. It needs to be in the format ```<interface>;<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>]```.
 
-    forward_port_by_mac: '00:11:22:33:44:55;447/tcp;;1.2.3.4'
-    forward_port_by_mac: [ '00:11:22:33:44:55;447/tcp;;1.2.3.4', '00:11:22:33:44:56;447/tcp;;1.2.3.4' ]
+```
+forward_port: 'eth0;447/tcp;;1.2.3.4'
+forward_port: [ 'eth0;447/tcp;;1.2.3.4', 'eth0;448/tcp;;1.2.3.5' ]
+```
 
-"Add or remove port forwarding for ports or port ranges over an interface itentified ba a MAC address or MAC address list. It needs to be in the format ```<mac-addr>;<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>]```. Each MAC address will automatically be mapped to the interface that is using this MAC address.
+### forward_port_by_mac
 
-    state: 'enabled' | 'disabled'
+Add or remove port forwarding for ports or port ranges over an interface itentified ba a MAC address or MAC address list. It needs to be in the format ```<mac-addr>;<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>]```. Each MAC address will automatically be mapped to the interface that is using this MAC address.
+
+```
+forward_port_by_mac: '00:11:22:33:44:55;447/tcp;;1.2.3.4'
+forward_port_by_mac: [ '00:11:22:33:44:55;447/tcp;;1.2.3.4', '00:11:22:33:44:56;447/tcp;;1.2.3.4' ]
+```
+
+### state
 
 Enable or disable the entry.
 
-### Example Playbook
+```
+state: 'enabled' | 'disabled'
+```
 
-    - hosts: localhost
-      vars:
-        firewall:
-          - { service: [ 'tftp', 'ftp' ],
-              port: [ '443/tcp', '443/udp' ],
-              trust: [ 'eth0', 'eth1' ],
-              masq: [ 'eth2', 'eth3' ],
-              forward_port: [ 'eth2;447/tcp;;1.2.3.4',
-                              'eth2;448/tcp;;1.2.3.5' ],
-              state: 'enabled' }
-          - { service: 'tftp', state: 'enabled' }
-          - { port: '443/tcp', state: 'enabled' }
-          - { trust: 'foo', state: 'enabled' }
-          - { trust_by_mac: '00:11:22:33:44:55', state: 'enabled' }
-          - { masq: 'foo2', state: 'enabled' }
-          - { masq_by_mac: '00:11:22:33:44:55', state: 'enabled' }
-          - { forward_port: 'eth0;445/tcp;;1.2.3.4', state: 'enabled' }
-          - { forward_port_by_mac: '00:11:22:33:44:55;445/tcp;;1.2.3.4',
-              state: 'enabled' }
-      roles:
-        - firewall
+Example Playbooks
+-----------------
+
+With this playbook it is possible to make sure the ssh service is enabled in the firewall:
+
+```
+---
+- name: Make sure ssh service is enabled
+  hosts: myhost
+
+  vars:
+    firewall:
+      service: 'ssh'
+      state: 'enabled'
+  roles:
+    - firewall
+```
+
+With this playbook you can make sure that the tftp service is disabled in the firewall:
+
+```
+---
+- name: Make sure tftp service is disabled
+  hosts: myhost
+
+  vars:
+    firewall:
+      service: 'tftp'
+      state: 'disabled'
+  roles:
+    - firewall
+```
+
+It is also possible to combine several settings into blocks:
+
+```
+---
+- name: Configure firewall
+  hosts: myhost
+
+  vars:
+    firewall:
+      - { service: [ 'tftp', 'ftp' ],
+          port: [ '443/tcp', '443/udp' ],
+          trust: [ 'eth0', 'eth1' ],
+          masq: [ 'eth2', 'eth3' ],
+          forward_port: [ 'eth2;447/tcp;;1.2.3.4',
+                          'eth2;448/tcp;;1.2.3.5' ],
+          state: 'enabled' }
+      - { service: 'tftp', state: 'enabled' }
+      - { port: '443/tcp', state: 'enabled' }
+      - { trust: 'foo', state: 'enabled' }
+      - { trust_by_mac: '00:11:22:33:44:55', state: 'enabled' }
+      - { masq: 'foo2', state: 'enabled' }
+      - { masq_by_mac: '00:11:22:33:44:55', state: 'enabled' }
+      - { forward_port: 'eth0;445/tcp;;1.2.3.4', state: 'enabled' }
+      - { forward_port_by_mac: '00:11:22:33:44:55;445/tcp;;1.2.3.4',
+          state: 'enabled' }
+  roles:
+    - firewall
+```
 
 The block with several services, ports, etc. will be applied at once. If there is something wrong in the block it will fail as a whole.
 
-It is also possible to use the more common syntax:
+# Authors
 
-    - hosts: localhost
-      vars:
-        firewall:
-          service: 'tftp'
-          state: 'enabled'
-      roles:
-        - firewall
-
-To do only one change.
+Thomas Woerner
 
 # License
 
