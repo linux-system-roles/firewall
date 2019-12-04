@@ -1,8 +1,8 @@
 firewall
 ========
 
-This role configures the firewall on RHEL-6 and RHEL-7 machines using the
-default firewall system.
+This role configures the firewall on machines that are using firewalld or
+system-config-firewall/lokkit.
 
 For the configuration the role tries to use the firewalld client interface
 which is available in RHEL-7. If this failes it tries to use the
