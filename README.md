@@ -126,7 +126,7 @@ forward_port: [ 'eth0;447/tcp;;1.2.3.4', 'eth0;448/tcp;;1.2.3.5' ]
 
 ### forward_port_by_mac
 
-Add or remove port forwarding for ports or port ranges over an interface itentified ba a MAC address or MAC address list. It needs to be in the format ```<mac-addr>;<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>]```. Each MAC address will automatically be mapped to the interface that is using this MAC address.
+Add or remove port forwarding for ports or port ranges over an interface identified by a MAC address or MAC address list. It needs to be in the format ```<mac-addr>;<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>]```. Each MAC address will automatically be mapped to the interface that is using this MAC address.
 
 ```
 forward_port_by_mac: '00:11:22:33:44:55;447/tcp;;1.2.3.4'
