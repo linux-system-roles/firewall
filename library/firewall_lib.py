@@ -19,23 +19,29 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-DOCUMENTATION = '''
+DOCUMENTATION = """
 ---
 module: firewall
 short_description: Module for firewall role
 requirements: python-firewall or system-config-firewall/lokkit.
 description:
-  - Manage firewall with firewalld on RHEL-7 or system-config-firewall/lokkit on RHEL-6.
+  - >-
+    Manage firewall with firewalld on RHEL-7 or system-config-firewall/lokkit on
+    RHEL-6.
 author: "Thomas Woerner (twoerner@redhat.com)"
 options:
   service:
     description:
-      - "Name of a service to add or remove inbound access to. The service needs to be defined in firewalld or system-config-firewall/lokkit configuration."
+      - >-
+        Name of a service to add or remove inbound access to. The service needs to be
+        defined in firewalld or system-config-firewall/lokkit configuration.
     required: false
     default: null
   port:
     description:
-      - "Port or port range to add or remove inbound access to. It needs to be in the format port=<port>[-<port>]/<protocol>."
+      - >-
+        Port or port range to add or remove inbound access to. It needs to be in the
+        format port=<port>[-<port>]/<protocol>.
     required: false
     default: null
   trust:
@@ -55,17 +61,25 @@ options:
     default: null
   masq_by_mac:
     description:
-      - "Interface to add or remove to the interfaces that are masqueraded by MAC address."
+      - >-
+        Interface to add or remove to the interfaces that are masqueraded by MAC
+        address.
     required: false
     default: null
   forward_port:
     description:
-      - "Add or remove port forwarding for ports or port ranges over an interface. It needs to be in the format <interface>;<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>]."
+      - >-
+        Add or remove port forwarding for ports or port ranges over an interface.
+        It needs to be in the format
+        <interface>;<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>].
     required: false
     default: null
   forward_port_by_mac:
     description:
-      - "Add or remove port forwarding for ports or port ranges over an interface itentified ba a MAC address. It needs to be in the format <mac-addr>;<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>]."
+      - >-
+        Add or remove port forwarding for ports or port ranges over an interface
+        identified ba a MAC address. It needs to be in the format
+        <mac-addr>;<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>].
     required: false
     default: null
   state:
@@ -73,18 +87,23 @@ options:
       - "Enable or disable the entry."
     required: true
     choices: [ "enabled", "disabled" ]
-'''
+"""
 
-import os, os.path
+import os
+import os.path
 import sys
 
 try:
     from firewall.client import FirewallClient
+
     try:
-        from firewall.core.fw_nm import nm_is_imported, \
-            nm_get_connection_of_interface, nm_get_zone_of_connection, \
-            nm_set_zone_of_connection
+        from firewall.core.fw_nm import (
+            nm_is_imported,
+            nm_get_connection_of_interface,
+            nm_set_zone_of_connection,
+        )
         from gi.repository import NM
+
         HAS_FIREWALLD_NM = True
     except ImportError:
         HAS_FIREWALLD_NM = False
@@ -94,12 +113,14 @@ except ImportError:
     HAS_FIREWALLD = False
     HAS_FIREWALLD_NM = False
     try:
-        sys.path.append('/usr/share/system-config-firewall')
+        sys.path.append("/usr/share/system-config-firewall")
         import fw_lokkit
         from fw_functions import getPortRange
+
         HAS_SYSTEM_CONFIG_FIREWALL = True
     except ImportError:
         HAS_SYSTEM_CONFIG_FIREWALL = False
+
 
 def try_set_zone_of_interface(_zone, interface):
     """Try to set zone of interface with NetworkManager"""
@@ -116,17 +137,19 @@ def try_set_zone_of_interface(_zone, interface):
                 return True
     return False
 
+
 class ifcfg(object):
     """ifcfg file reader class"""
+
     def __init__(self, filename):
-        self._config = { }
-        self._deleted = [ ]
+        self._config = {}
+        self._deleted = []
         self.filename = filename
         self.clear()
 
     def clear(self):
-        self._config = { }
-        self._deleted = [ ]
+        self._config = {}
+        self._deleted = []
 
     def cleanup(self):
         self._config.clear()
@@ -151,21 +174,21 @@ class ifcfg(object):
             if not line:
                 break
             line = line.strip()
-            if len(line) < 1 or line[0] in ['#', ';']:
+            if len(line) < 1 or line[0] in ["#", ";"]:
                 continue
             # get key/value pair
-            pair = [ x.strip() for x in line.split("=", 1) ]
+            pair = [x.strip() for x in line.split("=", 1)]
             if len(pair) != 2:
                 continue
-            if len(pair[1]) >= 2 and \
-               pair[1].startswith('"') and pair[1].endswith('"'):
+            if len(pair[1]) >= 2 and pair[1].startswith('"') and pair[1].endswith('"'):
                 pair[1] = pair[1][1:-1]
-            if pair[1] == '':
+            if pair[1] == "":
                 continue
             elif self._config.get(pair[0]) is not None:
                 continue
             self._config[pair[0]] = pair[1]
         f.close()
+
 
 def get_device_for_mac(mac_addr):
     """Get device for the MAC address from ifcfg file"""
@@ -187,8 +210,7 @@ def get_device_for_mac(mac_addr):
     for filename in sorted(os.listdir(IFCFGDIR)):
         if not filename.startswith("ifcfg-"):
             continue
-        for ignored in [ ".bak", ".orig", ".rpmnew", ".rpmorig", ".rpmsave",
-                         "-range" ]:
+        for ignored in [".bak", ".orig", ".rpmnew", ".rpmorig", ".rpmsave", "-range"]:
             if filename.endswith(ignored):
                 continue
         if "." in filename:
@@ -201,95 +223,102 @@ def get_device_for_mac(mac_addr):
             return device
     return None
 
+
 def main():
     module = AnsibleModule(
-        argument_spec = dict(
-            service=dict(required=False, type='list', default=[]),
-            port=dict(required=False, type='list', default=[]),
-            trust=dict(required=False, type='list', default=[]),
-            trust_by_mac=dict(required=False, type='list', default=[]),
-            masq=dict(required=False, type='list', default=[]),
-            masq_by_mac=dict(required=False, type='list', default=[]),
-            forward_port=dict(required=False, type='list', default=[]),
-            forward_port_by_mac=dict(required=False, type='list', default=[]),
-            state=dict(choices=['enabled', 'disabled'], required=True),
+        argument_spec=dict(
+            service=dict(required=False, type="list", default=[]),
+            port=dict(required=False, type="list", default=[]),
+            trust=dict(required=False, type="list", default=[]),
+            trust_by_mac=dict(required=False, type="list", default=[]),
+            masq=dict(required=False, type="list", default=[]),
+            masq_by_mac=dict(required=False, type="list", default=[]),
+            forward_port=dict(required=False, type="list", default=[]),
+            forward_port_by_mac=dict(required=False, type="list", default=[]),
+            state=dict(choices=["enabled", "disabled"], required=True),
         ),
-        required_one_of = (
-            [ 'service', 'port', 'trust', 'trust_by_mac', 'masq',
-              'masq_by_mac', 'forward_prot' ],
+        required_one_of=(
+            [
+                "service",
+                "port",
+                "trust",
+                "trust_by_mac",
+                "masq",
+                "masq_by_mac",
+                "forward_prot",
+            ],
         ),
-        supports_check_mode=True
+        supports_check_mode=True,
     )
 
     if not HAS_FIREWALLD and not HAS_SYSTEM_CONFIG_FIREWALL:
-        module.fail_json(msg='No firewall backend could be imported.')
+        module.fail_json(msg="No firewall backend could be imported.")
 
-    service = module.params['service']
-    port = [ ]
-    for port_proto in module.params['port']:
-        _port, _protocol = port_proto.split('/')
+    service = module.params["service"]
+    port = []
+    for port_proto in module.params["port"]:
+        _port, _protocol = port_proto.split("/")
         if _protocol is None:
-            module.fail_json(
-                msg='improper port format (missing protocol?)')
+            module.fail_json(msg="improper port format (missing protocol?)")
         port.append((_port, _protocol))
-    trust = module.params['trust']
-    trust_by_mac = [ ]
-    for item in module.params['trust_by_mac']:
+    trust = module.params["trust"]
+    trust_by_mac = []
+    for item in module.params["trust_by_mac"]:
         _interface = get_device_for_mac(item)
         if _interface is None:
-            module.fail_json(msg='MAC address not found %s' % item)
+            module.fail_json(msg="MAC address not found %s" % item)
         trust_by_mac.append(_interface)
-    masq = module.params['masq']
-    masq_by_mac = [ ]
-    for item in module.params['masq_by_mac']:
+    masq = module.params["masq"]
+    masq_by_mac = []
+    for item in module.params["masq_by_mac"]:
         _interface = get_device_for_mac(item)
         if _interface is None:
-            module.fail_json(msg='MAC address not found %s' % item)
+            module.fail_json(msg="MAC address not found %s" % item)
         masq_by_mac.append(_interface)
-    forward_port = [ ]
-    for item in module.params['forward_port']:
+    forward_port = []
+    for item in module.params["forward_port"]:
         args = item.split(";")
         if len(args) != 4:
-            module.fail_json(msg='improper forward_port format: %s' % item)
+            module.fail_json(msg="improper forward_port format: %s" % item)
         _interface, __port, _to_port, _to_addr = args
-        _port, _protocol = __port.split('/')
+        _port, _protocol = __port.split("/")
         if _protocol is None:
-            module.fail_json(msg='improper port format (missing protocol?)')
+            module.fail_json(msg="improper port format (missing protocol?)")
         if _to_port == "":
             _to_port = None
         if _to_addr == "":
             _to_addr = None
         forward_port.append((_interface, _port, _protocol, _to_port, _to_addr))
 
-    forward_port_by_mac = [ ]
-    for item in module.params['forward_port_by_mac']:
+    forward_port_by_mac = []
+    for item in module.params["forward_port_by_mac"]:
         args = item.split(";")
         if len(args) != 4:
-            module.fail_json(msg='improper forward_port_by_mac format')
+            module.fail_json(msg="improper forward_port_by_mac format")
         _mac_addr, __port, _to_port, _to_addr = args
-        _port, _protocol = __port.split('/')
+        _port, _protocol = __port.split("/")
         if _protocol is None:
-            module.fail_json(msg='improper port format (missing protocol?)')
+            module.fail_json(msg="improper port format (missing protocol?)")
         if _to_port == "":
             _to_port = None
         if _to_addr == "":
             _to_addr = None
         _interface = get_device_for_mac(_mac_addr)
         if _interface is None:
-            module.fail_json(msg='MAC address not found %s' % _mac_addr)
-        forward_port_by_mac.append((_interface, _port, _protocol,
-                                    _to_port, _to_addr))
-    desired_state = module.params['state']
+            module.fail_json(msg="MAC address not found %s" % _mac_addr)
+        forward_port_by_mac.append((_interface, _port, _protocol, _to_port, _to_addr))
+    desired_state = module.params["state"]
 
     if HAS_FIREWALLD:
         fw = FirewallClient()
 
         def exception_handler(exception_message):
             module.fail_json(msg=exception_message)
+
         fw.setExceptionHandler(exception_handler)
 
         if not fw.connected:
-            module.fail_json(msg='firewalld service must be running')
+            module.fail_json(msg="firewalld service must be running")
 
         trusted_zone = "trusted"
         external_zone = "external"
@@ -298,7 +327,7 @@ def main():
         fw_settings = fw_zone.getSettings()
 
         changed = False
-        changed_zones = { }
+        changed_zones = {}
 
         # service
         for item in service:
@@ -421,27 +450,29 @@ def main():
                         fw_settings = fw_zone.getSettings()
 
                 if desired_state == "enabled":
-                    if not fw.queryForwardPort(_zone, _port, _protocol,
-                                               _to_port, _to_addr):
-                        fw.addForwardPort(_zone, _port, _protocol,
-                                          _to_port, _to_addr)
+                    if not fw.queryForwardPort(
+                        _zone, _port, _protocol, _to_port, _to_addr
+                    ):
+                        fw.addForwardPort(_zone, _port, _protocol, _to_port, _to_addr)
                         changed = True
-                    if not fw_settings.queryForwardPort(_port, _protocol,
-                                                        _to_port, _to_addr):
-                        fw_settings.addForwardPort(_port, _protocol,
-                                                   _to_port, _to_addr)
+                    if not fw_settings.queryForwardPort(
+                        _port, _protocol, _to_port, _to_addr
+                    ):
+                        fw_settings.addForwardPort(_port, _protocol, _to_port, _to_addr)
                         changed = True
                         changed_zones[fw_zone] = fw_settings
                 elif desired_state == "disabled":
-                    if fw.queryForwardPort(_zone, _port, _protocol,
-                                               _to_port, _to_addr):
-                        fw.removeForwardPort(_zone, _port, _protocol,
-                                             _to_port, _to_addr)
+                    if fw.queryForwardPort(_zone, _port, _protocol, _to_port, _to_addr):
+                        fw.removeForwardPort(
+                            _zone, _port, _protocol, _to_port, _to_addr
+                        )
                         changed = True
-                    if fw_settings.queryForwardPort(_port, _protocol,
-                                                    _to_port, _to_addr):
-                        fw_settings.removeForwardPort(_port, _protocol,
-                                                      _to_port, _to_addr)
+                    if fw_settings.queryForwardPort(
+                        _port, _protocol, _to_port, _to_addr
+                    ):
+                        fw_settings.removeForwardPort(
+                            _port, _protocol, _to_port, _to_addr
+                        )
                         changed = True
                         changed_zones[fw_zone] = fw_settings
 
@@ -453,15 +484,14 @@ def main():
                 module.exit_json(changed=True)
 
     elif HAS_SYSTEM_CONFIG_FIREWALL:
-        (config, old_config, _) = fw_lokkit.loadConfig(args=[ ],
-                                                       dbus_parser=True)
+        (config, old_config, _) = fw_lokkit.loadConfig(args=[], dbus_parser=True)
 
         changed = False
 
         # service
         for item in service:
             if config.services is None:
-                config.services = [ ]
+                config.services = []
 
             if desired_state == "enabled":
                 if item not in config.services:
@@ -475,15 +505,15 @@ def main():
         # port
         for _port, _protocol in port:
             if config.ports is None:
-                config.ports = [ ]
+                config.ports = []
 
             _range = getPortRange(_port)
             if _range < 0:
-                module.fail_json(msg='invalid port definition %s' % _port)
+                module.fail_json(msg="invalid port definition %s" % _port)
             elif _range is None:
-                module.fail_json(msg='port _range is not unique.')
+                module.fail_json(msg="port _range is not unique.")
             elif len(_range) == 2 and _range[0] >= _range[1]:
-                module.fail_json(msg='invalid port range %s' % _port)
+                module.fail_json(msg="invalid port range %s" % _port)
             port_proto = (_range, _protocol)
             if desired_state == "enabled":
                 if port_proto not in config.ports:
@@ -497,7 +527,7 @@ def main():
         # trust, trust_by_mac
         if len(trust) > 0 or len(trust_by_mac) > 0:
             if config.trust is None:
-                config.trust = [ ]
+                config.trust = []
 
             items = trust
             if len(trust_by_mac) > 0:
@@ -516,7 +546,7 @@ def main():
         # masq, masq_by_mac
         if len(masq) > 0 or len(masq_by_mac) > 0:
             if config.masq is None:
-                config.masq = [ ]
+                config.masq = []
 
             items = masq
             if len(masq_by_mac) > 0:
@@ -535,7 +565,7 @@ def main():
         # forward_port, forward_port_by_mac
         if len(forward_port) > 0 or len(forward_port_by_mac) > 0:
             if config.forward_port is None:
-                config.forward_port = [ ]
+                config.forward_port = []
 
             items = forward_port
             if len(forward_port_by_mac) > 0:
@@ -544,23 +574,20 @@ def main():
             for _interface, _port, _protocol, _to_port, _to_addr in items:
                 _range = getPortRange(_port)
                 if _range < 0:
-                    module.fail_json(msg='invalid port definition')
+                    module.fail_json(msg="invalid port definition")
                 elif _range is None:
-                    module.fail_json(msg='port _range is not unique.')
+                    module.fail_json(msg="port _range is not unique.")
                 elif len(_range) == 2 and _range[0] >= _range[1]:
-                    module.fail_json(msg='invalid port range')
-                fwd_port = { "if": _interface,
-                             "port": _range,
-                             "proto": _protocol }
+                    module.fail_json(msg="invalid port range")
+                fwd_port = {"if": _interface, "port": _range, "proto": _protocol}
                 if _to_port is not None:
                     _range = getPortRange(_to_port)
                     if _range < 0:
-                        module.fail_json(msg='invalid port definition %s' % \
-                                         _to_port)
+                        module.fail_json(msg="invalid port definition %s" % _to_port)
                     elif _range is None:
-                        module.fail_json(msg='port _range is not unique.')
+                        module.fail_json(msg="port _range is not unique.")
                     elif len(_range) == 2 and _range[0] >= _range[1]:
-                        module.fail_json(msg='invalid port range')
+                        module.fail_json(msg="invalid port range")
                     fwd_port["toport"] = _range
                 if _to_addr is not None:
                     fwd_port["toaddr"] = _to_addr
@@ -581,12 +608,13 @@ def main():
                 module.exit_json(changed=True)
 
     else:
-        module.fail_json(msg='No firewalld and system-config-firewall')
+        module.fail_json(msg="No firewalld and system-config-firewall")
 
     module.exit_json(changed=False)
 
+
 #################################################
 # import module snippets
-from ansible.module_utils.basic import *
+from ansible.module_utils.basic import AnsibleModule
 
 main()
