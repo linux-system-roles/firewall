@@ -21,8 +21,7 @@
     masq: "{{ item.masq | default(omit)}}"
     masq_by_mac: "{{ item.masq_by_mac | default(omit)}}"
     forward_port: "{{ item.forward_port | default(omit)}}"
-    forward_port_by_mac: "{{ item.forward_port_by_mac | default(omit)}}"    
+    forward_port_by_mac: "{{ item.forward_port_by_mac | default(omit)}}"
     state: "{{ item.state }}"
-
   with_items:
     - "{{ firewall }}"
