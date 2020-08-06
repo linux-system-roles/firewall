@@ -25,17 +25,23 @@ module: firewall
 short_description: Module for firewall role
 requirements: python-firewall or system-config-firewall/lokkit.
 description:
-  - Manage firewall with firewalld on RHEL-7 or system-config-firewall/lokkit on RHEL-6.
+  - >-
+    Manage firewall with firewalld on RHEL-7 or system-config-firewall/lokkit on
+    RHEL-6.
 author: "Thomas Woerner (twoerner@redhat.com)"
 options:
   service:
     description:
-      - "Name of a service to add or remove inbound access to. The service needs to be defined in firewalld or system-config-firewall/lokkit configuration."
+      - >-
+        Name of a service to add or remove inbound access to. The service needs to be
+        defined in firewalld or system-config-firewall/lokkit configuration.
     required: false
     default: null
   port:
     description:
-      - "Port or port range to add or remove inbound access to. It needs to be in the format port=<port>[-<port>]/<protocol>."
+      - >-
+        Port or port range to add or remove inbound access to. It needs to be in the
+        format port=<port>[-<port>]/<protocol>.
     required: false
     default: null
   trust:
@@ -55,17 +61,25 @@ options:
     default: null
   masq_by_mac:
     description:
-      - "Interface to add or remove to the interfaces that are masqueraded by MAC address."
+      - >-
+        Interface to add or remove to the interfaces that are masqueraded by MAC
+        address.
     required: false
     default: null
   forward_port:
     description:
-      - "Add or remove port forwarding for ports or port ranges over an interface. It needs to be in the format <interface>;<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>]."
+      - >-
+        Add or remove port forwarding for ports or port ranges over an interface.
+        It needs to be in the format
+        <interface>;<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>].
     required: false
     default: null
   forward_port_by_mac:
     description:
-      - "Add or remove port forwarding for ports or port ranges over an interface itentified ba a MAC address. It needs to be in the format <mac-addr>;<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>]."
+      - >-
+        Add or remove port forwarding for ports or port ranges over an interface
+        identified ba a MAC address. It needs to be in the format
+        <mac-addr>;<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>].
     required: false
     default: null
   state:
@@ -75,7 +89,8 @@ options:
     choices: [ "enabled", "disabled" ]
 """
 
-import os, os.path
+import os
+import os.path
 import sys
 
 try:
@@ -85,7 +100,6 @@ try:
         from firewall.core.fw_nm import (
             nm_is_imported,
             nm_get_connection_of_interface,
-            nm_get_zone_of_connection,
             nm_set_zone_of_connection,
         )
         from gi.repository import NM
@@ -601,6 +615,6 @@ def main():
 
 #################################################
 # import module snippets
-from ansible.module_utils.basic import *
+from ansible.module_utils.basic import AnsibleModule
 
 main()
