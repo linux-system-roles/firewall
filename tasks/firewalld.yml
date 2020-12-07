@@ -1,12 +1,19 @@
+---
 - name: Install firewalld
-  package: name=firewalld
+  package:
+    name: firewalld
+    state: present
 
 - name: Install python-firewall
-  package: name=python-firewall
+  package:
+    name: python-firewall
+    state: present
   when: ansible_python_version is version('3', '<')
 
 - name: Install python3-firewall
-  package: name=python3-firewall
+  package:
+    name: python3-firewall
+    state: present
   when: ansible_python_version is version('3', '>=')
 
 - name: Enable and start firewalld service

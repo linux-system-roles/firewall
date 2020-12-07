@@ -62,6 +62,14 @@ firewall_setup_default_solution: false
 
 This turns off the installation and start of the default firewall solution for the specific Fedora or RHEL release. This is intended for users of system-config-firewall on RHEL-7 or Fedora releases.
 
+### zone
+
+Name of the zone that should be modified. The zone parameter is only supported with firewalld. If it is not set for firewalld, the default zone will be used. It will have an effect on these parameters: `service`, `port` and `forward_port` without a given interface or MAC address.
+
+```
+zone: 'public'
+```
+
 ### service
 
 Name of a service or service list to add or remove inbound access to. The service needs to be defined in firewalld or system-config-firewall/lokkit configuration.
@@ -118,11 +126,12 @@ masq_by_mac: [ "11:22:33:44:55:66", "11:22:33:44:55:67", ]
 
 ### forward_port
 
-Add or remove port forwarding for ports or port ranges over an interface. It needs to be in the format ```<interface>;<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>]```.
+Add or remove port forwarding for ports or port ranges over an interface. It needs to be in the format ```[<interface>;]<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>]```. If `interface` is not set, `zone` needs to be set for use with firewalld.
 
 ```
 forward_port: 'eth0;447/tcp;;1.2.3.4'
 forward_port: [ 'eth0;447/tcp;;1.2.3.4', 'eth0;448/tcp;;1.2.3.5' ]
+forward_port: '447/tcp;;1.2.3.4'
 ```
 
 ### forward_port_by_mac
@@ -157,7 +166,7 @@ With this playbook it is possible to make sure the ssh service is enabled in the
       service: 'ssh'
       state: 'enabled'
   roles:
-    - firewall
+    - linux-system-roles.firewall
 ```
 
 With this playbook you can make sure that the tftp service is disabled in the firewall:
@@ -172,7 +181,7 @@ With this playbook you can make sure that the tftp service is disabled in the fi
       service: 'tftp'
       state: 'disabled'
   roles:
-    - firewall
+    - linux-system-roles.firewall
 ```
 
 It is also possible to combine several settings into blocks:
@@ -188,9 +197,12 @@ It is also possible to combine several settings into blocks:
           port: [ '443/tcp', '443/udp' ],
           trust: [ 'eth0', 'eth1' ],
           masq: [ 'eth2', 'eth3' ],
+          state: 'enabled' }
+      - {
           forward_port: [ 'eth2;447/tcp;;1.2.3.4',
                           'eth2;448/tcp;;1.2.3.5' ],
           state: 'enabled' }
+      - { zone: "internal", service: 'tftp', state: 'enabled' }
       - { service: 'tftp', state: 'enabled' }
       - { port: '443/tcp', state: 'enabled' }
       - { trust: 'foo', state: 'enabled' }
@@ -201,10 +213,28 @@ It is also possible to combine several settings into blocks:
       - { forward_port_by_mac: '00:11:22:33:44:55;445/tcp;;1.2.3.4',
           state: 'enabled' }
   roles:
-    - firewall
+    - linux-system-roles.firewall
 ```
 
 The block with several services, ports, etc. will be applied at once. If there is something wrong in the block it will fail as a whole.
+
+```---
+- name: Configure external zone in firewall
+  hosts: myhost
+
+  vars:
+    firewall:
+      - { zone: 'external',
+          service: [ 'tftp', 'ftp' ],
+          port: [ '443/tcp', '443/udp' ],
+          forward_port: [ '447/tcp;;1.2.3.4',
+                          '448/tcp;;1.2.3.5' ],
+          state: 'enabled' }
+  roles:
+    - linux-system-roles.firewall
+
+```
+
 
 # Authors
 

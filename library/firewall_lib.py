@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 #
-# Copyright (C) 2016,2017 Red Hat, Inc.
+# Copyright (C) 2016,2017,2020 Red Hat, Inc.
 # Reusing some firewalld code
 # Authors:
 # Thomas Woerner <twoerner@redhat.com>
@@ -21,7 +21,7 @@
 
 DOCUMENTATION = """
 ---
-module: firewall
+module: firewall_lib
 short_description: Module for firewall role
 requirements: python-firewall or system-config-firewall/lokkit.
 description:
@@ -69,9 +69,9 @@ options:
   forward_port:
     description:
       - >-
-        Add or remove port forwarding for ports or port ranges over an interface.
+        Add or remove port forwarding for ports or port ranges over for interface or zone. Omit the interface part before ';' for use within a zone.
         It needs to be in the format
-        <interface>;<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>].
+        [<interface>;]<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>].
     required: false
     default: null
   forward_port_by_mac:
@@ -82,6 +82,12 @@ options:
         <mac-addr>;<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>].
     required: false
     default: null
+  zone:
+    description:
+      Name of the zone that the change will be done one for firewalld.
+      If the zone name is not given, then the default zone will be used.
+     required: false
+     default: null
   state:
     description:
       - "Enable or disable the entry."
@@ -165,10 +171,7 @@ class ifcfg(object):
 
     def read(self):
         self.clear()
-        try:
-            f = open(self.filename, "r")
-        except Exception:
-            raise
+        f = open(self.filename, "r")
 
         for line in f:
             if not line:
@@ -235,6 +238,7 @@ def main():
             masq_by_mac=dict(required=False, type="list", default=[]),
             forward_port=dict(required=False, type="list", default=[]),
             forward_port_by_mac=dict(required=False, type="list", default=[]),
+            zone=dict(required=False, type="str", default=None),
             state=dict(choices=["enabled", "disabled"], required=True),
         ),
         required_one_of=(
@@ -278,12 +282,16 @@ def main():
     forward_port = []
     for item in module.params["forward_port"]:
         args = item.split(";")
-        if len(args) != 4:
+        if len(args) == 4:
+            _interface, __port, _to_port, _to_addr = args
+        elif len(args) == 3:
+            _interface = ""
+            __port, _to_port, _to_addr = args
+        else:
             module.fail_json(msg="improper forward_port format: %s" % item)
-        _interface, __port, _to_port, _to_addr = args
         _port, _protocol = __port.split("/")
         if _protocol is None:
-            module.fail_json(msg="improper port format (missing protocol?)")
+            module.fail_json(msg="improper forward port format (missing protocol?)")
         if _to_port == "":
             _to_port = None
         if _to_addr == "":
@@ -298,7 +306,7 @@ def main():
         _mac_addr, __port, _to_port, _to_addr = args
         _port, _protocol = __port.split("/")
         if _protocol is None:
-            module.fail_json(msg="improper port format (missing protocol?)")
+            module.fail_json(msg="improper forward_port_by_mac format (missing protocol?)")
         if _to_port == "":
             _to_port = None
         if _to_addr == "":
@@ -307,6 +315,9 @@ def main():
         if _interface is None:
             module.fail_json(msg="MAC address not found %s" % _mac_addr)
         forward_port_by_mac.append((_interface, _port, _protocol, _to_port, _to_addr))
+    zone = module.params["zone"]
+    if HAS_SYSTEM_CONFIG_FIREWALL and zone is not None:
+        module.fail_json(msg="Zone can not be used with system-config-firewall/lokkit.")
     desired_state = module.params["state"]
 
     if HAS_FIREWALLD:
@@ -322,8 +333,14 @@ def main():
 
         trusted_zone = "trusted"
         external_zone = "external"
-        default_zone = fw.getDefaultZone()
-        fw_zone = fw.config().getZoneByName(default_zone)
+        if zone is not None:
+            if zone not in fw.getZones():
+                module.fail_json(msg="Runtime zone '%s' does not exist." % zone)
+            if zone not in fw.config().getZoneNames():
+                module.fail_json(msg="Permanent zone '%s' does not exist." % zone)
+        else:
+            zone = fw.getDefaultZone()
+        fw_zone = fw.config().getZoneByName(zone)
         fw_settings = fw_zone.getSettings()
 
         changed = False
@@ -332,16 +349,16 @@ def main():
         # service
         for item in service:
             if desired_state == "enabled":
-                if not fw.queryService(default_zone, item):
-                    fw.addService(default_zone, item)
+                if not fw.queryService(zone, item):
+                    fw.addService(zone, item)
                     changed = True
                 if not fw_settings.queryService(item):
                     fw_settings.addService(item)
                     changed = True
                     changed_zones[fw_zone] = fw_settings
             elif desired_state == "disabled":
-                if fw.queryService(default_zone, item):
-                    fw.removeService(default_zone, item)
+                if fw.queryService(zone, item):
+                    fw.removeService(zone, item)
                 if fw_settings.queryService(item):
                     fw_settings.removeService(item)
                     changed = True
@@ -350,16 +367,16 @@ def main():
         # port
         for _port, _protocol in port:
             if desired_state == "enabled":
-                if not fw.queryPort(default_zone, _port, _protocol):
-                    fw.addPort(default_zone, _port, _protocol)
+                if not fw.queryPort(zone, _port, _protocol):
+                    fw.addPort(zone, _port, _protocol)
                     changed = True
                 if not fw_settings.queryPort(_port, _protocol):
                     fw_settings.addPort(_port, _protocol)
                     changed = True
                     changed_zones[fw_zone] = fw_settings
             elif desired_state == "disabled":
-                if fw.queryPort(default_zone, _port, _protocol):
-                    fw.removePort(default_zone, _port, _protocol)
+                if fw.queryPort(zone, _port, _protocol):
+                    fw.removePort(zone, _port, _protocol)
                     changed = True
                 if fw_settings.queryPort(_port, _protocol):
                     fw_settings.removePort(_port, _protocol)
@@ -372,9 +389,15 @@ def main():
             if len(trust_by_mac) > 0:
                 items.extend(trust_by_mac)
 
-            if default_zone != trusted_zone:
-                fw_zone = fw.config().getZoneByName(trusted_zone)
-                fw_settings = fw_zone.getSettings()
+            if zone != trusted_zone:
+                _fw_zone = fw.config().getZoneByName(trusted_zone)
+                if _fw_zone in changed_zones:
+                    _fw_settings = changed_zones[_fw_zone]
+                else:
+                    _fw_settings = _fw_zone.getSettings()
+            else:
+                _fw_zone = fw_zone
+                _fw_settings = fw_settings
 
             for item in items:
                 if desired_state == "enabled":
@@ -384,10 +407,10 @@ def main():
                         if not fw.queryInterface(trusted_zone, item):
                             fw.changeZoneOfInterface(trusted_zone, item)
                             changed = True
-                        if not fw_settings.queryInterface(item):
-                            fw_settings.addInterface(item)
+                        if not _fw_settings.queryInterface(item):
+                            _fw_settings.addInterface(item)
                             changed = True
-                            changed_zones[fw_zone] = fw_settings
+                            changed_zones[_fw_zone] = _fw_settings
                 elif desired_state == "disabled":
                     if try_set_zone_of_interface("", item):
                         if module.check_mode:
@@ -396,10 +419,10 @@ def main():
                         if fw.queryInterface(trusted_zone, item):
                             fw.removeInterface(trusted_zone, item)
                             changed = True
-                        if fw_settings.queryInterface(item):
-                            fw_settings.removeInterface(item)
+                        if _fw_settings.queryInterface(item):
+                            _fw_settings.removeInterface(item)
                             changed = True
-                            changed_zones[fw_zone] = fw_settings
+                            changed_zones[_fw_zone] = _fw_settings
 
         # masq, masq_by_mac
         if len(masq) > 0 or len(masq_by_mac) > 0:
@@ -407,9 +430,15 @@ def main():
             if len(masq_by_mac) > 0:
                 items.extend(masq_by_mac)
 
-            if default_zone != external_zone:
-                fw_zone = fw.config().getZoneByName(external_zone)
-                fw_settings = fw_zone.getSettings()
+            if zone != external_zone:
+                _fw_zone = fw.config().getZoneByName(external_zone)
+                if _fw_zone in changed_zones:
+                    _fw_settings = changed_zones[_fw_zone]
+                else:
+                    _fw_settings = _fw_zone.getSettings()
+            else:
+                _fw_zone = fw_zone
+                _fw_settings = fw_settings
 
             for item in items:
                 if desired_state == "enabled":
@@ -419,10 +448,10 @@ def main():
                         if not fw.queryInterface(external_zone, item):
                             fw.changeZoneOfInterface(external_zone, item)
                             changed = True
-                        if not fw_settings.queryInterface(item):
-                            fw_settings.addInterface(item)
+                        if not _fw_settings.queryInterface(item):
+                            _fw_settings.addInterface(item)
                             changed = True
-                            changed_zones[fw_zone] = fw_settings
+                            changed_zones[_fw_zone] = _fw_settings
                 elif desired_state == "disabled":
                     if try_set_zone_of_interface("", item):
                         if module.check_mode:
@@ -431,10 +460,10 @@ def main():
                         if fw.queryInterface(external_zone, item):
                             fw.removeInterface(external_zone, item)
                             changed = True
-                        if fw_settings.queryInterface(item):
-                            fw_settings.removeInterface(item)
+                        if _fw_settings.queryInterface(item):
+                            _fw_settings.removeInterface(item)
                             changed = True
-                            changed_zones[fw_zone] = fw_settings
+                            changed_zones[_fw_zone] = _fw_settings
 
         # forward_port, forward_port_by_mac
         if len(forward_port) > 0 or len(forward_port_by_mac) > 0:
@@ -445,9 +474,17 @@ def main():
             for _interface, _port, _protocol, _to_port, _to_addr in items:
                 if _interface != "":
                     _zone = fw.getZoneOfInterface(_interface)
-                    if _zone != "" and _zone != default_zone:
-                        fw_zone = fw.config().getZoneByName(_zone)
-                        fw_settings = fw_zone.getSettings()
+                else:
+                    _zone = zone
+                if _zone != "" and _zone != zone:
+                    _fw_zone = fw.config().getZoneByName(_zone)
+                    if _fw_zone in changed_zones:
+                        _fw_settings = changed_zones[_fw_zone]
+                    else:
+                        _fw_settings = _fw_zone.getSettings()
+                else:
+                    _fw_zone = fw_zone
+                    _fw_settings = fw_settings
 
                 if desired_state == "enabled":
                     if not fw.queryForwardPort(
@@ -455,33 +492,34 @@ def main():
                     ):
                         fw.addForwardPort(_zone, _port, _protocol, _to_port, _to_addr)
                         changed = True
-                    if not fw_settings.queryForwardPort(
+                    if not _fw_settings.queryForwardPort(
                         _port, _protocol, _to_port, _to_addr
                     ):
-                        fw_settings.addForwardPort(_port, _protocol, _to_port, _to_addr)
+                        _fw_settings.addForwardPort(
+                            _port, _protocol, _to_port, _to_addr
+                        )
                         changed = True
-                        changed_zones[fw_zone] = fw_settings
+                        changed_zones[_fw_zone] = _fw_settings
                 elif desired_state == "disabled":
                     if fw.queryForwardPort(_zone, _port, _protocol, _to_port, _to_addr):
                         fw.removeForwardPort(
                             _zone, _port, _protocol, _to_port, _to_addr
                         )
                         changed = True
-                    if fw_settings.queryForwardPort(
+                    if _fw_settings.queryForwardPort(
                         _port, _protocol, _to_port, _to_addr
                     ):
-                        fw_settings.removeForwardPort(
+                        _fw_settings.removeForwardPort(
                             _port, _protocol, _to_port, _to_addr
                         )
                         changed = True
-                        changed_zones[fw_zone] = fw_settings
+                        changed_zones[_fw_zone] = _fw_settings
 
         # apply changes
         if changed:
             for _zone in changed_zones:
                 _zone.update(changed_zones[_zone])
-            if module.check_mode:
-                module.exit_json(changed=True)
+            module.exit_json(changed=True)
 
     elif HAS_SYSTEM_CONFIG_FIREWALL:
         (config, old_config, _) = fw_lokkit.loadConfig(args=[], dbus_parser=True)
@@ -617,4 +655,5 @@ def main():
 # import module snippets
 from ansible.module_utils.basic import AnsibleModule
 
-main()
+if __name__ == "__main__":
+    main()
