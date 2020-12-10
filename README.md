@@ -1,5 +1,6 @@
 firewall
 ========
+![CI Testing](https://github.com/linux-system-roles/firewall/workflows/tox/badge.svg)
 
 This role configures the firewall on machines that are using firewalld or
 system-config-firewall/lokkit.
