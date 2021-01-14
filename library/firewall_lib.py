@@ -49,6 +49,11 @@ options:
       - "Interface to add or remove to the trusted interfaces."
     required: false
     default: null
+  trust_by_connection:
+    description:
+      - "Interface identified by a connection name to add or remove to the trusted interfaces."
+    required: false
+    default: null
   trust_by_mac:
     description:
       - "Interface to add or remove to the trusted interfaces by MAC address."
@@ -57,6 +62,11 @@ options:
   masq:
     description:
       - "Interface to add or remove to the interfaces that are masqueraded."
+    required: false
+    default: null
+  masq_by_connection:
+    description:
+      - "Interface identified by a connection name to add or remove to the interfaces that are masqueraded."
     required: false
     default: null
   masq_by_mac:
@@ -72,6 +82,14 @@ options:
         Add or remove port forwarding for ports or port ranges over for interface or zone. Omit the interface part before ';' for use within a zone.
         It needs to be in the format
         [<interface>;]<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>].
+    required: false
+    default: null
+  forward_port_by_connection:
+    description:
+      - >-
+        Add or remove port forwarding for ports or port ranges over an interface
+        identified ba a connection name. It needs to be in the format
+        <connection>;<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>].
     required: false
     default: null
   forward_port_by_mac:
@@ -227,16 +245,68 @@ def get_device_for_mac(mac_addr):
     return None
 
 
+def get_interface_for_connection(name):
+    """Get interface for the connection name from NM"""
+
+    if HAS_FIREWALLD_NM and nm_is_imported:
+        client = NM.Client.new(None)
+        for nm_con in client.get_connections():
+            if nm_con.get_id() == name:
+                return nm_con.get_interface_name()
+
+    return None
+
+
+def parse_forward_port(module, item, item_type=None):
+    if item_type == "connection":
+        type_string = "forward_port_by_connection"
+    elif item_type == "mac":
+        type_string = "forward_port_by_mac"
+    else:
+        type_string = "forward_port"
+
+    args = item.split(";")
+    if len(args) == 4:
+        _interface, __port, _to_port, _to_addr = args
+    elif len(args) == 3 and item_type is None:
+        _interface = ""
+        __port, _to_port, _to_addr = args
+    else:
+        module.fail_json(msg="improper %s format: %s" % (type_string, item))
+
+    _port, _protocol = __port.split("/")
+    if _protocol is None:
+        module.fail_json(msg="improper %s format (missing protocol?)" % type_string)
+    if _to_port == "":
+        _to_port = None
+    if _to_addr == "":
+        _to_addr = None
+
+    if item_type == "connection":
+        _interface = get_interface_for_connection(_interface)
+        if _interface is None:
+            module.fail_json(msg="Connection '%s' not resolvable" % _interface)
+    elif item_type == "mac":
+        _interface = get_device_for_mac(_interface)
+        if _interface is None:
+            module.fail_json(msg="MAC address not found %s" % _interface)
+
+    return (_interface, _port, _protocol, _to_port, _to_addr)
+
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
             service=dict(required=False, type="list", default=[]),
             port=dict(required=False, type="list", default=[]),
             trust=dict(required=False, type="list", default=[]),
+            trust_by_connection=dict(required=False, type="list", default=[]),
             trust_by_mac=dict(required=False, type="list", default=[]),
             masq=dict(required=False, type="list", default=[]),
+            masq_by_connection=dict(required=False, type="list", default=[]),
             masq_by_mac=dict(required=False, type="list", default=[]),
             forward_port=dict(required=False, type="list", default=[]),
+            forward_port_by_connection=dict(required=False, type="list", default=[]),
             forward_port_by_mac=dict(required=False, type="list", default=[]),
             zone=dict(required=False, type="str", default=None),
             state=dict(choices=["enabled", "disabled"], required=True),
@@ -246,10 +316,14 @@ def main():
                 "service",
                 "port",
                 "trust",
+                "trust_by_connection",
                 "trust_by_mac",
                 "masq",
+                "masq_by_connection",
                 "masq_by_mac",
-                "forward_prot",
+                "forward_port",
+                "forward_port_by_connection",
+                "forward_port_by_mac",
             ],
         ),
         supports_check_mode=True,
@@ -281,43 +355,40 @@ def main():
         masq_by_mac.append(_interface)
     forward_port = []
     for item in module.params["forward_port"]:
-        args = item.split(";")
-        if len(args) == 4:
-            _interface, __port, _to_port, _to_addr = args
-        elif len(args) == 3:
-            _interface = ""
-            __port, _to_port, _to_addr = args
-        else:
-            module.fail_json(msg="improper forward_port format: %s" % item)
-        _port, _protocol = __port.split("/")
-        if _protocol is None:
-            module.fail_json(msg="improper forward port format (missing protocol?)")
-        if _to_port == "":
-            _to_port = None
-        if _to_addr == "":
-            _to_addr = None
-        forward_port.append((_interface, _port, _protocol, _to_port, _to_addr))
-
+        forward_port.append(parse_forward_port(module, item))
     forward_port_by_mac = []
     for item in module.params["forward_port_by_mac"]:
-        args = item.split(";")
-        if len(args) != 4:
-            module.fail_json(msg="improper forward_port_by_mac format")
-        _mac_addr, __port, _to_port, _to_addr = args
-        _port, _protocol = __port.split("/")
-        if _protocol is None:
-            module.fail_json(msg="improper forward_port_by_mac format (missing protocol?)")
-        if _to_port == "":
-            _to_port = None
-        if _to_addr == "":
-            _to_addr = None
-        _interface = get_device_for_mac(_mac_addr)
-        if _interface is None:
-            module.fail_json(msg="MAC address not found %s" % _mac_addr)
-        forward_port_by_mac.append((_interface, _port, _protocol, _to_port, _to_addr))
+        forward_port_by_mac.append(parse_forward_port(module, item, "mac"))
+
     zone = module.params["zone"]
     if HAS_SYSTEM_CONFIG_FIREWALL and zone is not None:
         module.fail_json(msg="Zone can not be used with system-config-firewall/lokkit.")
+    trust_by_connection = []
+    for item in module.params["trust_by_connection"]:
+        _interface = get_interface_for_connection(item)
+        if _interface is None:
+            module.fail_json(msg="Connection '%s' not resolvable" % item)
+        trust_by_connection.append(_interface)
+    masq_by_connection = []
+    for item in module.params["masq_by_connection"]:
+        _interface = get_interface_for_connection(item)
+        if _interface is None:
+            module.fail_json(msg="Connection '%s' not resolvable" % item)
+        masq_by_connection.append(_interface)
+    forward_port_by_connection = []
+    for item in module.params["forward_port_by_connection"]:
+        forward_port_by_connection.append(
+            parse_forward_port(module, item, "connection")
+        )
+    if not (HAS_FIREWALLD_NM or nm_is_imported()) and (
+        len(trust_by_connection) > 0
+        or len(masq_by_connection) > 0
+        or len(forward_port_by_connection) > 0
+    ):
+        module.fail_json(
+            msg="The use of connections requires firewalld and NetworkManager."
+        )
+
     desired_state = module.params["state"]
 
     if HAS_FIREWALLD:
@@ -333,13 +404,14 @@ def main():
 
         trusted_zone = "trusted"
         external_zone = "external"
+        default_zone = fw.getDefaultZone()
         if zone is not None:
             if zone not in fw.getZones():
                 module.fail_json(msg="Runtime zone '%s' does not exist." % zone)
             if zone not in fw.config().getZoneNames():
                 module.fail_json(msg="Permanent zone '%s' does not exist." % zone)
         else:
-            zone = fw.getDefaultZone()
+            zone = default_zone
         fw_zone = fw.config().getZoneByName(zone)
         fw_settings = fw_zone.getSettings()
 
@@ -355,14 +427,14 @@ def main():
                 if not fw_settings.queryService(item):
                     fw_settings.addService(item)
                     changed = True
-                    changed_zones[fw_zone] = fw_settings
+                    changed_zones[zone] = fw_settings
             elif desired_state == "disabled":
                 if fw.queryService(zone, item):
                     fw.removeService(zone, item)
                 if fw_settings.queryService(item):
                     fw_settings.removeService(item)
                     changed = True
-                    changed_zones[fw_zone] = fw_settings
+                    changed_zones[zone] = fw_settings
 
         # port
         for _port, _protocol in port:
@@ -373,7 +445,7 @@ def main():
                 if not fw_settings.queryPort(_port, _protocol):
                     fw_settings.addPort(_port, _protocol)
                     changed = True
-                    changed_zones[fw_zone] = fw_settings
+                    changed_zones[zone] = fw_settings
             elif desired_state == "disabled":
                 if fw.queryPort(zone, _port, _protocol):
                     fw.removePort(zone, _port, _protocol)
@@ -381,93 +453,107 @@ def main():
                 if fw_settings.queryPort(_port, _protocol):
                     fw_settings.removePort(_port, _protocol)
                     changed = True
-                    changed_zones[fw_zone] = fw_settings
+                    changed_zones[zone] = fw_settings
 
         # trust, trust_by_mac
-        if len(trust) > 0 or len(trust_by_mac) > 0:
+        if len(trust) > 0 or len(trust_by_connection) > 0 or len(trust_by_mac) > 0:
             items = trust
+            if len(trust_by_connection) > 0:
+                items.extend(trust_by_connection)
             if len(trust_by_mac) > 0:
                 items.extend(trust_by_mac)
 
             if zone != trusted_zone:
-                _fw_zone = fw.config().getZoneByName(trusted_zone)
-                if _fw_zone in changed_zones:
-                    _fw_settings = changed_zones[_fw_zone]
+                _zone = trusted_zone
+                _fw_zone = fw.config().getZoneByName(_zone)
+                if _zone in changed_zones:
+                    _fw_settings = changed_zones[_zone]
                 else:
                     _fw_settings = _fw_zone.getSettings()
             else:
+                _zone = zone
                 _fw_zone = fw_zone
                 _fw_settings = fw_settings
 
             for item in items:
                 if desired_state == "enabled":
-                    if try_set_zone_of_interface(trusted_zone, item):
+                    if try_set_zone_of_interface(_zone, item):
                         changed = True
                     else:
-                        if not fw.queryInterface(trusted_zone, item):
-                            fw.changeZoneOfInterface(trusted_zone, item)
+                        if not fw.queryInterface(_zone, item):
+                            fw.changeZoneOfInterface(_zone, item)
                             changed = True
                         if not _fw_settings.queryInterface(item):
                             _fw_settings.addInterface(item)
                             changed = True
-                            changed_zones[_fw_zone] = _fw_settings
+                            changed_zones[_zone] = _fw_settings
                 elif desired_state == "disabled":
                     if try_set_zone_of_interface("", item):
                         if module.check_mode:
                             module.exit_json(changed=True)
                     else:
-                        if fw.queryInterface(trusted_zone, item):
-                            fw.removeInterface(trusted_zone, item)
+                        if fw.queryInterface(_zone, item):
+                            fw.removeInterface(_zone, item)
                             changed = True
                         if _fw_settings.queryInterface(item):
                             _fw_settings.removeInterface(item)
                             changed = True
-                            changed_zones[_fw_zone] = _fw_settings
+                            changed_zones[_zone] = _fw_settings
 
         # masq, masq_by_mac
-        if len(masq) > 0 or len(masq_by_mac) > 0:
+        if len(masq) > 0 or len(masq_by_connection) > 0 or len(masq_by_mac) > 0:
             items = masq
+            if len(masq_by_connection) > 0:
+                items.extend(masq_by_connection)
             if len(masq_by_mac) > 0:
                 items.extend(masq_by_mac)
 
             if zone != external_zone:
-                _fw_zone = fw.config().getZoneByName(external_zone)
-                if _fw_zone in changed_zones:
-                    _fw_settings = changed_zones[_fw_zone]
+                _zone = external_zone
+                _fw_zone = fw.config().getZoneByName(_zone)
+                if _zone in changed_zones:
+                    _fw_settings = changed_zones[_zone]
                 else:
                     _fw_settings = _fw_zone.getSettings()
             else:
+                _zone = zone
                 _fw_zone = fw_zone
                 _fw_settings = fw_settings
 
             for item in items:
                 if desired_state == "enabled":
-                    if try_set_zone_of_interface(external_zone, item):
+                    if try_set_zone_of_interface(_zone, item):
                         changed = True
                     else:
-                        if not fw.queryInterface(external_zone, item):
-                            fw.changeZoneOfInterface(external_zone, item)
+                        if not fw.queryInterface(_zone, item):
+                            fw.changeZoneOfInterface(_zone, item)
                             changed = True
                         if not _fw_settings.queryInterface(item):
                             _fw_settings.addInterface(item)
                             changed = True
-                            changed_zones[_fw_zone] = _fw_settings
+                            changed_zones[_zone] = _fw_settings
                 elif desired_state == "disabled":
                     if try_set_zone_of_interface("", item):
                         if module.check_mode:
                             module.exit_json(changed=True)
                     else:
-                        if fw.queryInterface(external_zone, item):
-                            fw.removeInterface(external_zone, item)
+                        if fw.queryInterface(_zone, item):
+                            fw.removeInterface(_zone, item)
                             changed = True
                         if _fw_settings.queryInterface(item):
                             _fw_settings.removeInterface(item)
                             changed = True
-                            changed_zones[_fw_zone] = _fw_settings
+                            changed_zones[_zone] = _fw_settings
 
         # forward_port, forward_port_by_mac
-        if len(forward_port) > 0 or len(forward_port_by_mac) > 0:
+        if (
+            len(forward_port) > 0
+            or len(forward_port_by_connection) > 0
+            or len(forward_port_by_mac) > 0
+        ):
             items = forward_port
+            if len(forward_port_by_connection) > 0:
+                items.extend(forward_port_by_connection)
             if len(forward_port_by_mac) > 0:
                 items.extend(forward_port_by_mac)
 
@@ -478,8 +564,8 @@ def main():
                     _zone = zone
                 if _zone != "" and _zone != zone:
                     _fw_zone = fw.config().getZoneByName(_zone)
-                    if _fw_zone in changed_zones:
-                        _fw_settings = changed_zones[_fw_zone]
+                    if _zone in changed_zones:
+                        _fw_settings = changed_zones[_zone]
                     else:
                         _fw_settings = _fw_zone.getSettings()
                 else:
@@ -499,7 +585,7 @@ def main():
                             _port, _protocol, _to_port, _to_addr
                         )
                         changed = True
-                        changed_zones[_fw_zone] = _fw_settings
+                        changed_zones[_zone] = _fw_settings
                 elif desired_state == "disabled":
                     if fw.queryForwardPort(_zone, _port, _protocol, _to_port, _to_addr):
                         fw.removeForwardPort(
@@ -513,12 +599,13 @@ def main():
                             _port, _protocol, _to_port, _to_addr
                         )
                         changed = True
-                        changed_zones[_fw_zone] = _fw_settings
+                        changed_zones[_zone] = _fw_settings
 
         # apply changes
         if changed:
             for _zone in changed_zones:
-                _zone.update(changed_zones[_zone])
+                _fw_zone = fw.config().getZoneByName(_zone)
+                _fw_zone.update(changed_zones[_zone])
             module.exit_json(changed=True)
 
     elif HAS_SYSTEM_CONFIG_FIREWALL:
