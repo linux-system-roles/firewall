@@ -306,7 +306,9 @@ def main():
         _mac_addr, __port, _to_port, _to_addr = args
         _port, _protocol = __port.split("/")
         if _protocol is None:
-            module.fail_json(msg="improper forward_port_by_mac format (missing protocol?)")
+            module.fail_json(
+                msg="improper forward_port_by_mac format (missing protocol?)"
+            )
         if _to_port == "":
             _to_port = None
         if _to_addr == "":
