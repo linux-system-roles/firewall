@@ -1,0 +1,151 @@
+- name: Ensure that the roles runs with default parameters
+  hosts: all
+  become: true
+
+  tasks:
+  - include_role:
+      name: linux-system-roles.firewall
+
+  - name: Test firewalld zones
+    block:
+
+      # GET DEFAULT CONNECTION NAME
+
+      - name: ensure nmcli is present
+        package:
+          name: NetworkManager
+          state: present
+
+      - name: Ensure NetworkManager is running
+        service:
+          name: NetworkManager
+          state: started
+
+      - name: Get default connection name
+        shell: nmcli -t -f NAME c show --active | head -1
+        register: nmcli_result
+
+      - name: Set default_connection fact
+        set_fact:
+          default_connection: "{{ nmcli_result.stdout }}"
+
+      # CREATE DUMMY NETWORK INTERFACES
+
+      - name: Create dummy interfaces using nmcli
+        command: |
+          nmcli con add type dummy ifname dummy0"{{ item }}" \
+          con-name CON-dummy0"{{ item }}" \
+          ipv4.method manual ipv4.addresses 192.0."{{ item }}".1/24
+        with_items:
+          - 0
+          - 1
+          - 2
+          - 3
+
+      # INIT TEST
+
+      - name: Verify used firewalld zones
+        include_role:
+          name: linux-system-roles.firewall
+        vars:
+          firewall:
+            - { zone: 'external',
+                state: 'enabled' }
+            - { zone: 'trusted',
+                state: 'enabled' }
+
+      - name: Fail on missing zones
+        fail: msg="Required zones do not exist"
+        when: firewall_lib_result.changed
+
+      # ENSURE STATE
+
+      - name: Setup firewalld
+        include_role:
+          name: linux-system-roles.firewall
+        vars:
+          firewall_setup_default_solution: no
+          firewall:
+            - { trust_by_connection: ['CON-dummy00', 'CON-dummy01'],
+                masq_by_connection: ['CON-dummy02', 'CON-dummy03'],
+                state: 'enabled' }
+            - { forward_port_by_connection: ['CON-dummy02;447/tcp;;1.2.3.4',
+                                             'CON-dummy03;448/udp;;1.2.3.5'],
+                state: 'enabled' }
+
+      - name: Fail if no changes are done
+        fail: msg="FAILED"
+        when: not firewall_lib_result.changed
+
+      # ENSURE STATE AGAIN
+
+      - name: Setup firewalld again
+        include_role:
+          name: linux-system-roles.firewall
+        vars:
+          firewall_setup_default_solution: no
+          firewall:
+            - { trust_by_connection: ['CON-dummy00', 'CON-dummy01'],
+                masq_by_connection: ['CON-dummy02', 'CON-dummy03'],
+                state: 'enabled' }
+            - { forward_port_by_connection: ['CON-dummy02;447/tcp;;1.2.3.4',
+                                             'CON-dummy03;448/udp;;1.2.3.5'],
+                state: 'enabled' }
+
+      # VERIFY
+
+      - name: Verify firewalld zone external forward ports
+        command: firewall-cmd --permanent --zone=external --list-forward-ports
+        register: result
+        failed_when: result.failed
+                     or "port=447:proto=tcp:toport=:toaddr=1.2.3.4"
+                        not in result.stdout
+                     or "port=448:proto=udp:toport=:toaddr=1.2.3.5"
+                        not in result.stdout
+
+      - name: Verify firewalld zone external interfaces
+        command: firewall-cmd --permanent --zone=external --list-interfaces
+        register: result
+        failed_when: result.failed
+                     or "dummy02" not in result.stdout
+                     or "dummy03" not in result.stdout
+
+      - name: Verify firewalld zone trusted interfaces
+        command: firewall-cmd --permanent --zone=trusted --list-interfaces
+        register: result
+        failed_when: result.failed
+                     or "dummy00" not in result.stdout
+                     or "dummy01" not in result.stdout
+
+    always:
+
+      # CLEANUP: RESET TO ZONE DEFAULTS
+
+      - name: Reset to zone defaults
+        shell:
+          cmd: |
+            firewall-cmd --permanent --load-zone-defaults=external
+            firewall-cmd --permanent --load-zone-defaults=trusted
+            firewall-cmd --reload
+
+      - name: Delete dummy interfaces using nmcli
+        command: nmcli con del CON-dummy0"{{ item }}"
+        with_items:
+          - 0
+          - 1
+          - 2
+          - 3
+
+      - name: Ensure NetworkManager is stopped
+        service:
+          name: NetworkManager
+          state: stopped
+
+      - name: ensure nmcli is absent
+        package:
+          name: NetworkManager
+          state: absent
+
+    when: ansible_distribution == "Fedora" or
+      ((ansible_distribution == "CentOS" or ansible_distribution == "RedHat")
+       and ansible_distribution_major_version >= "7")
