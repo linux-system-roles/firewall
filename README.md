@@ -7,12 +7,12 @@ system-config-firewall/lokkit.
 
 For the configuration the role tries to use the firewalld client interface
 which is available in RHEL-7 and later. If this fails it tries to use the
-system-config-firewall interface which is available in RHEL-6 and in RHEL-7
-as an alternative.
+system-config-firewall interface which is available in RHEL-7 as an
+alternative.
 
 Supported Distributions
 -----------------------
-* RHEL-6+, CentOS-6+
+* RHEL-7+, CentOS-7+
 * Fedora
 
 Limitations
@@ -26,22 +26,19 @@ accessible for the ansible server.
 
 ### Using MAC addresses
 
-As MAC addresses can no be used in netfilter to identify interfaces, this
+As MAC addresses can not be used in netfilter to identify interfaces, this
 role is doing a mapping from the MAC addresses to interfaces for netfilter.
 The network needs to be configured before the firewall to be able to get the
 mapping to interfaces.
 After a MAC address change on the system, the firewall needs to be configured
-again if the MAC address has been used in the configuration.
-
-If the MAC address or an interface has been changed in RHEL-6, then it is
-needed to adapt the firewall configuration also. For RHEL-7+ this could be done
-automatically if NetworkManager is controlling the affected interface.
+again if the MAC address has been used in the configuration. This could be
+done automatically if NetworkManager is controlling the affected interface.
 
 ### The Error Case
 
-If the configuration failed or if the firewall configuration limits access to
-the machine in a bad way, it is most likely be needed to get physical access
-to the machine to fix the issue.
+WARNING: If the configuration failed or if the firewall configuration limits
+access to the machine in a bad way, it is most likely be needed to get
+physical access to the machine to fix the issue.
 
 ### Rule sorting
 
