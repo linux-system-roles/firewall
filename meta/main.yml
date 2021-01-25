@@ -4,13 +4,12 @@ galaxy_info:
   company: Red Hat, Inc.
   license: GPLv2+
   min_ansible_version: 2.7
-  galaxy_tags: [ 'firewall', 'system', 'beta' ]
+  galaxy_tags: [ 'firewall', 'system' ]
   platforms:
     - name: Fedora
       versions:
         - all
     - name: EL
       versions:
-        - 6
         - 7
         - 8

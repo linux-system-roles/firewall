@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 #
-# Copyright (C) 2016,2017,2020 Red Hat, Inc.
+# Copyright (C) 2016,2017,2020,2021 Red Hat, Inc.
 # Reusing some firewalld code
 # Authors:
 # Thomas Woerner <twoerner@redhat.com>
@@ -26,8 +26,7 @@ short_description: Module for firewall role
 requirements: python-firewall or system-config-firewall/lokkit.
 description:
   - >-
-    Manage firewall with firewalld on RHEL-7 or system-config-firewall/lokkit on
-    RHEL-6.
+    Manage firewall with firewalld on Fedora and RHEL-7+.
 author: "Thomas Woerner (twoerner@redhat.com)"
 options:
   service:
