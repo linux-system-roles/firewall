@@ -19,15 +19,28 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import absolute_import, division, print_function
+
+__metaclass__ = type
+
+ANSIBLE_METADATA = {
+    "metadata_version": "1.1",
+    "status": ["preview"],
+    "supported_by": "community",
+}
+
 DOCUMENTATION = """
 ---
 module: firewall_lib
 short_description: Module for firewall role
-requirements: python-firewall or system-config-firewall/lokkit.
+requirements:
+  - python-firewall
+  - system-config-firewall/lokkit.
 description:
+  - "WARNING: Do not use this module directly! It is only for role internal use."
   - >-
     Manage firewall with firewalld on Fedora and RHEL-7+.
-author: "Thomas Woerner (twoerner@redhat.com)"
+author: "Thomas Woerner (@t-woerner)"
 options:
   service:
     description:
@@ -36,6 +49,8 @@ options:
         defined in firewalld or system-config-firewall/lokkit configuration.
     required: false
     default: null
+    type: list
+    elements: str
   port:
     description:
       - >-
@@ -43,31 +58,43 @@ options:
         format port=<port>[-<port>]/<protocol>.
     required: false
     default: null
+    type: list
+    elements: str
   trust:
     description:
       - "Interface to add or remove to the trusted interfaces."
     required: false
     default: null
+    type: list
+    elements: str
   trust_by_connection:
     description:
       - "Interface identified by a connection name to add or remove to the trusted interfaces."
     required: false
     default: null
+    type: list
+    elements: str
   trust_by_mac:
     description:
       - "Interface to add or remove to the trusted interfaces by MAC address."
     required: false
     default: null
+    type: list
+    elements: str
   masq:
     description:
       - "Interface to add or remove to the interfaces that are masqueraded."
     required: false
     default: null
+    type: list
+    elements: str
   masq_by_connection:
     description:
       - "Interface identified by a connection name to add or remove to the interfaces that are masqueraded."
     required: false
     default: null
+    type: list
+    elements: str
   masq_by_mac:
     description:
       - >-
@@ -75,6 +102,8 @@ options:
         address.
     required: false
     default: null
+    type: list
+    elements: str
   forward_port:
     description:
       - >-
@@ -83,32 +112,41 @@ options:
         [<interface>;]<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>].
     required: false
     default: null
+    type: list
+    elements: str
   forward_port_by_connection:
     description:
       - >-
         Add or remove port forwarding for ports or port ranges over an interface
-        identified ba a connection name. It needs to be in the format
+        identified by a connection name. It needs to be in the format
         <connection>;<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>].
     required: false
     default: null
+    type: list
+    elements: str
   forward_port_by_mac:
     description:
       - >-
         Add or remove port forwarding for ports or port ranges over an interface
-        identified ba a MAC address. It needs to be in the format
+        identified by a MAC address. It needs to be in the format
         <mac-addr>;<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>].
     required: false
     default: null
+    type: list
+    elements: str
   zone:
     description:
-      Name of the zone that the change will be done one for firewalld.
-      If the zone name is not given, then the default zone will be used.
-     required: false
-     default: null
+      - >-
+        Name of the zone that the change will be done one for firewalld.
+        If the zone name is not given, then the default zone will be used.
+    required: false
+    default: null
+    type: str
   state:
     description:
       - "Enable or disable the entry."
     required: true
+    type: str
     choices: [ "enabled", "disabled" ]
 """
 
@@ -608,7 +646,7 @@ def main():
             module.exit_json(changed=True)
 
     elif HAS_SYSTEM_CONFIG_FIREWALL:
-        (config, old_config, _) = fw_lokkit.loadConfig(args=[], dbus_parser=True)
+        (config, old_config, _dummy) = fw_lokkit.loadConfig(args=[], dbus_parser=True)
 
         changed = False
 
