@@ -364,6 +364,11 @@ def main():
                 icmp_block,
             )
         )
+    
+    if not (HAS_FIREWALLD_NM and nm_is_imported()) and (
+        len(trust_by_connection) > 0
+        or len(masq_by_connection) > 0
+        or len(forward_port_by_connection) > 0
     ):
         module.fail_json(
             msg="One of service, port, source_port, forward_port, "
