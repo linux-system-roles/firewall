@@ -417,7 +417,7 @@ def main():
         forward_port_by_connection.append(
             parse_forward_port(module, item, "connection")
         )
-    if not (HAS_FIREWALLD_NM or nm_is_imported()) and (
+    if not (HAS_FIREWALLD_NM and nm_is_imported()) and (
         len(trust_by_connection) > 0
         or len(masq_by_connection) > 0
         or len(forward_port_by_connection) > 0
