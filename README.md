@@ -83,15 +83,6 @@ trust: 'eth0'
 trust: [ 'eth0', 'eth1' ]
 ```
 
-### trust_by_connection
-
-Current interface of a connection to add or remove from the trusted interfaces. This is a one time lookup. The firewall does not know about NetworkManager connections. The connection needs to exist and an interface needs to be assigned to the connection. The interface will be added to the trusted zone with firewalld.
-
-```
-trust_by_connection: 'MyTrustedConnection'
-trust_by_connection: [ 'MyTrustedConnection1', 'MyTrustedConnection2' ]
-```
-
 ### trust_by_mac
 
 Interface to add or remove to the trusted interfaces by MAC address or MAC address list. Each MAC address will automatically be mapped to the interface that is using this MAC address. The interface will be added to the trusted zone with firewalld.
@@ -108,15 +99,6 @@ Interface to add or remove to the interfaces that are masqueraded. The interface
 ```
 masq: 'eth2'
 masq: [ 'eth2', 'eth3' ]
-```
-
-### masq_by_connection
-
-Current interface of a connection to add or remove from the interfaces that are masqueraded. This is a one time lookup. The firewall does not know about NetworkManager connections. The connection needs to exist and an interface needs to be assigned to the connection. The interface will be added to the `external` zone with firewalld.
-
-```
-masq_by_connection: 'MyExternalConnection'
-masq_by_connection: [ 'MyExternalConnection2', 'MyExternalConnection3' ]
 ```
 
 ### masq_by_mac
@@ -136,15 +118,6 @@ Add or remove port forwarding for ports or port ranges over an interface. It nee
 forward_port: 'eth0;447/tcp;;1.2.3.4'
 forward_port: [ 'eth0;447/tcp;;1.2.3.4', 'eth0;448/tcp;;1.2.3.5' ]
 forward_port: '447/tcp;;1.2.3.4'
-```
-
-### forward_port_by_connection
-
-Add or remove port forwarding for ports or port ranges over an interface identified by a connection. It needs to be in the format ```<connection>;<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>]```. Each connection will automatically be mapped to the interface that is used by the connection.
-
-```
-forward_port_by_connection: 'connection1;447/tcp;;1.2.3.4'
-forward_port_by_connection: [ 'connection1;447/tcp;;1.2.3.4', 'connection2;448/tcp;;1.2.3.5' ]
 ```
 
 ### forward_port_by_mac
@@ -246,24 +219,6 @@ The block with several services, ports, etc. will be applied at once. If there i
     - linux-system-roles.firewall
 
 ```
-
-Example for trust, masq and forward_port by connection:
-
-```---
-- name: Configure external zone in firewall
-  hosts: myhost
-
-  vars:
-    firewall:
-      - { trust_by_connection: 'Connection1',
-          masq_by_connection: 'Connection2',
-          forward_port_by_connection: 'Connection3;447/tcp;;1.2.3.4',
-          state: 'enabled' }
-  roles:
-    - linux-system-roles.firewall
-
-```
-
 
 # Authors
 

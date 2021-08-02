@@ -66,13 +66,6 @@ options:
     default: null
     type: list
     elements: str
-  trust_by_connection:
-    description:
-      - "Interface identified by a connection name to add or remove to the trusted interfaces."
-    required: false
-    default: null
-    type: list
-    elements: str
   trust_by_mac:
     description:
       - "Interface to add or remove to the trusted interfaces by MAC address."
@@ -83,13 +76,6 @@ options:
   masq:
     description:
       - "Interface to add or remove to the interfaces that are masqueraded."
-    required: false
-    default: null
-    type: list
-    elements: str
-  masq_by_connection:
-    description:
-      - "Interface identified by a connection name to add or remove to the interfaces that are masqueraded."
     required: false
     default: null
     type: list
@@ -109,16 +95,6 @@ options:
         Add or remove port forwarding for ports or port ranges over for interface or zone. Omit the interface part before ';' for use within a zone.
         It needs to be in the format
         [<interface>;]<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>].
-    required: false
-    default: null
-    type: list
-    elements: str
-  forward_port_by_connection:
-    description:
-      - >-
-        Add or remove port forwarding for ports or port ranges over an interface
-        identified by a connection name. It needs to be in the format
-        <connection>;<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>].
     required: false
     default: null
     type: list
@@ -272,22 +248,8 @@ def get_device_for_mac(mac_addr):
     return None
 
 
-def get_interface_for_connection(name):
-    """Get interface for the connection name from NM"""
-
-    if HAS_FIREWALLD_NM and nm_is_imported:
-        client = NM.Client.new(None)
-        for nm_con in client.get_connections():
-            if nm_con.get_id() == name:
-                return nm_con.get_interface_name()
-
-    return None
-
-
 def parse_forward_port(module, item, item_type=None):
-    if item_type == "connection":
-        type_string = "forward_port_by_connection"
-    elif item_type == "mac":
+    if item_type == "mac":
         type_string = "forward_port_by_mac"
     else:
         type_string = "forward_port"
@@ -309,11 +271,7 @@ def parse_forward_port(module, item, item_type=None):
     if _to_addr == "":
         _to_addr = None
 
-    if item_type == "connection":
-        _interface = get_interface_for_connection(_interface)
-        if _interface is None:
-            module.fail_json(msg="Connection '%s' not resolvable" % _interface)
-    elif item_type == "mac":
+    if item_type == "mac":
         _interface = get_device_for_mac(_interface)
         if _interface is None:
             module.fail_json(msg="MAC address not found %s" % _interface)
@@ -327,13 +285,10 @@ def main():
             service=dict(required=False, type="list", default=[]),
             port=dict(required=False, type="list", default=[]),
             trust=dict(required=False, type="list", default=[]),
-            trust_by_connection=dict(required=False, type="list", default=[]),
             trust_by_mac=dict(required=False, type="list", default=[]),
             masq=dict(required=False, type="list", default=[]),
-            masq_by_connection=dict(required=False, type="list", default=[]),
             masq_by_mac=dict(required=False, type="list", default=[]),
             forward_port=dict(required=False, type="list", default=[]),
-            forward_port_by_connection=dict(required=False, type="list", default=[]),
             forward_port_by_mac=dict(required=False, type="list", default=[]),
             zone=dict(required=False, type="str", default=None),
             state=dict(choices=["enabled", "disabled"], required=True),
@@ -343,13 +298,10 @@ def main():
                 "service",
                 "port",
                 "trust",
-                "trust_by_connection",
                 "trust_by_mac",
                 "masq",
-                "masq_by_connection",
                 "masq_by_mac",
                 "forward_port",
-                "forward_port_by_connection",
                 "forward_port_by_mac",
             ],
         ),
@@ -388,32 +340,6 @@ def main():
         forward_port_by_mac.append(parse_forward_port(module, item, "mac"))
 
     zone = module.params["zone"]
-    trust_by_connection = []
-    for item in module.params["trust_by_connection"]:
-        _interface = get_interface_for_connection(item)
-        if _interface is None:
-            module.fail_json(msg="Connection '%s' not resolvable" % item)
-        trust_by_connection.append(_interface)
-    masq_by_connection = []
-    for item in module.params["masq_by_connection"]:
-        _interface = get_interface_for_connection(item)
-        if _interface is None:
-            module.fail_json(msg="Connection '%s' not resolvable" % item)
-        masq_by_connection.append(_interface)
-    forward_port_by_connection = []
-    for item in module.params["forward_port_by_connection"]:
-        forward_port_by_connection.append(
-            parse_forward_port(module, item, "connection")
-        )
-    if not (HAS_FIREWALLD_NM or nm_is_imported()) and (
-        len(trust_by_connection) > 0
-        or len(masq_by_connection) > 0
-        or len(forward_port_by_connection) > 0
-    ):
-        module.fail_json(
-            msg="The use of connections requires firewalld and NetworkManager."
-        )
-
     desired_state = module.params["state"]
 
     if HAS_FIREWALLD:
@@ -481,10 +407,8 @@ def main():
                     changed_zones[zone] = fw_settings
 
         # trust, trust_by_mac
-        if len(trust) > 0 or len(trust_by_connection) > 0 or len(trust_by_mac) > 0:
+        if len(trust) > 0 or len(trust_by_mac) > 0:
             items = trust
-            if len(trust_by_connection) > 0:
-                items.extend(trust_by_connection)
             if len(trust_by_mac) > 0:
                 items.extend(trust_by_mac)
 
@@ -526,10 +450,8 @@ def main():
                             changed_zones[_zone] = _fw_settings
 
         # masq, masq_by_mac
-        if len(masq) > 0 or len(masq_by_connection) > 0 or len(masq_by_mac) > 0:
+        if len(masq) > 0 or len(masq_by_mac) > 0:
             items = masq
-            if len(masq_by_connection) > 0:
-                items.extend(masq_by_connection)
             if len(masq_by_mac) > 0:
                 items.extend(masq_by_mac)
 
@@ -573,12 +495,9 @@ def main():
         # forward_port, forward_port_by_mac
         if (
             len(forward_port) > 0
-            or len(forward_port_by_connection) > 0
             or len(forward_port_by_mac) > 0
         ):
             items = forward_port
-            if len(forward_port_by_connection) > 0:
-                items.extend(forward_port_by_connection)
             if len(forward_port_by_mac) > 0:
                 items.extend(forward_port_by_mac)
 
