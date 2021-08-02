@@ -35,7 +35,6 @@ module: firewall_lib
 short_description: Module for firewall role
 requirements:
   - python-firewall
-  - system-config-firewall/lokkit.
 description:
   - "WARNING: Do not use this module directly! It is only for role internal use."
   - >-
@@ -46,7 +45,7 @@ options:
     description:
       - >-
         Name of a service to add or remove inbound access to. The service needs to be
-        defined in firewalld or system-config-firewall/lokkit configuration.
+        defined in firewalld configuration.
     required: false
     default: null
     type: list
@@ -169,18 +168,9 @@ try:
     except ImportError:
         HAS_FIREWALLD_NM = False
     HAS_FIREWALLD = True
-    HAS_SYSTEM_CONFIG_FIREWALL = False
 except ImportError:
     HAS_FIREWALLD = False
     HAS_FIREWALLD_NM = False
-    try:
-        sys.path.append("/usr/share/system-config-firewall")
-        import fw_lokkit
-        from fw_functions import getPortRange
-
-        HAS_SYSTEM_CONFIG_FIREWALL = True
-    except ImportError:
-        HAS_SYSTEM_CONFIG_FIREWALL = False
 
 
 def try_set_zone_of_interface(_zone, interface):
@@ -366,7 +356,7 @@ def main():
         supports_check_mode=True,
     )
 
-    if not HAS_FIREWALLD and not HAS_SYSTEM_CONFIG_FIREWALL:
+    if not HAS_FIREWALLD:
         module.fail_json(msg="No firewall backend could be imported.")
 
     service = module.params["service"]
@@ -398,8 +388,6 @@ def main():
         forward_port_by_mac.append(parse_forward_port(module, item, "mac"))
 
     zone = module.params["zone"]
-    if HAS_SYSTEM_CONFIG_FIREWALL and zone is not None:
-        module.fail_json(msg="Zone can not be used with system-config-firewall/lokkit.")
     trust_by_connection = []
     for item in module.params["trust_by_connection"]:
         _interface = get_interface_for_connection(item)
@@ -645,132 +633,8 @@ def main():
                 _fw_zone.update(changed_zones[_zone])
             module.exit_json(changed=True)
 
-    elif HAS_SYSTEM_CONFIG_FIREWALL:
-        (config, old_config, _dummy) = fw_lokkit.loadConfig(args=[], dbus_parser=True)
-
-        changed = False
-
-        # service
-        for item in service:
-            if config.services is None:
-                config.services = []
-
-            if desired_state == "enabled":
-                if item not in config.services:
-                    config.services.append(item)
-                    changed = True
-            elif desired_state == "disabled":
-                if item in config.services:
-                    config.services.remove(item)
-                    changed = True
-
-        # port
-        for _port, _protocol in port:
-            if config.ports is None:
-                config.ports = []
-
-            _range = getPortRange(_port)
-            if _range < 0:
-                module.fail_json(msg="invalid port definition %s" % _port)
-            elif _range is None:
-                module.fail_json(msg="port _range is not unique.")
-            elif len(_range) == 2 and _range[0] >= _range[1]:
-                module.fail_json(msg="invalid port range %s" % _port)
-            port_proto = (_range, _protocol)
-            if desired_state == "enabled":
-                if port_proto not in config.ports:
-                    config.ports.append(port_proto)
-                    changed = True
-            elif desired_state == "disabled":
-                if port_proto in config.ports:
-                    config.ports.remove(port_proto)
-                    changed = True
-
-        # trust, trust_by_mac
-        if len(trust) > 0 or len(trust_by_mac) > 0:
-            if config.trust is None:
-                config.trust = []
-
-            items = trust
-            if len(trust_by_mac) > 0:
-                items.extend(trust_by_mac)
-
-            for item in items:
-                if desired_state == "enabled":
-                    if item not in config.trust:
-                        config.trust.append(item)
-                        changed = True
-                elif desired_state == "disabled":
-                    if item in config.trust:
-                        config.trust.remove(item)
-                        changed = True
-
-        # masq, masq_by_mac
-        if len(masq) > 0 or len(masq_by_mac) > 0:
-            if config.masq is None:
-                config.masq = []
-
-            items = masq
-            if len(masq_by_mac) > 0:
-                items.extend(masq_by_mac)
-
-            for item in items:
-                if desired_state == "enabled":
-                    if item not in config.masq:
-                        config.masq.append(item)
-                        changed = True
-                elif desired_state == "disabled":
-                    if item in config.masq:
-                        config.masq.remove(item)
-                        changed = True
-
-        # forward_port, forward_port_by_mac
-        if len(forward_port) > 0 or len(forward_port_by_mac) > 0:
-            if config.forward_port is None:
-                config.forward_port = []
-
-            items = forward_port
-            if len(forward_port_by_mac) > 0:
-                items.extend(forward_port_by_mac)
-
-            for _interface, _port, _protocol, _to_port, _to_addr in items:
-                _range = getPortRange(_port)
-                if _range < 0:
-                    module.fail_json(msg="invalid port definition")
-                elif _range is None:
-                    module.fail_json(msg="port _range is not unique.")
-                elif len(_range) == 2 and _range[0] >= _range[1]:
-                    module.fail_json(msg="invalid port range")
-                fwd_port = {"if": _interface, "port": _range, "proto": _protocol}
-                if _to_port is not None:
-                    _range = getPortRange(_to_port)
-                    if _range < 0:
-                        module.fail_json(msg="invalid port definition %s" % _to_port)
-                    elif _range is None:
-                        module.fail_json(msg="port _range is not unique.")
-                    elif len(_range) == 2 and _range[0] >= _range[1]:
-                        module.fail_json(msg="invalid port range")
-                    fwd_port["toport"] = _range
-                if _to_addr is not None:
-                    fwd_port["toaddr"] = _to_addr
-
-                if desired_state == "enabled":
-                    if fwd_port not in config.forward_port:
-                        config.forward_port.append(fwd_port)
-                        changed = True
-                elif desired_state == "disabled":
-                    if fwd_port in config.forward_port:
-                        config.forward_port.remove(fwd_port)
-                        changed = True
-
-        # apply changes
-        if changed:
-            fw_lokkit.updateFirewall(config, old_config)
-            if module.check_mode:
-                module.exit_json(changed=True)
-
     else:
-        module.fail_json(msg="No firewalld and system-config-firewall")
+        module.fail_json(msg="No firewalld")
 
     module.exit_json(changed=False)
 

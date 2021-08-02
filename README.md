@@ -2,13 +2,10 @@ firewall
 ========
 ![CI Testing](https://github.com/linux-system-roles/firewall/workflows/tox/badge.svg)
 
-This role configures the firewall on machines that are using firewalld or
-system-config-firewall/lokkit.
+This role configures the firewall on machines that are using firewalld.
 
-For the configuration the role tries to use the firewalld client interface
-which is available in RHEL-7 and later. If this fails it tries to use the
-system-config-firewall interface which is available in RHEL-7 as an
-alternative.
+For the configuration the role uses the firewalld client interface
+which is available in RHEL-7 and later.
 
 Supported Distributions
 -----------------------
@@ -51,14 +48,6 @@ Variables
 
 These are the variables that can be passed to the role:
 
-### firewall_setup_default_solution
-
-```
-firewall_setup_default_solution: false
-```
-
-This turns off the installation and start of the default firewall solution for the specific Fedora or RHEL release. This is intended for users of system-config-firewall on RHEL-7+ or Fedora releases.
-
 ### zone
 
 Name of the zone that should be modified. The zone parameter is only supported with firewalld. If it is not set for firewalld, the default zone will be used. It will have an effect on these parameters: `service`, `port` and `forward_port` without a given interface or MAC address.
@@ -69,7 +58,7 @@ zone: 'public'
 
 ### service
 
-Name of a service or service list to add or remove inbound access to. The service needs to be defined in firewalld or system-config-firewall/lokkit configuration.
+Name of a service or service list to add or remove inbound access to. The service needs to be defined in firewalld.
 
 ```
 service: 'ftp'

@@ -1,6 +1,6 @@
 galaxy_info:
   author: Thomas Woerner <twoerner@redhat.com>
-  description: Configure firewalld and system-config-firewall/lokkit
+  description: Configure firewalld
   company: Red Hat, Inc.
   license: GPLv2+
   min_ansible_version: 2.7
