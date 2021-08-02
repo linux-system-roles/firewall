@@ -5,8 +5,6 @@
     zone: "{{ item.zone | default(omit) }}"
     service: "{{ item.service | default(omit) }}"
     port: "{{ item.port | default(omit) }}"
-    trust: "{{ item.trust | default(omit) }}"
-    masq: "{{ item.masq | default(omit) }}"
     forward_port: "{{ item.forward_port | default(omit) }}"
     state: "{{ item.state }}"
   with_items:

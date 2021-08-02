@@ -38,8 +38,6 @@
             - { zone: 'internal',
                 service: [ 'tftp', 'ftp' ],
                 port: [ '443/tcp', '443/udp' ],
-                trust: [ 'interface0', 'interface1' ],
-                masq: [ 'interface2', 'interface3' ],
                 forward_port: [ '447/tcp;;1.2.3.4',
                                 '448/tcp;;1.2.3.5' ],
                 state: 'enabled' }
@@ -59,8 +57,6 @@
             - { zone: 'internal',
                 service: [ 'tftp', 'ftp' ],
                 port: [ '443/tcp', '443/udp' ],
-                trust: [ 'interface0', 'interface1' ],
-                masq: [ 'interface2', 'interface3' ],
                 forward_port: [ '447/tcp;;1.2.3.4',
                                 '448/tcp;;1.2.3.5' ],
                 state: 'enabled' }
@@ -93,20 +89,6 @@
                         not in result.stdout
                      or "port=448:proto=tcp:toport=:toaddr=1.2.3.5"
                         not in result.stdout
-
-      - name: Verify firewalld zone external interfaces
-        command: firewall-cmd --permanent --zone=external --list-interfaces
-        register: result
-        failed_when: result.failed
-                     or "interface2" not in result.stdout
-                     or "interface3" not in result.stdout
-
-      - name: Verify firewalld zone trusted interfaces
-        command: firewall-cmd --permanent --zone=trusted --list-interfaces
-        register: result
-        failed_when: result.failed
-                     or "interface0" not in result.stdout
-                     or "interface1" not in result.stdout
 
     always:
 

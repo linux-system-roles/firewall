@@ -59,26 +59,12 @@ options:
     default: null
     type: list
     elements: str
-  trust:
-    description:
-      - "Interface to add or remove to the trusted interfaces."
-    required: false
-    default: null
-    type: list
-    elements: str
-  masq:
-    description:
-      - "Interface to add or remove to the interfaces that are masqueraded."
-    required: false
-    default: null
-    type: list
-    elements: str
   forward_port:
     description:
       - >-
-        Add or remove port forwarding for ports or port ranges over for interface or zone. Omit the interface part before ';' for use within a zone.
+        Add or remove port forwarding for ports or port ranges for the zone.
         It needs to be in the format
-        [<interface>;]<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>].
+        <port>[-<port>]/<protocol>;[<to-port>];[<to-addr>].
     required: false
     default: null
     type: list
@@ -105,97 +91,16 @@ import sys
 
 try:
     from firewall.client import FirewallClient
-
-    try:
-        from firewall.core.fw_nm import (
-            nm_is_imported,
-            nm_get_connection_of_interface,
-            nm_set_zone_of_connection,
-        )
-        from gi.repository import NM
-
-        HAS_FIREWALLD_NM = True
-    except ImportError:
-        HAS_FIREWALLD_NM = False
     HAS_FIREWALLD = True
 except ImportError:
     HAS_FIREWALLD = False
-    HAS_FIREWALLD_NM = False
 
 
-def try_set_zone_of_interface(_zone, interface):
-    """Try to set zone of interface with NetworkManager"""
-    if not HAS_FIREWALLD_NM:
-        return False
-    if nm_is_imported():
-        try:
-            connection = nm_get_connection_of_interface(interface)
-        except Exception:
-            pass
-        else:
-            if connection is not None:
-                nm_set_zone_of_connection(_zone, connection)
-                return True
-    return False
-
-
-class ifcfg(object):
-    """ifcfg file reader class"""
-
-    def __init__(self, filename):
-        self._config = {}
-        self._deleted = []
-        self.filename = filename
-        self.clear()
-
-    def clear(self):
-        self._config = {}
-        self._deleted = []
-
-    def cleanup(self):
-        self._config.clear()
-
-    def get(self, key):
-        return self._config.get(key.strip())
-
-    def set(self, key, value):
-        _key = key.strip()
-        self._config[_key] = value.strip()
-        if _key in self._deleted:
-            self._deleted.remove(_key)
-
-    def read(self):
-        self.clear()
-        f = open(self.filename, "r")
-
-        for line in f:
-            if not line:
-                break
-            line = line.strip()
-            if len(line) < 1 or line[0] in ["#", ";"]:
-                continue
-            # get key/value pair
-            pair = [x.strip() for x in line.split("=", 1)]
-            if len(pair) != 2:
-                continue
-            if len(pair[1]) >= 2 and pair[1].startswith('"') and pair[1].endswith('"'):
-                pair[1] = pair[1][1:-1]
-            if pair[1] == "":
-                continue
-            elif self._config.get(pair[0]) is not None:
-                continue
-            self._config[pair[0]] = pair[1]
-        f.close()
-
-
-def parse_forward_port(module, item, item_type=None):
+def parse_forward_port(module, item):
     type_string = "forward_port"
 
     args = item.split(";")
-    if len(args) == 4:
-        _interface, __port, _to_port, _to_addr = args
-    elif len(args) == 3 and item_type is None:
-        _interface = ""
+    if len(args) == 3:
         __port, _to_port, _to_addr = args
     else:
         module.fail_json(msg="improper %s format: %s" % (type_string, item))
@@ -208,7 +113,7 @@ def parse_forward_port(module, item, item_type=None):
     if _to_addr == "":
         _to_addr = None
 
-    return (_interface, _port, _protocol, _to_port, _to_addr)
+    return (_port, _protocol, _to_port, _to_addr)
 
 
 def main():
@@ -216,8 +121,6 @@ def main():
         argument_spec=dict(
             service=dict(required=False, type="list", default=[]),
             port=dict(required=False, type="list", default=[]),
-            trust=dict(required=False, type="list", default=[]),
-            masq=dict(required=False, type="list", default=[]),
             forward_port=dict(required=False, type="list", default=[]),
             zone=dict(required=False, type="str", default=None),
             state=dict(choices=["enabled", "disabled"], required=True),
@@ -226,8 +129,6 @@ def main():
             [
                 "service",
                 "port",
-                "trust",
-                "masq",
                 "forward_port",
             ],
         ),
@@ -244,8 +145,6 @@ def main():
         if _protocol is None:
             module.fail_json(msg="improper port format (missing protocol?)")
         port.append((_port, _protocol))
-    trust = module.params["trust"]
-    masq = module.params["masq"]
     forward_port = []
     for item in module.params["forward_port"]:
         forward_port.append(parse_forward_port(module, item))
@@ -264,8 +163,6 @@ def main():
         if not fw.connected:
             module.fail_json(msg="firewalld service must be running")
 
-        trusted_zone = "trusted"
-        external_zone = "external"
         default_zone = fw.getDefaultZone()
         if zone is not None:
             if zone not in fw.getZones():
@@ -317,91 +214,10 @@ def main():
                     changed = True
                     changed_zones[zone] = fw_settings
 
-        # trust
-        if len(trust) > 0:
-            if zone != trusted_zone:
-                _zone = trusted_zone
-                _fw_zone = fw.config().getZoneByName(_zone)
-                if _zone in changed_zones:
-                    _fw_settings = changed_zones[_zone]
-                else:
-                    _fw_settings = _fw_zone.getSettings()
-            else:
-                _zone = zone
-                _fw_zone = fw_zone
-                _fw_settings = fw_settings
-
-            for item in trust:
-                if desired_state == "enabled":
-                    if try_set_zone_of_interface(_zone, item):
-                        changed = True
-                    else:
-                        if not fw.queryInterface(_zone, item):
-                            fw.changeZoneOfInterface(_zone, item)
-                            changed = True
-                        if not _fw_settings.queryInterface(item):
-                            _fw_settings.addInterface(item)
-                            changed = True
-                            changed_zones[_zone] = _fw_settings
-                elif desired_state == "disabled":
-                    if try_set_zone_of_interface("", item):
-                        if module.check_mode:
-                            module.exit_json(changed=True)
-                    else:
-                        if fw.queryInterface(_zone, item):
-                            fw.removeInterface(_zone, item)
-                            changed = True
-                        if _fw_settings.queryInterface(item):
-                            _fw_settings.removeInterface(item)
-                            changed = True
-                            changed_zones[_zone] = _fw_settings
-
-        # masq
-        if len(masq) > 0:
-            if zone != external_zone:
-                _zone = external_zone
-                _fw_zone = fw.config().getZoneByName(_zone)
-                if _zone in changed_zones:
-                    _fw_settings = changed_zones[_zone]
-                else:
-                    _fw_settings = _fw_zone.getSettings()
-            else:
-                _zone = zone
-                _fw_zone = fw_zone
-                _fw_settings = fw_settings
-
-            for item in masq:
-                if desired_state == "enabled":
-                    if try_set_zone_of_interface(_zone, item):
-                        changed = True
-                    else:
-                        if not fw.queryInterface(_zone, item):
-                            fw.changeZoneOfInterface(_zone, item)
-                            changed = True
-                        if not _fw_settings.queryInterface(item):
-                            _fw_settings.addInterface(item)
-                            changed = True
-                            changed_zones[_zone] = _fw_settings
-                elif desired_state == "disabled":
-                    if try_set_zone_of_interface("", item):
-                        if module.check_mode:
-                            module.exit_json(changed=True)
-                    else:
-                        if fw.queryInterface(_zone, item):
-                            fw.removeInterface(_zone, item)
-                            changed = True
-                        if _fw_settings.queryInterface(item):
-                            _fw_settings.removeInterface(item)
-                            changed = True
-                            changed_zones[_zone] = _fw_settings
-
         # forward_port
         if len(forward_port) > 0:
-            for _interface, _port, _protocol, _to_port, _to_addr in forward_port:
-                if _interface != "":
-                    _zone = fw.getZoneOfInterface(_interface)
-                else:
-                    _zone = zone
+            for _port, _protocol, _to_port, _to_addr in forward_port:
+                _zone = zone
                 if _zone != "" and _zone != zone:
                     _fw_zone = fw.config().getZoneByName(_zone)
                     if _zone in changed_zones:

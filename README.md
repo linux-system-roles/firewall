@@ -27,12 +27,6 @@ WARNING: If the configuration failed or if the firewall configuration limits
 access to the machine in a bad way, it is most likely be needed to get
 physical access to the machine to fix the issue.
 
-### Rule sorting
-
-If you want to add forwarding rules to an interface that also is masqueraded,
-then the masquerading rules needs to be sorted before the forwarding rule.
-
-
 Variables
 ---------
 
@@ -64,32 +58,13 @@ port: '443/tcp'
 port: [ '443/tcp', '443/udp' ]
 ```
 
-### trust
-
-Interface to add or remove from the trusted interfaces.  The interface will be added to the trusted zone with firewalld.
-
-```
-trust: 'eth0'
-trust: [ 'eth0', 'eth1' ]
-```
-
-### masq
-
-Interface to add or remove to the interfaces that are masqueraded. The interface will be added to the `external` zone with firewalld.
-
-```
-masq: 'eth2'
-masq: [ 'eth2', 'eth3' ]
-```
-
 ### forward_port
 
-Add or remove port forwarding for ports or port ranges over an interface. It needs to be in the format ```[<interface>;]<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>]```. If `interface` is not set, `zone` needs to be set for use with firewalld.
+Add or remove port forwarding for ports or port ranges for a zone. It needs to be in the format ```<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>]```.
 
 ```
-forward_port: 'eth0;447/tcp;;1.2.3.4'
-forward_port: [ 'eth0;447/tcp;;1.2.3.4', 'eth0;448/tcp;;1.2.3.5' ]
 forward_port: '447/tcp;;1.2.3.4'
+forward_port: [ '447/tcp;;1.2.3.4', '448/tcp;;1.2.3.5' ]
 ```
 
 ### state
@@ -144,8 +119,6 @@ It is also possible to combine several settings into blocks:
     firewall:
       - { service: [ 'tftp', 'ftp' ],
           port: [ '443/tcp', '443/udp' ],
-          trust: [ 'eth0', 'eth1' ],
-          masq: [ 'eth2', 'eth3' ],
 -         state: 'enabled' }
 -     - { forward_port: [ 'eth2;447/tcp;;1.2.3.4',
                           'eth2;448/tcp;;1.2.3.5' ],
@@ -153,8 +126,6 @@ It is also possible to combine several settings into blocks:
       - { zone: "internal", service: 'tftp', state: 'enabled' }
       - { service: 'tftp', state: 'enabled' }
       - { port: '443/tcp', state: 'enabled' }
-      - { trust: 'foo', state: 'enabled' }
-      - { masq: 'foo2', state: 'enabled' }
       - { forward_port: 'eth0;445/tcp;;1.2.3.4', state: 'enabled' }
           state: 'enabled' }
   roles:
