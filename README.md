@@ -21,16 +21,6 @@ The configuration of the firewall could limit access to the machine over the
 network. Therefore it is needed to make sure that the SSH port is still
 accessible for the ansible server.
 
-### Using MAC addresses
-
-As MAC addresses can not be used in netfilter to identify interfaces, this
-role is doing a mapping from the MAC addresses to interfaces for netfilter.
-The network needs to be configured before the firewall to be able to get the
-mapping to interfaces.
-After a MAC address change on the system, the firewall needs to be configured
-again if the MAC address has been used in the configuration. This could be
-done automatically if NetworkManager is controlling the affected interface.
-
 ### The Error Case
 
 WARNING: If the configuration failed or if the firewall configuration limits
@@ -50,7 +40,7 @@ These are the variables that can be passed to the role:
 
 ### zone
 
-Name of the zone that should be modified. The zone parameter is only supported with firewalld. If it is not set for firewalld, the default zone will be used. It will have an effect on these parameters: `service`, `port` and `forward_port` without a given interface or MAC address.
+Name of the zone that should be modified. If it is not set, the default zone will be used. It will have an effect on these parameters: `service`, `port` and `forward_port`.
 
 ```
 zone: 'public'
@@ -83,15 +73,6 @@ trust: 'eth0'
 trust: [ 'eth0', 'eth1' ]
 ```
 
-### trust_by_mac
-
-Interface to add or remove to the trusted interfaces by MAC address or MAC address list. Each MAC address will automatically be mapped to the interface that is using this MAC address. The interface will be added to the trusted zone with firewalld.
-
-```
-trust_by_mac: "00:11:22:33:44:55"
-trust_by_mac: [ "00:11:22:33:44:55", "00:11:22:33:44:56" ]
-```
-
 ### masq
 
 Interface to add or remove to the interfaces that are masqueraded. The interface will be added to the `external` zone with firewalld.
@@ -99,15 +80,6 @@ Interface to add or remove to the interfaces that are masqueraded. The interface
 ```
 masq: 'eth2'
 masq: [ 'eth2', 'eth3' ]
-```
-
-### masq_by_mac
-
-Interface to add or remove to the interfaces that are masqueraded by MAC address or MAC address list. Each MAC address will automatically be mapped to the interface that is using this MAC address. The interface will be added to the `external` zone with firewalld.
-
-```
-masq_by_mac: "11:22:33:44:55:66"
-masq_by_mac: [ "11:22:33:44:55:66", "11:22:33:44:55:67", ]
 ```
 
 ### forward_port
@@ -118,15 +90,6 @@ Add or remove port forwarding for ports or port ranges over an interface. It nee
 forward_port: 'eth0;447/tcp;;1.2.3.4'
 forward_port: [ 'eth0;447/tcp;;1.2.3.4', 'eth0;448/tcp;;1.2.3.5' ]
 forward_port: '447/tcp;;1.2.3.4'
-```
-
-### forward_port_by_mac
-
-Add or remove port forwarding for ports or port ranges over an interface identified by a MAC address or MAC address list. It needs to be in the format ```<mac-addr>;<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>]```. Each MAC address will automatically be mapped to the interface that is using this MAC address.
-
-```
-forward_port_by_mac: '00:11:22:33:44:55;447/tcp;;1.2.3.4'
-forward_port_by_mac: [ '00:11:22:33:44:55;447/tcp;;1.2.3.4', '00:11:22:33:44:56;447/tcp;;1.2.3.4' ]
 ```
 
 ### state
@@ -191,11 +154,8 @@ It is also possible to combine several settings into blocks:
       - { service: 'tftp', state: 'enabled' }
       - { port: '443/tcp', state: 'enabled' }
       - { trust: 'foo', state: 'enabled' }
-      - { trust_by_mac: '00:11:22:33:44:55', state: 'enabled' }
       - { masq: 'foo2', state: 'enabled' }
-      - { masq_by_mac: '00:11:22:33:44:55', state: 'enabled' }
       - { forward_port: 'eth0;445/tcp;;1.2.3.4', state: 'enabled' }
-      - { forward_port_by_mac: '00:11:22:33:44:55;445/tcp;;1.2.3.4',
           state: 'enabled' }
   roles:
     - linux-system-roles.firewall

@@ -66,25 +66,9 @@ options:
     default: null
     type: list
     elements: str
-  trust_by_mac:
-    description:
-      - "Interface to add or remove to the trusted interfaces by MAC address."
-    required: false
-    default: null
-    type: list
-    elements: str
   masq:
     description:
       - "Interface to add or remove to the interfaces that are masqueraded."
-    required: false
-    default: null
-    type: list
-    elements: str
-  masq_by_mac:
-    description:
-      - >-
-        Interface to add or remove to the interfaces that are masqueraded by MAC
-        address.
     required: false
     default: null
     type: list
@@ -95,16 +79,6 @@ options:
         Add or remove port forwarding for ports or port ranges over for interface or zone. Omit the interface part before ';' for use within a zone.
         It needs to be in the format
         [<interface>;]<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>].
-    required: false
-    default: null
-    type: list
-    elements: str
-  forward_port_by_mac:
-    description:
-      - >-
-        Add or remove port forwarding for ports or port ranges over an interface
-        identified by a MAC address. It needs to be in the format
-        <mac-addr>;<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>].
     required: false
     default: null
     type: list
@@ -214,45 +188,8 @@ class ifcfg(object):
         f.close()
 
 
-def get_device_for_mac(mac_addr):
-    """Get device for the MAC address from ifcfg file"""
-
-    if HAS_FIREWALLD_NM and nm_is_imported:
-        client = NM.Client.new(None)
-        for nm_dev in client.get_devices():
-            iface = nm_dev.get_iface()
-            if iface == "lo":
-                continue
-            if nm_dev.get_hw_address().lower() == mac_addr.lower():
-                return iface
-
-    IFCFGDIR = "/etc/sysconfig/network-scripts"
-    # Return quickly if config.IFCFGDIR does not exist
-    if not os.path.exists(IFCFGDIR):
-        return None
-
-    for filename in sorted(os.listdir(IFCFGDIR)):
-        if not filename.startswith("ifcfg-"):
-            continue
-        for ignored in [".bak", ".orig", ".rpmnew", ".rpmorig", ".rpmsave", "-range"]:
-            if filename.endswith(ignored):
-                continue
-        if "." in filename:
-            continue
-        ifcfg_file = ifcfg("%s/%s" % (IFCFGDIR, filename))
-        ifcfg_file.read()
-        hwaddr = ifcfg_file.get("HWADDR")
-        device = ifcfg_file.get("DEVICE")
-        if hwaddr and device and hwaddr.lower() == mac_addr.lower():
-            return device
-    return None
-
-
 def parse_forward_port(module, item, item_type=None):
-    if item_type == "mac":
-        type_string = "forward_port_by_mac"
-    else:
-        type_string = "forward_port"
+    type_string = "forward_port"
 
     args = item.split(";")
     if len(args) == 4:
@@ -271,11 +208,6 @@ def parse_forward_port(module, item, item_type=None):
     if _to_addr == "":
         _to_addr = None
 
-    if item_type == "mac":
-        _interface = get_device_for_mac(_interface)
-        if _interface is None:
-            module.fail_json(msg="MAC address not found %s" % _interface)
-
     return (_interface, _port, _protocol, _to_port, _to_addr)
 
 
@@ -285,11 +217,8 @@ def main():
             service=dict(required=False, type="list", default=[]),
             port=dict(required=False, type="list", default=[]),
             trust=dict(required=False, type="list", default=[]),
-            trust_by_mac=dict(required=False, type="list", default=[]),
             masq=dict(required=False, type="list", default=[]),
-            masq_by_mac=dict(required=False, type="list", default=[]),
             forward_port=dict(required=False, type="list", default=[]),
-            forward_port_by_mac=dict(required=False, type="list", default=[]),
             zone=dict(required=False, type="str", default=None),
             state=dict(choices=["enabled", "disabled"], required=True),
         ),
@@ -298,11 +227,8 @@ def main():
                 "service",
                 "port",
                 "trust",
-                "trust_by_mac",
                 "masq",
-                "masq_by_mac",
                 "forward_port",
-                "forward_port_by_mac",
             ],
         ),
         supports_check_mode=True,
@@ -319,25 +245,10 @@ def main():
             module.fail_json(msg="improper port format (missing protocol?)")
         port.append((_port, _protocol))
     trust = module.params["trust"]
-    trust_by_mac = []
-    for item in module.params["trust_by_mac"]:
-        _interface = get_device_for_mac(item)
-        if _interface is None:
-            module.fail_json(msg="MAC address not found %s" % item)
-        trust_by_mac.append(_interface)
     masq = module.params["masq"]
-    masq_by_mac = []
-    for item in module.params["masq_by_mac"]:
-        _interface = get_device_for_mac(item)
-        if _interface is None:
-            module.fail_json(msg="MAC address not found %s" % item)
-        masq_by_mac.append(_interface)
     forward_port = []
     for item in module.params["forward_port"]:
         forward_port.append(parse_forward_port(module, item))
-    forward_port_by_mac = []
-    for item in module.params["forward_port_by_mac"]:
-        forward_port_by_mac.append(parse_forward_port(module, item, "mac"))
 
     zone = module.params["zone"]
     desired_state = module.params["state"]
@@ -406,12 +317,8 @@ def main():
                     changed = True
                     changed_zones[zone] = fw_settings
 
-        # trust, trust_by_mac
-        if len(trust) > 0 or len(trust_by_mac) > 0:
-            items = trust
-            if len(trust_by_mac) > 0:
-                items.extend(trust_by_mac)
-
+        # trust
+        if len(trust) > 0:
             if zone != trusted_zone:
                 _zone = trusted_zone
                 _fw_zone = fw.config().getZoneByName(_zone)
@@ -424,7 +331,7 @@ def main():
                 _fw_zone = fw_zone
                 _fw_settings = fw_settings
 
-            for item in items:
+            for item in trust:
                 if desired_state == "enabled":
                     if try_set_zone_of_interface(_zone, item):
                         changed = True
@@ -449,12 +356,8 @@ def main():
                             changed = True
                             changed_zones[_zone] = _fw_settings
 
-        # masq, masq_by_mac
-        if len(masq) > 0 or len(masq_by_mac) > 0:
-            items = masq
-            if len(masq_by_mac) > 0:
-                items.extend(masq_by_mac)
-
+        # masq
+        if len(masq) > 0:
             if zone != external_zone:
                 _zone = external_zone
                 _fw_zone = fw.config().getZoneByName(_zone)
@@ -467,7 +370,7 @@ def main():
                 _fw_zone = fw_zone
                 _fw_settings = fw_settings
 
-            for item in items:
+            for item in masq:
                 if desired_state == "enabled":
                     if try_set_zone_of_interface(_zone, item):
                         changed = True
@@ -492,16 +395,9 @@ def main():
                             changed = True
                             changed_zones[_zone] = _fw_settings
 
-        # forward_port, forward_port_by_mac
-        if (
-            len(forward_port) > 0
-            or len(forward_port_by_mac) > 0
-        ):
-            items = forward_port
-            if len(forward_port_by_mac) > 0:
-                items.extend(forward_port_by_mac)
-
-            for _interface, _port, _protocol, _to_port, _to_addr in items:
+        # forward_port
+        if len(forward_port) > 0:
+            for _interface, _port, _protocol, _to_port, _to_addr in forward_port:
                 if _interface != "":
                     _zone = fw.getZoneOfInterface(_interface)
                 else:
