@@ -5,7 +5,19 @@
     zone: "{{ item.zone | default(omit) }}"
     service: "{{ item.service | default(omit) }}"
     port: "{{ item.port | default(omit) }}"
+    source_port: "{{ item.source_port | default(omit) }}"
     forward_port: "{{ item.forward_port | default(omit) }}"
+    masquerade: "{{ item.masquerade | default(omit) }}"
+    rich_rule: "{{ item.rich_rule | default(omit) }}"
+    source: "{{ item.source | default(omit) }}"
+    interface: "{{ item.interface | default(omit) }}"
+    icmp_block: "{{ item.icmp_block | default(omit) }}"
+    icmp_block_inversion: "{{ item.icmp_block_inversion | default(omit) }}"
+    timeout: "{{ item.timeout | default(omit) }}"
+    target: "{{ item.target | default(omit) }}"
+    permanent: yes
+    runtime: yes
+    offline: no
     state: "{{ item.state }}"
   with_items:
     - "{{ firewall }}"
