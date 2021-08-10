@@ -3,7 +3,7 @@ galaxy_info:
   description: Configure firewalld and system-config-firewall/lokkit
   company: Red Hat, Inc.
   license: GPLv2+
-  min_ansible_version: 2.7
+  min_ansible_version: 2.9
   galaxy_tags: [ 'firewall', 'system' ]
   platforms:
     - name: Fedora
