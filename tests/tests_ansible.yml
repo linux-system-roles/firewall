@@ -1,0 +1,374 @@
+- name: Ensure that the roles runs with default parameters
+  hosts: all
+  become: true
+
+  tasks:
+  - import_role:
+      name: linux-system-roles.firewall
+
+  - name: Test firewalld posix compatibility
+    block:
+
+      # INIT TEST
+
+      - name: Remove custom zone
+        command: firewall-cmd --permanent --delete-zone=custom
+        register: result
+        failed_when: result.failed and "INVALID_ZONE" not in result.stderr
+
+      - name: Reset internal zone to defaults
+        command: firewall-cmd --permanent --load-zone-defaults=internal
+        register: result
+        failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+
+      - name: Reset trusted zone to defaults
+        command: firewall-cmd --permanent --load-zone-defaults=trusted
+        register: result
+        failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+
+      - name: Reset dmz zone to defaults
+        command: firewall-cmd --permanent --load-zone-defaults=dmz
+        register: result
+        failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+
+      - name: Reset drop zone to defaults
+        command: firewall-cmd --permanent --load-zone-defaults=drop
+        register: result
+        failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+
+      - name: Reset public zone to defaults
+        command: firewall-cmd --permanent --load-zone-defaults=public
+        register: result
+        failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+
+      - name: Reset default zone to defaults
+        shell:
+          cmd: |
+            zone=$(firewall-cmd --get-default-zone)
+            firewall-cmd --permanent --load-zone-defaults=$zone
+        register: result
+        failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+
+      - name: Create custom zone
+        command: firewall-cmd --permanent --new-zone=custom
+        register: result
+        failed_when: result.failed or not result.changed
+
+      - name: Reload firewalld
+        command: firewall-cmd --reload
+        register: result
+        failed_when: result.failed or not result.changed
+
+      # TEST
+
+      - name: Permit traffic in default zone for https service
+        firewall_lib:
+          service: https
+          permanent: yes
+          state: enabled
+        register: result
+        failed_when: result.failed or not result.changed
+
+      - name: Permit traffic in default zone for https service, again
+        firewall_lib:
+          service: https
+          permanent: yes
+          state: enabled
+        register: result
+        failed_when: result.failed or result.changed
+
+      - name: Permit traffic in default zone on port 8081/tcp
+        firewall_lib:
+          port: 8081/tcp
+          permanent: yes
+          state: enabled
+        register: result
+        failed_when: result.failed or not result.changed
+
+      - name: Permit traffic in default zone on port 8081/tcp, again
+        firewall_lib:
+          port: 8081/tcp
+          permanent: yes
+          state: enabled
+        register: result
+        failed_when: result.failed or result.changed
+
+      - name: Allow port 161-162/udp in permanent default zone
+        firewall_lib:
+          port: 161-162/udp
+          permanent: yes
+          state: enabled
+        register: result
+        failed_when: result.failed or not result.changed
+
+      - name: Allow port 161-162/udp in permanent default zone, again
+        firewall_lib:
+          port: 161-162/udp
+          permanent: yes
+          state: enabled
+        register: result
+        failed_when: result.failed or result.changed
+
+      - name: Do not permit traffic in default zone on port 8081/tcp
+        firewall_lib:
+          port: 8081/tcp
+          permanent: yes
+          state: disabled
+        register: result
+        failed_when: result.failed or not result.changed
+
+      - name: Do not permit traffic in default zone on port 8081/tcp, again
+        firewall_lib:
+          port: 8081/tcp
+          permanent: yes
+          state: disabled
+        register: result
+        failed_when: result.failed or result.changed
+
+      - name: Allow service http in permanent dmz zone
+        firewall_lib:
+          zone: dmz
+          service: http
+          permanent: yes
+          state: enabled
+        register: result
+        failed_when: result.failed or not result.changed
+
+      - name: Allow service http in permanent dmz zone, again
+        firewall_lib:
+          zone: dmz
+          service: http
+          permanent: yes
+          state: enabled
+        register: result
+        failed_when: result.failed or result.changed
+
+      - name: Allow service ftp with limitation using rich rule in permanent
+              default zone
+        firewall_lib:
+          rich_rule: rule service name="ftp" audit limit value="1/m" accept
+          permanent: yes
+          state: enabled
+        register: result
+        failed_when: result.failed or not result.changed
+
+      - name: Allow service ftp with limitation using rich rule in permanent
+              default zone, again
+        firewall_lib:
+          rich_rule: rule service name="ftp" audit limit value="1/m" accept
+          permanent: yes
+          state: enabled
+        register: result
+        failed_when: result.failed or result.changed
+
+      - name: Allow source 192.0.2.0/24 in internal zone
+        firewall_lib:
+          source: 192.0.2.0/24
+          zone: internal
+          state: enabled
+        register: result
+        failed_when: result.failed or not result.changed
+
+      - name: Allow source 192.0.2.0/24 in internal zone, again
+        firewall_lib:
+          source: 192.0.2.0/24
+          zone: internal
+          state: enabled
+        register: result
+        failed_when: result.failed or result.changed
+
+      - name: Allow interface eth2 in permanent trusted zone
+        firewall_lib:
+          zone: trusted
+          interface: eth2
+          permanent: yes
+          state: enabled
+        register: result
+        failed_when: result.failed or not result.changed
+
+      - name: Allow interface eth2 in permanent trusted zone, again
+        firewall_lib:
+          zone: trusted
+          interface: eth2
+          permanent: yes
+          state: enabled
+        register: result
+        failed_when: result.failed or result.changed
+
+      - name: Allow masquerading in permament dmz zone
+        firewall_lib:
+          masquerade: yes
+          state: enabled
+          permanent: yes
+          zone: dmz
+        register: result
+        failed_when: result.failed or not result.changed
+
+      - name: Allow masquerading in permament dmz zone, again
+        firewall_lib:
+          masquerade: yes
+          state: enabled
+          permanent: yes
+          zone: dmz
+        register: result
+        failed_when: result.failed or result.changed
+
+      - name: Ensure permanent custom zone exists (no change)
+        firewall_lib:
+          zone: custom
+          state: enabled
+          permanent: yes
+        register: result
+        failed_when: result.failed or result.changed
+
+      - name: Ensure ICMP block inversion in permanent drop zone
+        firewall_lib:
+          zone: drop
+          state: enabled
+          permanent: yes
+          icmp_block_inversion: yes
+        register: result
+        failed_when: result.failed or not result.changed
+
+      - name: Ensure ICMP block inversion in permanent drop zone, again
+        firewall_lib:
+          zone: drop
+          state: enabled
+          permanent: yes
+          icmp_block_inversion: yes
+        register: result
+        failed_when: result.failed or result.changed
+
+      - name: Block ICMP echo-request in permanent drop zone
+        firewall_lib:
+          zone: drop
+          state: enabled
+          permanent: yes
+          icmp_block: echo-request
+        register: result
+        failed_when: result.failed or not result.changed
+
+      - name: Block ICMP echo-request in permanent drop zone, again
+        firewall_lib:
+          zone: drop
+          state: enabled
+          permanent: yes
+          icmp_block: echo-request
+        register: result
+        failed_when: result.failed or result.changed
+
+      - name: Ensure default target in permanent internal zone (no change)
+        firewall_lib:
+          zone: internal
+          state: enabled
+          permanent: yes
+          target: default
+        register: result
+        failed_when: result.failed or result.changed
+
+      - name: Ensure target ACCEPT in permanent internal zone
+        firewall_lib:
+          zone: internal
+          state: enabled
+          permanent: yes
+          target: ACCEPT
+        register: result
+        failed_when: result.failed or not result.changed
+
+      - name: Ensure target ACCEPT in permanent internal zone, again
+        firewall_lib:
+          zone: internal
+          state: enabled
+          permanent: yes
+          target: ACCEPT
+        register: result
+        failed_when: result.failed or result.changed
+
+      - name: Ensure default target in permanent internal zone
+        firewall_lib:
+          zone: internal
+          state: enabled
+          permanent: yes
+          target: default
+        register: result
+        failed_when: result.failed or not result.changed
+
+      - name: Ensure default target in permanent internal zone, again
+        firewall_lib:
+          zone: internal
+          state: enabled
+          permanent: yes
+          target: default
+        register: result
+        failed_when: result.failed or result.changed
+
+      - name: Redirect port 443 to 8443 with Rich Rule in permanent and
+              runtime public zone
+        firewall_lib:
+          rich_rule: rule family=ipv4 forward-port port=443 protocol=tcp
+                     to-port=8443
+          zone: public
+          permanent: yes
+          immediate: yes
+          state: enabled
+        register: result
+        failed_when: result.failed or not result.changed
+
+      - name: Redirect port 443 to 8443 with Rich Rule in permanent and
+              runtime public zone, again
+        firewall_lib:
+          rich_rule: rule family=ipv4 forward-port port=443 protocol=tcp
+                     to-port=8443
+          zone: public
+          permanent: yes
+          immediate: yes
+          state: enabled
+        register: result
+        failed_when: result.failed or result.changed
+
+    always:
+
+      # CLEANUP: RESET TO ZONE DEFAULTS
+
+      - name: Remove custom zone
+        command: firewall-cmd --permanent --delete-zone=custom
+        register: result
+        failed_when: result.failed and "INVALID_ZONE" not in result.stderr
+
+      - name: Reset internal zone to defaults
+        command: firewall-cmd --permanent --load-zone-defaults=internal
+        register: result
+        failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+
+      - name: Reset trusted zone to defaults
+        command: firewall-cmd --permanent --load-zone-defaults=trusted
+        register: result
+        failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+
+      - name: Reset dmz zone to defaults
+        command: firewall-cmd --permanent --load-zone-defaults=dmz
+        register: result
+        failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+
+      - name: Reset drop zone to defaults
+        command: firewall-cmd --permanent --load-zone-defaults=drop
+        register: result
+        failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+
+      - name: Reset public zone to defaults
+        command: firewall-cmd --permanent --load-zone-defaults=public
+        register: result
+        failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+
+      - name: Reset default zone to defaults
+        shell:
+          cmd: |
+            zone=$(firewall-cmd --get-default-zone)
+            firewall-cmd --permanent --load-zone-defaults=$zone
+        register: result
+        failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+
+      - name: Reload firewalld
+        command: firewall-cmd --reload
+        register: result
+        failed_when: result.failed or not result.changed
