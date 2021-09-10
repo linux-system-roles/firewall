@@ -481,9 +481,9 @@ def test_module_parameters(method, state, input, expected):
     fw_client_patcher = patch("firewall_lib.FirewallClient", create=True)
     fw_client = fw_client_patcher.start()
     has_fw_patcher = patch("firewall_lib.HAS_FIREWALLD", True)
-    _ = has_fw_patcher.start()
+    has_fw_patcher.start()
     fw_ver_patcher = patch("firewall_lib.FW_VERSION", "0.3.8", create=True)
-    _ = fw_ver_patcher.start()
+    fw_ver_patcher.start()
     rich_rule_patcher = patch("firewall_lib.Rich_Rule", create=True)
     rich_rule = rich_rule_patcher.start()
 
