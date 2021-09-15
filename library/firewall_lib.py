@@ -65,6 +65,7 @@ options:
       List of forward port strings.
       The format of a forward port needs to be
       <port>[-<port>]/<protocol>;[<to-port>];[<to-addr>].
+    aliases: ["port_forward"]
     required: false
     type: list
     elements: str
@@ -159,7 +160,7 @@ options:
       Ensure presence or absence of entries.
     required: true
     type: str
-    choices: ["enabled", "disabled"]
+    choices: ["enabled", "disabled","present","absent"]
 """
 
 from ansible.module_utils.basic import AnsibleModule
@@ -187,19 +188,38 @@ def parse_port(module, item):
 def parse_forward_port(module, item):
     type_string = "forward_port"
 
-    args = item.split(";")
-    if len(args) == 3:
-        __port, _to_port, _to_addr = args
+    if isinstance(item, dict):
+        if "port" not in item:
+            module.fail_json(
+                msg="%s is missing field 'port' in %s" % (type_string, item)
+            )
+        else:
+            _port = str(item["port"])
+        if "proto" not in item:
+            module.fail_json(
+                msg="%s is missing field 'proto' in %s" % (type_string, item)
+            )
+        else:
+            _protocol = item["proto"]
+        if "toport" in item:
+            _to_port = str(item["toport"])
+        else:
+            _to_port = None
+        _to_addr = item.get("toaddr")
     else:
-        module.fail_json(msg="improper %s format: %s" % (type_string, item))
+        args = item.split(";")
+        if len(args) == 3:
+            __port, _to_port, _to_addr = args
+        else:
+            module.fail_json(msg="improper %s format: %s" % (type_string, item))
 
-    _port, _protocol = __port.split("/")
-    if _protocol is None:
-        module.fail_json(msg="improper %s format (missing protocol?)" % type_string)
-    if _to_port == "":
-        _to_port = None
-    if _to_addr == "":
-        _to_addr = None
+        _port, _protocol = __port.split("/")
+        if _protocol is None:
+            module.fail_json(msg="improper %s format (missing protocol?)" % type_string)
+        if _to_port == "":
+            _to_port = None
+        if _to_addr == "":
+            _to_addr = None
 
     return (_port, _protocol, _to_port, _to_addr)
 
@@ -210,7 +230,19 @@ def main():
             service=dict(required=False, type="list", default=[]),
             port=dict(required=False, type="list", default=[]),
             source_port=dict(required=False, type="list", default=[]),
-            forward_port=dict(required=False, type="list", default=[]),
+            forward_port=dict(
+                required=False,
+                type="list",
+                default=[],
+                aliases=["port_forward"],
+                deprecated_aliases=[
+                    {
+                        "name": "port_forward",
+                        "date": "2021-09-23",
+                        "collection": "ansible.posix",
+                    },
+                ],
+            ),
             masquerade=dict(required=False, type="bool", default=None),
             rich_rule=dict(required=False, type="list", default=[]),
             source=dict(required=False, type="list", default=[]),
@@ -227,12 +259,28 @@ def main():
             zone=dict(required=False, type="str", default=None),
             permanent=dict(required=False, type="bool", default=None),
             runtime=dict(
-                required=False, type="bool", aliases=["immediate"], default=None
+                required=False,
+                type="bool",
+                default=None,
+                aliases=["immediate"],
+                deprecated_aliases=[
+                    {
+                        "name": "immediate",
+                        "date": "2021-09-23",
+                        "collection": "ansible.posix",
+                    },
+                ],
             ),
             offline=dict(required=False, type="bool", default=None),
-            state=dict(choices=["enabled", "disabled"], required=True),
+            state=dict(
+                choices=["enabled", "disabled", "present", "absent"], required=True
+            ),
         ),
         supports_check_mode=True,
+        required_if=(
+            ("state", "present", ("target", "zone"), True),
+            ("state", "absent", ("target", "zone"), True),
+        ),
     )
 
     if not HAS_FIREWALLD:
@@ -270,34 +318,56 @@ def main():
 
     if permanent is None:
         runtime = True
-    elif not permanent:
-        if (runtime is not None and not runtime) and (
-            offline is not None and not offline
-        ):
-            module.fail_json(
-                msg="One of permanent, runtime or offline needs to be enabled"
-            )
+    elif not any((permanent, runtime, offline)):
+        module.fail_json(msg="One of permanent, runtime or offline needs to be enabled")
 
     if (
         masquerade is None
         and icmp_block_inversion is None
         and target is None
         and zone is None
-        and len(service)
-        + len(port)
-        + len(source_port)
-        + len(forward_port)
-        + len(rich_rule)
-        + len(source)
-        + len(interface)
-        + len(icmp_block)
-        == 0
+        and not any(
+            (
+                service,
+                port,
+                source_port,
+                forward_port,
+                rich_rule,
+                source,
+                interface,
+                icmp_block,
+            )
+        )
     ):
         module.fail_json(
             msg="One of service, port, source_port, forward_port, "
             "masquerade, rich_rule, source, interface, icmp_block, "
             "icmp_block_inversion, target or zone needs to be set"
         )
+
+    zone_operation = False
+    if state == "present" or state == "absent":
+        if (
+            masquerade is not None
+            and icmp_block_inversion is not None
+            and any(
+                (
+                    service,
+                    port,
+                    source_port,
+                    forward_port,
+                    rich_rule,
+                    source,
+                    interface,
+                    icmp_block,
+                )
+            )
+        ):
+            module.fail_json(
+                msg="The states present and absent can only be used in zone level operations (i.e. when no other parameters but zone and state are set)."
+            )
+        if target is None and zone is not None:
+            zone_operation = True
 
     # Parameter checks
     if state == "disabled":
@@ -317,15 +387,16 @@ def main():
         #     )
 
     if timeout > 0:
-        _timeout_ok = (
-            masquerade
-            or len(service)
-            + len(port)
-            + len(source_port)
-            + len(forward_port)
-            + len(rich_rule)
-            + len(icmp_block)
-            > 0
+        _timeout_ok = any(
+            (
+                masquerade,
+                service,
+                port,
+                source_port,
+                forward_port,
+                rich_rule,
+                icmp_block,
+            )
         )
 
         if icmp_block_inversion is not None and not _timeout_ok:
@@ -349,15 +420,16 @@ def main():
 
     fw_offline = False
     if not fw.connected:
-        if not offline:
+        if offline is False:
             module.fail_json(
-                msg="Firewalld is not running and offline operation is " "declined."
+                msg="Firewalld is not running and offline operation is declined."
             )
 
         # Firewalld is not currently running, permanent-only operations
         fw_offline = True
         runtime = False
         permanent = True
+        offline = True
 
         # Pre-run version checking
         if LooseVersion(FW_VERSION) < LooseVersion("0.3.9"):
@@ -392,36 +464,52 @@ def main():
         fw.setExceptionHandler(exception_handler)
 
     # Get default zone, the permanent zone and settings
+    fw_zone = None
+    fw_settings = None
     if fw_offline:
-        default_zone = fw.get_default_zone()
-
-        if zone is not None:
-            if zone not in fw.zone.get_zones():
-                module.fail_json(msg="Permanent zone '%s' does not exist." % zone)
-        else:
-            zone = default_zone
-
-        fw_zone = fw.config.get_zone(zone)
-        fw_settings = FirewallClientZoneSettings(
-            list(fw.config.get_zone_config(fw_zone))
-        )
+        # if zone is None, we will use default zone which always exists
+        zone_exists = zone is None or zone in fw.zone.get_zones()
+        if not zone_exists and not zone_operation:
+            module.fail_json(msg="Permanent zone '%s' does not exist." % zone)
+        elif zone_exists:
+            zone = zone or fw.get_default_zone()
+            fw_zone = fw.config.get_zone(zone)
+            fw_settings = FirewallClientZoneSettings(
+                list(fw.config.get_zone_config(fw_zone))
+            )
     else:
-        default_zone = fw.getDefaultZone()
+        zone_exists = False
+        if runtime:
+            zone_exists = zone_exists or zone is None or zone in fw.getZones()
+            err_str = "Runtime"
+        if permanent:
+            zone_exists = (
+                zone_exists or zone is None or zone in fw.config().getZoneNames()
+            )
+            err_str = "Permanent"
 
-        if zone is not None:
-            if runtime and zone not in fw.getZones():
-                module.fail_json(msg="Runtime zone '%s' does not exist." % zone)
-            if permanent and zone not in fw.config().getZoneNames():
-                module.fail_json(msg="Permanent zone '%s' does not exist." % zone)
-        else:
-            zone = default_zone
-
-        fw_zone = fw.config().getZoneByName(zone)
-        fw_settings = fw_zone.getSettings()
-
+        if not zone_exists and not zone_operation:
+            module.fail_json(msg="%s zone '%s' does not exist." % (err_str, zone))
+        elif zone_exists:
+            zone = zone or fw.getDefaultZone()
+            fw_zone = fw.config().getZoneByName(zone)
+            fw_settings = fw_zone.getSettings()
     # Firewall modification starts here
 
     changed = False
+
+    # zone
+    if zone_operation:
+        if state == "present" and not zone_exists:
+            if not module.check_mode:
+                fw.config().addZone(zone, FirewallClientZoneSettings())
+            changed = True
+        elif state == "absent" and zone_exists:
+            if not module.check_mode:
+                fw_zone.remove()
+            changed = True
+            fw_zone = None
+            fw_settings = None
 
     # service
     for item in service:
@@ -564,7 +652,7 @@ def main():
     # source
     for item in source:
         if state == "enabled":
-            if not fw.querySource(zone, item):
+            if runtime and not fw.querySource(zone, item):
                 if not module.check_mode:
                     fw.addSource(zone, item)
                 changed = True
@@ -573,7 +661,7 @@ def main():
                     fw_settings.addSource(item)
                 changed = True
         elif state == "disabled":
-            if fw.querySource(zone, item):
+            if runtime and fw.querySource(zone, item):
                 if not module.check_mode:
                     fw.removeSource(zone, item)
                 changed = True
@@ -647,19 +735,21 @@ def main():
 
     # target
     if target is not None:
-        if state == "enabled":
+        if state in ["enabled", "present"]:
             if permanent and fw_settings.getTarget() != target:
                 if not module.check_mode:
                     fw_settings.setTarget(target)
                 changed = True
-        elif state == "disabled":
+        elif state in ["absent", "disabled"]:
+            if state == "absent":
+                target = "default"
             if permanent and fw_settings.getTarget() != target:
                 if not module.check_mode:
                     fw_settings.setTarget(target)
                 changed = True
 
     # apply permanent changes
-    if permanent:
+    if permanent and fw_zone and fw_settings:
         if fw_offline:
             fw.config.set_zone_config(fw_zone, fw_settings.settings)
         else:
