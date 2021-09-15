@@ -326,6 +326,18 @@
         register: result
         failed_when: result.failed or result.changed
 
+      - name: Firewalld custom zone
+        firewall_lib:
+          zone: customzone
+          state: present
+          permanent: yes
+        register: result
+        
+      - name: assert firewalld custom zone
+        assert:
+          that:
+          - result is changed
+
     always:
 
       # CLEANUP: RESET TO ZONE DEFAULTS

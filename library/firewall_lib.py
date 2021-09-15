@@ -230,7 +230,9 @@ def main():
                 required=False, type="bool", aliases=["immediate"], default=None
             ),
             offline=dict(required=False, type="bool", default=None),
-            state=dict(choices=["enabled", "disabled"], required=True),
+            state=dict(
+                choices=["enabled", "disabled", "present", "absent"], required=True
+            ),
         ),
         supports_check_mode=True,
     )
@@ -298,6 +300,29 @@ def main():
             "masquerade, rich_rule, source, interface, icmp_block, "
             "icmp_block_inversion, target or zone needs to be set"
         )
+
+    if state == "present" or state == "absent":
+        if zone is None:
+            module.fail_json(
+                msg="Zone must be set in order to use present or absent state"
+            )
+        elif (
+            masquerade is not None
+            and icmp_block_inversion is not None
+            and target is None
+            and len(service)
+            + len(port)
+            + len(source_port)
+            + len(forward_port)
+            + len(rich_rule)
+            + len(source)
+            + len(interface)
+            + len(icmp_block)
+            > 0
+        ):
+            module.fail_json(
+                msg="The states present and absent can only be used in zone level operations (i.e. when no other parameters but zone and state are set)."
+            )
 
     # Parameter checks
     if state == "disabled":
@@ -397,7 +422,7 @@ def main():
 
         if zone is not None:
             if zone not in fw.zone.get_zones():
-                module.fail_json(msg="Permanent zone '%s' does not exist." % zone)
+                module.fail_json(msg="Permanent zone bub '%s' does not exist." % zone)
         else:
             zone = default_zone
 
@@ -409,19 +434,26 @@ def main():
         default_zone = fw.getDefaultZone()
 
         if zone is not None:
-            if runtime and zone not in fw.getZones():
-                module.fail_json(msg="Runtime zone '%s' does not exist." % zone)
-            if permanent and zone not in fw.config().getZoneNames():
-                module.fail_json(msg="Permanent zone '%s' does not exist." % zone)
+            if state not in ["present", "absent"]:
+                if runtime and zone not in fw.getZones():
+                    module.fail_json(msg="Runtime zone '%s' does not exist." % zone)
+                if permanent and zone not in fw.config().getZoneNames():
+                    module.fail_json(msg="Permanent zone '%s' does not exist." % zone)
         else:
             zone = default_zone
 
         fw_zone = fw.config().getZoneByName(zone)
         fw_settings = fw_zone.getSettings()
-
     # Firewall modification starts here
 
     changed = False
+
+    # zone
+    if zone is not None:
+        if state == "present":
+            fw.config().addZone(zone, fw_settings)
+        elif state == "absent":
+            fw_zone.remove()
 
     # service
     for item in service:
