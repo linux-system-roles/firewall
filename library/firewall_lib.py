@@ -157,10 +157,11 @@ options:
     default: no
   state:
     description:
-      Ensure presence or absence of entries.
+      Ensure presence or absence of entries.  Use C(present) and C(absent) only
+      for zone-only operations, or for target operations.
     required: true
     type: str
-    choices: ["enabled", "disabled","present","absent"]
+    choices: ["enabled", "disabled", "present", "absent"]
 """
 
 from ansible.module_utils.basic import AnsibleModule
@@ -741,8 +742,7 @@ def main():
                     fw_settings.setTarget(target)
                 changed = True
         elif state in ["absent", "disabled"]:
-            if state == "absent":
-                target = "default"
+            target = "default"
             if permanent and fw_settings.getTarget() != target:
                 if not module.check_mode:
                     fw_settings.setTarget(target)
