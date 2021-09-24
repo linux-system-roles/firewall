@@ -425,7 +425,7 @@ def main():
                 module.fail_json(msg="Permanent zone bub '%s' does not exist." % zone)
         else:
             zone = default_zone
-
+        
         fw_zone = fw.config.get_zone(zone)
         fw_settings = FirewallClientZoneSettings(
             list(fw.config.get_zone_config(fw_zone))
@@ -444,9 +444,36 @@ def main():
 
         fw_zone = fw.config().getZoneByName(zone)
         fw_settings = fw_zone.getSettings()
+        
+        will_catch= False
+        if zone is not None:
+            if state=="present" or state == "absent":
+                 will_catch= True
+            if will_catch:
+                try:
+                    fw_zone = fw.config().getZoneByName(zone)
+                    fw_settings = fw_zone.getSettings()
+                    #if state=="present":
+                        #module.fail_json(msg="can't add dupilcate zone")
+                except:
+                    if state == "absent":
+                        module.fail_json(msg="can't remove zone that doesn't exist")
+                    pass
+            else:
+                fw_zone = fw.config().getZoneByName(zone)
+                fw_settings = fw_zone.getSettings()
+
+
     # Firewall modification starts here
 
     changed = False
+    
+    # zone
+    if zone is not None:
+        if state == "present":
+            fw.config().addZone(zone,FirewallClientZoneSettings())
+        elif state == "absent":
+            fw_zone.remove()
 
     # zone
     if zone is not None:
