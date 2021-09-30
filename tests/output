@@ -1,0 +1,905 @@
+[DEPRECATION WARNING]: Ansible will require Python 3.8 or newer on the 
+controller starting with Ansible 2.12. Current version: 3.6.8 (default, Mar 18 
+2021, 08:58:41) [GCC 8.4.1 20200928 (Red Hat 8.4.1-1)]. This feature will be 
+removed from ansible-core in version 2.12. Deprecation warnings can be disabled
+ by setting deprecation_warnings=False in ansible.cfg.
+ansible-playbook [core 2.11.2] 
+  config file = None
+  configured module search path = ['/home/vpunj/.ansible/plugins/modules', '/usr/share/ansible/plugins/modules']
+  ansible python module location = /home/vpunj/.local/lib/python3.6/site-packages/ansible
+  ansible collection location = /home/vpunj/.ansible/collections:/usr/share/ansible/collections
+  executable location = /home/vpunj/.local/bin/ansible-playbook
+  python version = 3.6.8 (default, Mar 18 2021, 08:58:41) [GCC 8.4.1 20200928 (Red Hat 8.4.1-1)]
+  jinja version = 3.0.1
+  libyaml = True
+No config file found; using defaults
+statically imported: /home/vpunj/firewall/tasks/firewalld.yml
+redirecting (type: callback) ansible.builtin.debug to ansible.posix.debug
+redirecting (type: callback) ansible.builtin.debug to ansible.posix.debug
+Skipping callback 'default', as we already have a stdout callback.
+Skipping callback 'minimal', as we already have a stdout callback.
+Skipping callback 'oneline', as we already have a stdout callback.
+
+PLAYBOOK: tests_ansible.yml ****************************************************
+1 plays in tests_ansible.yml
+
+PLAY [Ensure that the roles runs with default parameters] **********************
+
+TASK [Gathering Facts] *********************************************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:1
+ok: [/home/vpunj/.cache/centos-8.qcow2]
+META: ran handlers
+
+TASK [linux-system-roles.firewall : Install firewalld] *************************
+task path: /home/vpunj/firewall/tasks/firewalld.yml:2
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "rc": 0,
+    "results": [
+        "Installed: python3-firewall-0.8.2-7.el8_4.noarch",
+        "Installed: libnetfilter_conntrack-1.0.6-5.el8.x86_64",
+        "Installed: firewalld-0.8.2-7.el8_4.noarch",
+        "Installed: python3-nftables-1:0.9.3-18.el8.x86_64",
+        "Installed: firewalld-filesystem-0.8.2-7.el8_4.noarch",
+        "Installed: libnfnetlink-1.0.1-13.el8.x86_64",
+        "Installed: libnftnl-1.1.5-4.el8.x86_64",
+        "Installed: ipset-7.1-1.el8.x86_64",
+        "Installed: ipset-libs-7.1-1.el8.x86_64",
+        "Installed: nftables-1:0.9.3-18.el8.x86_64",
+        "Installed: iptables-1.8.4-17.el8.x86_64",
+        "Installed: iptables-ebtables-1.8.4-17.el8.x86_64"
+    ]
+}
+
+TASK [linux-system-roles.firewall : Install python-firewall] *******************
+task path: /home/vpunj/firewall/tasks/firewalld.yml:7
+skipping: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": false,
+    "skip_reason": "Conditional result was False"
+}
+
+TASK [linux-system-roles.firewall : Install python3-firewall] ******************
+task path: /home/vpunj/firewall/tasks/firewalld.yml:13
+ok: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": false,
+    "rc": 0,
+    "results": []
+}
+
+MSG:
+
+Nothing to do
+
+TASK [linux-system-roles.firewall : Enable and start firewalld service] ********
+task path: /home/vpunj/firewall/tasks/firewalld.yml:19
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "enabled": true,
+    "name": "firewalld",
+    "state": "started",
+    "status": {
+        "ActiveEnterTimestampMonotonic": "0",
+        "ActiveExitTimestampMonotonic": "0",
+        "ActiveState": "inactive",
+        "After": "polkit.service system.slice basic.target sysinit.target dbus.service dbus.socket",
+        "AllowIsolate": "no",
+        "AllowedCPUs": "",
+        "AllowedMemoryNodes": "",
+        "AmbientCapabilities": "",
+        "AssertResult": "no",
+        "AssertTimestampMonotonic": "0",
+        "Before": "network-pre.target multi-user.target shutdown.target",
+        "BlockIOAccounting": "no",
+        "BlockIOWeight": "[not set]",
+        "BusName": "org.fedoraproject.FirewallD1",
+        "CPUAccounting": "no",
+        "CPUAffinity": "",
+        "CPUAffinityFromNUMA": "no",
+        "CPUQuotaPerSecUSec": "infinity",
+        "CPUQuotaPeriodUSec": "infinity",
+        "CPUSchedulingPolicy": "0",
+        "CPUSchedulingPriority": "0",
+        "CPUSchedulingResetOnFork": "no",
+        "CPUShares": "[not set]",
+        "CPUUsageNSec": "[not set]",
+        "CPUWeight": "[not set]",
+        "CacheDirectoryMode": "0755",
+        "CanFreeze": "yes",
+        "CanIsolate": "no",
+        "CanReload": "yes",
+        "CanStart": "yes",
+        "CanStop": "yes",
+        "CapabilityBoundingSet": "cap_chown cap_dac_override cap_dac_read_search cap_fowner cap_fsetid cap_kill cap_setgid cap_setuid cap_setpcap cap_linux_immutable cap_net_bind_service cap_net_broadcast cap_net_admin cap_net_raw cap_ipc_lock cap_ipc_owner cap_sys_module cap_sys_rawio cap_sys_chroot cap_sys_ptrace cap_sys_pacct cap_sys_admin cap_sys_boot cap_sys_nice cap_sys_resource cap_sys_time cap_sys_tty_config cap_mknod cap_lease cap_audit_write cap_audit_control cap_setfcap cap_mac_override cap_mac_admin cap_syslog cap_wake_alarm cap_block_suspend cap_audit_read cap_perfmon",
+        "CollectMode": "inactive",
+        "ConditionResult": "no",
+        "ConditionTimestampMonotonic": "0",
+        "ConfigurationDirectoryMode": "0755",
+        "Conflicts": "nftables.service iptables.service shutdown.target ip6tables.service ipset.service ebtables.service",
+        "ControlPID": "0",
+        "DefaultDependencies": "yes",
+        "DefaultMemoryLow": "0",
+        "DefaultMemoryMin": "0",
+        "Delegate": "no",
+        "Description": "firewalld - dynamic firewall daemon",
+        "DevicePolicy": "auto",
+        "Documentation": "man:firewalld(1)",
+        "DynamicUser": "no",
+        "EffectiveCPUs": "",
+        "EffectiveMemoryNodes": "",
+        "EnvironmentFiles": "/etc/sysconfig/firewalld (ignore_errors=yes)",
+        "ExecMainCode": "0",
+        "ExecMainExitTimestampMonotonic": "0",
+        "ExecMainPID": "0",
+        "ExecMainStartTimestampMonotonic": "0",
+        "ExecMainStatus": "0",
+        "ExecReload": "{ path=/bin/kill ; argv[]=/bin/kill -HUP $MAINPID ; ignore_errors=no ; start_time=[n/a] ; stop_time=[n/a] ; pid=0 ; code=(null) ; status=0/0 }",
+        "ExecStart": "{ path=/usr/sbin/firewalld ; argv[]=/usr/sbin/firewalld --nofork --nopid $FIREWALLD_ARGS ; ignore_errors=no ; start_time=[n/a] ; stop_time=[n/a] ; pid=0 ; code=(null) ; status=0/0 }",
+        "FailureAction": "none",
+        "FileDescriptorStoreMax": "0",
+        "FragmentPath": "/usr/lib/systemd/system/firewalld.service",
+        "FreezerState": "running",
+        "GID": "[not set]",
+        "GuessMainPID": "yes",
+        "IOAccounting": "no",
+        "IOSchedulingClass": "0",
+        "IOSchedulingPriority": "0",
+        "IOWeight": "[not set]",
+        "IPAccounting": "no",
+        "IPEgressBytes": "18446744073709551615",
+        "IPEgressPackets": "18446744073709551615",
+        "IPIngressBytes": "18446744073709551615",
+        "IPIngressPackets": "18446744073709551615",
+        "Id": "firewalld.service",
+        "IgnoreOnIsolate": "no",
+        "IgnoreSIGPIPE": "yes",
+        "InactiveEnterTimestampMonotonic": "0",
+        "InactiveExitTimestampMonotonic": "0",
+        "JobRunningTimeoutUSec": "infinity",
+        "JobTimeoutAction": "none",
+        "JobTimeoutUSec": "infinity",
+        "KeyringMode": "private",
+        "KillMode": "mixed",
+        "KillSignal": "15",
+        "LimitAS": "infinity",
+        "LimitASSoft": "infinity",
+        "LimitCORE": "infinity",
+        "LimitCORESoft": "infinity",
+        "LimitCPU": "infinity",
+        "LimitCPUSoft": "infinity",
+        "LimitDATA": "infinity",
+        "LimitDATASoft": "infinity",
+        "LimitFSIZE": "infinity",
+        "LimitFSIZESoft": "infinity",
+        "LimitLOCKS": "infinity",
+        "LimitLOCKSSoft": "infinity",
+        "LimitMEMLOCK": "65536",
+        "LimitMEMLOCKSoft": "65536",
+        "LimitMSGQUEUE": "819200",
+        "LimitMSGQUEUESoft": "819200",
+        "LimitNICE": "0",
+        "LimitNICESoft": "0",
+        "LimitNOFILE": "262144",
+        "LimitNOFILESoft": "1024",
+        "LimitNPROC": "6992",
+        "LimitNPROCSoft": "6992",
+        "LimitRSS": "infinity",
+        "LimitRSSSoft": "infinity",
+        "LimitRTPRIO": "0",
+        "LimitRTPRIOSoft": "0",
+        "LimitRTTIME": "infinity",
+        "LimitRTTIMESoft": "infinity",
+        "LimitSIGPENDING": "6992",
+        "LimitSIGPENDINGSoft": "6992",
+        "LimitSTACK": "infinity",
+        "LimitSTACKSoft": "8388608",
+        "LoadState": "loaded",
+        "LockPersonality": "no",
+        "LogLevelMax": "-1",
+        "LogRateLimitBurst": "0",
+        "LogRateLimitIntervalUSec": "0",
+        "LogsDirectoryMode": "0755",
+        "MainPID": "0",
+        "MemoryAccounting": "yes",
+        "MemoryCurrent": "[not set]",
+        "MemoryDenyWriteExecute": "no",
+        "MemoryHigh": "infinity",
+        "MemoryLimit": "infinity",
+        "MemoryLow": "0",
+        "MemoryMax": "infinity",
+        "MemoryMin": "0",
+        "MemorySwapMax": "infinity",
+        "MountAPIVFS": "no",
+        "MountFlags": "",
+        "NFileDescriptorStore": "0",
+        "NRestarts": "0",
+        "NUMAMask": "",
+        "NUMAPolicy": "n/a",
+        "Names": "firewalld.service",
+        "NeedDaemonReload": "no",
+        "Nice": "0",
+        "NoNewPrivileges": "no",
+        "NonBlocking": "no",
+        "NotifyAccess": "none",
+        "OOMScoreAdjust": "0",
+        "OnFailureJobMode": "replace",
+        "PermissionsStartOnly": "no",
+        "Perpetual": "no",
+        "PrivateDevices": "no",
+        "PrivateMounts": "no",
+        "PrivateNetwork": "no",
+        "PrivateTmp": "no",
+        "PrivateUsers": "no",
+        "ProtectControlGroups": "no",
+        "ProtectHome": "no",
+        "ProtectKernelModules": "no",
+        "ProtectKernelTunables": "no",
+        "ProtectSystem": "no",
+        "RefuseManualStart": "no",
+        "RefuseManualStop": "no",
+        "RemainAfterExit": "no",
+        "RemoveIPC": "no",
+        "Requires": "dbus.socket system.slice sysinit.target",
+        "Restart": "no",
+        "RestartUSec": "100ms",
+        "RestrictNamespaces": "no",
+        "RestrictRealtime": "no",
+        "RestrictSUIDSGID": "no",
+        "Result": "success",
+        "RootDirectoryStartOnly": "no",
+        "RuntimeDirectoryMode": "0755",
+        "RuntimeDirectoryPreserve": "no",
+        "RuntimeMaxUSec": "infinity",
+        "SameProcessGroup": "no",
+        "SecureBits": "0",
+        "SendSIGHUP": "no",
+        "SendSIGKILL": "yes",
+        "Slice": "system.slice",
+        "StandardError": "null",
+        "StandardInput": "null",
+        "StandardInputData": "",
+        "StandardOutput": "null",
+        "StartLimitAction": "none",
+        "StartLimitBurst": "5",
+        "StartLimitIntervalUSec": "10s",
+        "StartupBlockIOWeight": "[not set]",
+        "StartupCPUShares": "[not set]",
+        "StartupCPUWeight": "[not set]",
+        "StartupIOWeight": "[not set]",
+        "StateChangeTimestampMonotonic": "0",
+        "StateDirectoryMode": "0755",
+        "StatusErrno": "0",
+        "StopWhenUnneeded": "no",
+        "SubState": "dead",
+        "SuccessAction": "none",
+        "SyslogFacility": "3",
+        "SyslogLevel": "6",
+        "SyslogLevelPrefix": "yes",
+        "SyslogPriority": "30",
+        "SystemCallErrorNumber": "0",
+        "TTYReset": "no",
+        "TTYVHangup": "no",
+        "TTYVTDisallocate": "no",
+        "TasksAccounting": "yes",
+        "TasksCurrent": "[not set]",
+        "TasksMax": "11188",
+        "TimeoutStartUSec": "1min 30s",
+        "TimeoutStopUSec": "1min 30s",
+        "TimerSlackNSec": "50000",
+        "Transient": "no",
+        "Type": "dbus",
+        "UID": "[not set]",
+        "UMask": "0022",
+        "UnitFilePreset": "enabled",
+        "UnitFileState": "enabled",
+        "UtmpMode": "init",
+        "WantedBy": "multi-user.target",
+        "Wants": "network-pre.target",
+        "WatchdogTimestampMonotonic": "0",
+        "WatchdogUSec": "0"
+    }
+}
+
+TASK [linux-system-roles.firewall : Configure firewall] ************************
+task path: /home/vpunj/firewall/tasks/main.yml:3
+META: role_complete for /home/vpunj/.cache/centos-8.qcow2
+
+TASK [Remove custom zone] ******************************************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:14
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "cmd": [
+        "firewall-cmd",
+        "--permanent",
+        "--delete-zone=custom"
+    ],
+    "delta": "0:00:00.244958",
+    "end": "2021-09-30 00:33:20.561959",
+    "failed_when_result": false,
+    "rc": 112,
+    "start": "2021-09-30 00:33:20.317001"
+}
+
+STDERR:
+
+Error: INVALID_ZONE: custom
+
+
+MSG:
+
+non-zero return code
+
+TASK [Reset internal zone to defaults] *****************************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:19
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "cmd": [
+        "firewall-cmd",
+        "--permanent",
+        "--load-zone-defaults=internal"
+    ],
+    "delta": "0:00:00.268707",
+    "end": "2021-09-30 00:33:21.097201",
+    "failed_when_result": false,
+    "rc": 22,
+    "start": "2021-09-30 00:33:20.828494"
+}
+
+STDERR:
+
+Error: NO_DEFAULTS: internal
+
+
+MSG:
+
+non-zero return code
+
+TASK [Reset trusted zone to defaults] ******************************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:24
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "cmd": [
+        "firewall-cmd",
+        "--permanent",
+        "--load-zone-defaults=trusted"
+    ],
+    "delta": "0:00:00.244558",
+    "end": "2021-09-30 00:33:21.609439",
+    "failed_when_result": false,
+    "rc": 22,
+    "start": "2021-09-30 00:33:21.364881"
+}
+
+STDERR:
+
+Error: NO_DEFAULTS: trusted
+
+
+MSG:
+
+non-zero return code
+
+TASK [Reset dmz zone to defaults] **********************************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:29
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "cmd": [
+        "firewall-cmd",
+        "--permanent",
+        "--load-zone-defaults=dmz"
+    ],
+    "delta": "0:00:00.231262",
+    "end": "2021-09-30 00:33:22.109530",
+    "failed_when_result": false,
+    "rc": 22,
+    "start": "2021-09-30 00:33:21.878268"
+}
+
+STDERR:
+
+Error: NO_DEFAULTS: dmz
+
+
+MSG:
+
+non-zero return code
+
+TASK [Reset drop zone to defaults] *********************************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:34
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "cmd": [
+        "firewall-cmd",
+        "--permanent",
+        "--load-zone-defaults=drop"
+    ],
+    "delta": "0:00:00.231465",
+    "end": "2021-09-30 00:33:22.602415",
+    "failed_when_result": false,
+    "rc": 22,
+    "start": "2021-09-30 00:33:22.370950"
+}
+
+STDERR:
+
+Error: NO_DEFAULTS: drop
+
+
+MSG:
+
+non-zero return code
+
+TASK [Reset public zone to defaults] *******************************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:39
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "cmd": [
+        "firewall-cmd",
+        "--permanent",
+        "--load-zone-defaults=public"
+    ],
+    "delta": "0:00:00.263231",
+    "end": "2021-09-30 00:33:23.157991",
+    "failed_when_result": false,
+    "rc": 0,
+    "start": "2021-09-30 00:33:22.894760"
+}
+
+STDOUT:
+
+success
+
+TASK [Reset default zone to defaults] ******************************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:44
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "cmd": "zone=$(firewall-cmd --get-default-zone)\nfirewall-cmd --permanent --load-zone-defaults=$zone\n",
+    "delta": "0:00:00.466794",
+    "end": "2021-09-30 00:33:23.890201",
+    "failed_when_result": false,
+    "rc": 22,
+    "start": "2021-09-30 00:33:23.423407"
+}
+
+STDERR:
+
+Error: NO_DEFAULTS: public
+
+
+MSG:
+
+non-zero return code
+
+TASK [Create custom zone] ******************************************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:52
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "cmd": [
+        "firewall-cmd",
+        "--permanent",
+        "--new-zone=custom"
+    ],
+    "delta": "0:00:00.222596",
+    "end": "2021-09-30 00:33:24.373825",
+    "failed_when_result": false,
+    "rc": 0,
+    "start": "2021-09-30 00:33:24.151229"
+}
+
+STDOUT:
+
+success
+
+TASK [Reload firewalld] ********************************************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:57
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "cmd": [
+        "firewall-cmd",
+        "--reload"
+    ],
+    "delta": "0:00:00.655616",
+    "end": "2021-09-30 00:33:25.317319",
+    "failed_when_result": false,
+    "rc": 0,
+    "start": "2021-09-30 00:33:24.661703"
+}
+
+STDOUT:
+
+success
+
+TASK [Permit traffic in default zone for https service] ************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:64
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "failed_when_result": false
+}
+
+TASK [Permit traffic in default zone for https service, again] *****************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:72
+ok: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": false,
+    "failed_when_result": false
+}
+
+TASK [Permit traffic in default zone on port 8081/tcp] *************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:80
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "failed_when_result": false
+}
+
+TASK [Permit traffic in default zone on port 8081/tcp, again] ******************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:88
+ok: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": false,
+    "failed_when_result": false
+}
+
+TASK [Allow port 161-162/udp in permanent default zone] ************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:96
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "failed_when_result": false
+}
+
+TASK [Allow port 161-162/udp in permanent default zone, again] *****************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:104
+ok: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": false,
+    "failed_when_result": false
+}
+
+TASK [Do not permit traffic in default zone on port 8081/tcp] ******************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:112
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "failed_when_result": false
+}
+
+TASK [Do not permit traffic in default zone on port 8081/tcp, again] ***********
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:120
+ok: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": false,
+    "failed_when_result": false
+}
+
+TASK [Allow service http in permanent dmz zone] ********************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:128
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "failed_when_result": false
+}
+
+TASK [Allow service http in permanent dmz zone, again] *************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:137
+ok: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": false,
+    "failed_when_result": false
+}
+
+TASK [Allow service ftp with limitation using rich rule in permanent default zone] ***
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:146
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "failed_when_result": false
+}
+
+TASK [Allow service ftp with limitation using rich rule in permanent default zone, again] ***
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:155
+ok: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": false,
+    "failed_when_result": false
+}
+
+TASK [Allow source 192.0.2.0/24 in internal zone] ******************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:164
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "failed_when_result": false
+}
+
+TASK [Allow source 192.0.2.0/24 in internal zone, again] ***********************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:172
+ok: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": false,
+    "failed_when_result": false
+}
+
+TASK [Allow interface eth2 in permanent trusted zone] **************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:180
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "failed_when_result": false
+}
+
+TASK [Allow interface eth2 in permanent trusted zone, again] *******************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:189
+ok: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": false,
+    "failed_when_result": false
+}
+
+TASK [Allow masquerading in permament dmz zone] ********************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:198
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "failed_when_result": false
+}
+
+TASK [Allow masquerading in permament dmz zone, again] *************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:207
+ok: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": false,
+    "failed_when_result": false
+}
+
+TASK [Ensure permanent custom zone exists (no change)] *************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:216
+ok: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": false,
+    "failed_when_result": false
+}
+
+TASK [Ensure ICMP block inversion in permanent drop zone] **********************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:224
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "failed_when_result": false
+}
+
+TASK [Ensure ICMP block inversion in permanent drop zone, again] ***************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:233
+ok: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": false,
+    "failed_when_result": false
+}
+
+TASK [Block ICMP echo-request in permanent drop zone] **************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:242
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "failed_when_result": false
+}
+
+TASK [Block ICMP echo-request in permanent drop zone, again] *******************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:251
+ok: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": false,
+    "failed_when_result": false
+}
+
+TASK [Ensure default target in permanent internal zone (no change)] ************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:260
+ok: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": false,
+    "failed_when_result": false
+}
+
+TASK [Ensure target ACCEPT in permanent internal zone] *************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:269
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "failed_when_result": false
+}
+
+TASK [Ensure target ACCEPT in permanent internal zone, again] ******************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:278
+ok: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": false,
+    "failed_when_result": false
+}
+
+TASK [Ensure default target in permanent internal zone] ************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:287
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "failed_when_result": false
+}
+
+TASK [Ensure default target in permanent internal zone, again] *****************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:296
+ok: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": false,
+    "failed_when_result": false
+}
+
+TASK [Redirect port 443 to 8443 with Rich Rule in permanent and runtime public zone] ***
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:305
+[DEPRECATION WARNING]: Alias 'immediate' is deprecated. See the module docs for
+ more information. This feature will be removed in a release after 2021-09-23. 
+Deprecation warnings can be disabled by setting deprecation_warnings=False in 
+ansible.cfg.
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "failed_when_result": false
+}
+
+TASK [Redirect port 443 to 8443 with Rich Rule in permanent and runtime public zone, again] ***
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:317
+ok: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": false,
+    "failed_when_result": false
+}
+
+TASK [Firewalld custom zone] ***************************************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:329
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true
+}
+
+TASK [assert firewalld custom zone] ********************************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:336
+ok: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": false
+}
+
+MSG:
+
+All assertions passed
+
+TASK [Remove custom zone] ******************************************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:345
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "cmd": [
+        "firewall-cmd",
+        "--permanent",
+        "--delete-zone=custom"
+    ],
+    "delta": "0:00:00.244788",
+    "end": "2021-09-30 00:33:39.329952",
+    "failed_when_result": false,
+    "rc": 0,
+    "start": "2021-09-30 00:33:39.085164"
+}
+
+STDOUT:
+
+success
+
+TASK [Reset internal zone to defaults] *****************************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:350
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "cmd": [
+        "firewall-cmd",
+        "--permanent",
+        "--load-zone-defaults=internal"
+    ],
+    "delta": "0:00:00.235254",
+    "end": "2021-09-30 00:33:39.838673",
+    "failed_when_result": false,
+    "rc": 0,
+    "start": "2021-09-30 00:33:39.603419"
+}
+
+STDOUT:
+
+success
+
+TASK [Reset trusted zone to defaults] ******************************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:355
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "cmd": [
+        "firewall-cmd",
+        "--permanent",
+        "--load-zone-defaults=trusted"
+    ],
+    "delta": "0:00:00.234467",
+    "end": "2021-09-30 00:33:40.342742",
+    "failed_when_result": false,
+    "rc": 0,
+    "start": "2021-09-30 00:33:40.108275"
+}
+
+STDOUT:
+
+success
+
+TASK [Reset dmz zone to defaults] **********************************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:360
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "cmd": [
+        "firewall-cmd",
+        "--permanent",
+        "--load-zone-defaults=dmz"
+    ],
+    "delta": "0:00:00.234891",
+    "end": "2021-09-30 00:33:40.837631",
+    "failed_when_result": false,
+    "rc": 0,
+    "start": "2021-09-30 00:33:40.602740"
+}
+
+STDOUT:
+
+success
+
+TASK [Reset drop zone to defaults] *********************************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:365
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "cmd": [
+        "firewall-cmd",
+        "--permanent",
+        "--load-zone-defaults=drop"
+    ],
+    "delta": "0:00:00.230064",
+    "end": "2021-09-30 00:33:41.334009",
+    "failed_when_result": false,
+    "rc": 0,
+    "start": "2021-09-30 00:33:41.103945"
+}
+
+STDOUT:
+
+success
+
+TASK [Reset public zone to defaults] *******************************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:370
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "cmd": [
+        "firewall-cmd",
+        "--permanent",
+        "--load-zone-defaults=public"
+    ],
+    "delta": "0:00:00.242096",
+    "end": "2021-09-30 00:33:41.844155",
+    "failed_when_result": false,
+    "rc": 0,
+    "start": "2021-09-30 00:33:41.602059"
+}
+
+STDOUT:
+
+success
+
+TASK [Reset default zone to defaults] ******************************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:375
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "cmd": "zone=$(firewall-cmd --get-default-zone)\nfirewall-cmd --permanent --load-zone-defaults=$zone\n",
+    "delta": "0:00:00.464044",
+    "end": "2021-09-30 00:33:42.566573",
+    "failed_when_result": false,
+    "rc": 22,
+    "start": "2021-09-30 00:33:42.102529"
+}
+
+STDERR:
+
+Error: NO_DEFAULTS: public
+
+
+MSG:
+
+non-zero return code
+
+TASK [Reload firewalld] ********************************************************
+task path: /home/vpunj/firewall/tests/tests_ansible.yml:383
+changed: [/home/vpunj/.cache/centos-8.qcow2] => {
+    "changed": true,
+    "cmd": [
+        "firewall-cmd",
+        "--reload"
+    ],
+    "delta": "0:00:00.673442",
+    "end": "2021-09-30 00:33:43.501599",
+    "failed_when_result": false,
+    "rc": 0,
+    "start": "2021-09-30 00:33:42.828157"
+}
+
+STDOUT:
+
+success
+META: ran handlers
+META: ran handlers
+
+PLAY RECAP *********************************************************************
+/home/vpunj/.cache/centos-8.qcow2 : ok=53   changed=34   unreachable=0    failed=0    skipped=2    rescued=0    ignored=0   
+
