@@ -12,3 +12,5 @@ artifacts/
 __pycache__/
 *~
 .pytest_cache/
+/tests/output
+/tests/tests_ap.yml
