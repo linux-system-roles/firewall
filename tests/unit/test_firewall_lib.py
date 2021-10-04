@@ -227,8 +227,8 @@ TEST_DATA = {
         },
         "disabled": {
             "expected": {
-                "permanent": [call("ACCEPT")],
-                "query_mock": {"getTarget.return_value": "default"},
+                "permanent": [call("default")],
+                "query_mock": {"getTarget.return_value": "DROP"},
                 "called_mock_name": "setTarget",
             }
         },
@@ -308,6 +308,7 @@ class FirewallLibParsers(unittest.TestCase):
 class FirewallLibMain(unittest.TestCase):
     """Test main function."""
 
+    @patch("firewall_lib.HAS_FIREWALLD", False)
     def test_main_error_no_firewall_backend(self, am_class):
         with self.assertRaises(MockException):
             firewall_lib.main()
