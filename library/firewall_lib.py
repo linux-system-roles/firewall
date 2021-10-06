@@ -279,8 +279,8 @@ def main():
         ),
         supports_check_mode=True,
         required_if=(
-            ("state", "present", ("target", "zone"), True),
-            ("state", "absent", ("target", "zone"), True),
+            ("state", "present", ("zone",), True),
+            ("state", "absent", ("zone",), True),
         ),
     )
 
@@ -413,6 +413,9 @@ def main():
 
         if target is not None and not _timeout_ok:
             module.fail_json(msg="timeout can not be used with target only")
+
+    if len(source) > 0 and permanent is None:
+        module.fail_json(msg="source cannot be set without permanent")
 
     if not HAS_FIREWALLD:
         module.fail_json(msg="No firewalld")
