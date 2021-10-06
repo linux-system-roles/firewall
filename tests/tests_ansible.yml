@@ -165,6 +165,7 @@
         firewall_lib:
           source: 192.0.2.0/24
           zone: internal
+          permanent: true
           state: enabled
         register: result
         failed_when: result.failed or not result.changed
@@ -172,6 +173,7 @@
       - name: Allow source 192.0.2.0/24 in internal zone, again
         firewall_lib:
           source: 192.0.2.0/24
+          permanent: true
           zone: internal
           state: enabled
         register: result

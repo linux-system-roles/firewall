@@ -344,6 +344,14 @@ class FirewallLibMain(unittest.TestCase):
         am.fail_json.assert_called_with(msg="timeout can not be used with source only")
 
     @patch("firewall_lib.HAS_FIREWALLD", True)
+    def test_main_error_source_without_permanent(self, am_class):
+        am = am_class.return_value
+        am.params = {"source": ["192.0.2.0/24"]}
+        with self.assertRaises(MockException):
+            firewall_lib.main()
+        am.fail_json.assert_called_with(msg="source cannot be set without permanent")
+
+    @patch("firewall_lib.HAS_FIREWALLD", True)
     def test_permanent_runtime_offline(self, am_class):
         am = am_class.return_value
         am.params = {
