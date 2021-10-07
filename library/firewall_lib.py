@@ -179,6 +179,41 @@ except ImportError:
     HAS_FIREWALLD = False
 
 
+def handle_interface_permanent(
+    zone, item, fw_zone, fw_settings, fw, fw_offline, module
+):
+    if fw_offline:
+        iface_zone_objs = []
+        for zone in fw.config.get_zones():
+            old_zone_obj = fw.config.get_zone(zone)
+            if item in old_zone_obj.interfaces:
+                old_zone_settings = FirewallClientZoneSettings(
+                    fw.config.get_zone_config(old_zone_obj)
+                )
+                old_zone_settings.removeInterface(item)
+                fw.config.set_zone_config(old_zone_obj, old_zone_settings.settings)
+                iface_zone_objs.append(old_zone_obj)
+
+        old_zone_obj = iface_zone_objs[0]
+        if old_zone_obj.name != zone:
+            old_zone_settings = FirewallClientZoneSettings(
+                fw.config.get_zone_config(old_zone_obj)
+            )
+            old_zone_settings.removeInterface(item)
+            fw.config.set_zone_config(old_zone_obj, old_zone_settings.settings)
+            fw_settings.addInterface(item)
+            fw.config.set_zone_config(fw_zone, fw_settings.settings)
+    else:
+        old_zone_name = fw.config().getZoneOfInterface(item)
+        if old_zone_name != zone:
+            if old_zone_name:
+                old_zone_obj = fw.config().getZoneByName(old_zone_name)
+                old_zone_settings = old_zone_obj.getSettings()
+                old_zone_settings.removeInterface(item)
+                old_zone_obj.update(old_zone_settings)
+            fw_settings.addInterface(item)
+
+
 def parse_port(module, item):
     _port, _protocol = item.split("/")
     if _protocol is None:
@@ -679,11 +714,13 @@ def main():
         if state == "enabled":
             if runtime and not fw.queryInterface(zone, item):
                 if not module.check_mode:
-                    fw.addInterface(zone, item)
+                    fw.changeZoneOfInterface(zone, item)
                 changed = True
             if permanent and not fw_settings.queryInterface(item):
                 if not module.check_mode:
-                    fw_settings.addInterface(item)
+                    handle_interface_permanent(
+                        zone, item, fw_zone, fw_settings, fw, fw_offline, module
+                    )
                 changed = True
         elif state == "disabled":
             if runtime and fw.queryInterface(zone, item):
