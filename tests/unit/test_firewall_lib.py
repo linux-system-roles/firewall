@@ -179,7 +179,6 @@ TEST_DATA = {
         "enabled": {
             "expected": {
                 "runtime": [call("default", "eth2")],
-                "permanent": [call("eth2")],
             }
         },
         "disabled": {
@@ -261,6 +260,64 @@ class MockAnsibleModule(MagicMock):
         am.exit_json = Mock()
         am.check_mode = False
         return am
+
+
+class FirewallInterfaceTests(unittest.TestCase):
+    """class to test Firewall interface tests"""
+
+    @patch("firewall_lib.FirewallClientZoneSettings", create=True)
+    @patch("firewall_lib.FirewallClient", create=True)
+    @patch("firewall_lib.HAS_FIREWALLD", True)
+    @patch("firewall_lib.FW_VERSION", "0.3.8", create=True)
+    def test_handle_interface_offline_true(self, zone_settings, firewall_class):
+        module = Mock()
+        zone = "dmz"
+        item = "eth2"
+        fw = firewall_class.return_value
+        fw_config = Mock()
+        fw.config.return_value = fw_config
+        fw_zone = Mock()
+        fw.config.getZoneByName.return_value = fw_zone
+        fw_settings = Mock()
+        fw.config.getZoneByName.getSettings.return_value = fw_settings
+        fw_offline = True
+        fw.config.get_zones.return_value = ["dmz"]
+        fw_zone_two = Mock()
+        fw.config.get_zone.return_value = fw_zone_two
+        fw_zone_two.interfaces = ["eth2"]
+
+        firewall_lib.handle_interface_permanent(
+            zone, item, fw_zone, fw_settings, fw, fw_offline, module
+        )
+        called_mock = getattr(fw_settings, "addInterface")
+        assert [call("eth2")] == called_mock.call_args_list
+
+    @patch("firewall_lib.FirewallClientZoneSettings", create=True)
+    @patch("firewall_lib.FirewallClient", create=True)
+    @patch("firewall_lib.HAS_FIREWALLD", True)
+    @patch("firewall_lib.FW_VERSION", "0.3.8", create=True)
+    def test_handle_interface_offline_false(self, zone_settings, firewall_class):
+        module = Mock()
+        zone = "dmz"
+        item = "eth2"
+        fw = firewall_class.return_value
+        fw_config = Mock()
+        fw.config.return_value = fw_config
+        fw_zone = Mock()
+        fw.config.getZoneByName.return_value = fw_zone
+        fw_settings = Mock()
+        fw.config.getZoneByName.getSettings.return_value = fw_settings
+        fw_offline = False
+        fw.config.get_zones.return_value = ["dmz"]
+        fw_zone_two = Mock()
+        fw.config.get_zone.return_value = fw_zone_two
+        fw_zone_two.interfaces = ["eth2"]
+
+        firewall_lib.handle_interface_permanent(
+            zone, item, fw_zone, fw_settings, fw, fw_offline, module
+        )
+        called_mock = getattr(fw_settings, "addInterface")
+        assert [call("eth2")] == called_mock.call_args_list
 
 
 class FirewallLibParsers(unittest.TestCase):
@@ -515,7 +572,10 @@ def test_module_parameters(method, state, input, expected):
         if "called_mock_name" in expected:
             called_mock_name = expected["called_mock_name"]
         elif state == "enabled":
-            called_mock_name = "add" + method
+            if method == "Interface" and runtime:
+                called_mock_name = "changeZoneOfInterface"
+            else:
+                called_mock_name = "add" + method
         else:
             called_mock_name = "remove" + method
         if "query_mock" in expected:
