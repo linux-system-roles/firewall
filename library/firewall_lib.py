@@ -154,7 +154,7 @@ options:
       firewalld >= 0.3.9 is required for this.
     required: false
     type: bool
-    default: no
+    default: yes
   state:
     description:
       Ensure presence or absence of entries.  Use C(present) and C(absent) only
@@ -307,7 +307,7 @@ def main():
                     },
                 ],
             ),
-            offline=dict(required=False, type="bool", default=None),
+            offline=dict(required=False, type="bool", default=True),
             state=dict(
                 choices=["enabled", "disabled", "present", "absent"], required=True
             ),
