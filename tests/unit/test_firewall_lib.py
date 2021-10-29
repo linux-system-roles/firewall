@@ -415,12 +415,11 @@ class FirewallLibMain(unittest.TestCase):
             "icmp_block_inversion": True,
             "permanent": False,
             "runtime": False,
-            "offline": False,
         }
         with self.assertRaises(MockException):
             firewall_lib.main()
         am.fail_json.assert_called_with(
-            msg="One of permanent, runtime or offline needs to be enabled"
+            msg="One of permanent, runtime needs to be enabled"
         )
 
     @patch("firewall_lib.HAS_FIREWALLD", True)
@@ -481,42 +480,19 @@ class FirewallLibMain(unittest.TestCase):
 
     @patch("firewall_lib.FirewallClient", create=True)
     @patch("firewall_lib.HAS_FIREWALLD", True)
-    def test_firewalld_running(self, firewall_class, am_class):
-        import pprint
-
-        pprint.pprint(am_class.__dict__)
-        pprint.pprint(firewall_class.__dict__)
-        am = am_class.return_value
-        am.params = {
-            "icmp_block_inversion": True,
-            "permanent": False,
-            "runtime": True,
-            "offline": False,
-        }
-        fw = firewall_class.return_value
-        fw.connected = False
-        with self.assertRaises(MockException):
-            firewall_lib.main()
-        am.fail_json.assert_called_with(
-            msg="Firewalld is not running and offline operation is declined."
-        )
-
-    @patch("firewall_lib.FirewallClient", create=True)
-    @patch("firewall_lib.HAS_FIREWALLD", True)
     @patch("firewall_lib.FW_VERSION", "0.3.8", create=True)
     def test_firewalld_offline_version_disconnected(self, firewall_class, am_class):
         am = am_class.return_value
         am.params = {
             "icmp_block_inversion": True,
-            "permanent": False,
-            "offline": True,
+            "permanent": True,
         }
         fw = firewall_class.return_value
         fw.connected = False
         with self.assertRaises(MockException):
             firewall_lib.main()
         am.fail_json.assert_called_with(
-            msg="Unsupported firewalld version 0.3.8, offline operation requires >= 0.3.9"
+            msg="Unsupported firewalld version 0.3.8 requires >= 0.3.9"
         )
 
     @patch("firewall_lib.FirewallClient", create=True)
@@ -526,8 +502,7 @@ class FirewallLibMain(unittest.TestCase):
         am = am_class.return_value
         am.params = {
             "icmp_block_inversion": True,
-            "permanent": False,
-            "offline": True,
+            "permanent": True,
         }
         fw = firewall_class.return_value
         fw.connected = True
@@ -563,7 +538,6 @@ def test_module_parameters(method, state, input, expected):
         runtime = "runtime" in expected
         am.params = {
             "permanent": permanent,
-            "offline": True,
             "state": params_state,
             "runtime": runtime,
             "timeout": 0,
