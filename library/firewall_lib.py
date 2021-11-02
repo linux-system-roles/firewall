@@ -147,14 +147,6 @@ options:
     required: false
     type: bool
     default: no
-  offline:
-    description:
-      The offline bool flag.
-      This flag enables to ensure settings also firewalld is not running.
-      firewalld >= 0.3.9 is required for this.
-    required: false
-    type: bool
-    default: yes
   state:
     description:
       Ensure presence or absence of entries.  Use C(present) and C(absent) only
@@ -307,7 +299,6 @@ def main():
                     },
                 ],
             ),
-            offline=dict(required=False, type="bool", default=True),
             state=dict(
                 choices=["enabled", "disabled", "present", "absent"], required=True
             ),
@@ -349,13 +340,12 @@ def main():
     zone = module.params["zone"]
     permanent = module.params["permanent"]
     runtime = module.params["runtime"]
-    offline = module.params["offline"]
     state = module.params["state"]
 
     if permanent is None:
         runtime = True
-    elif not any((permanent, runtime, offline)):
-        module.fail_json(msg="One of permanent, runtime or offline needs to be enabled")
+    elif not any((permanent, runtime)):
+        module.fail_json(msg="One of permanent, runtime needs to be enabled")
 
     if (
         masquerade is None
@@ -459,22 +449,15 @@ def main():
 
     fw_offline = False
     if not fw.connected:
-        if offline is False:
-            module.fail_json(
-                msg="Firewalld is not running and offline operation is declined."
-            )
-
         # Firewalld is not currently running, permanent-only operations
         fw_offline = True
         runtime = False
         permanent = True
-        offline = True
 
         # Pre-run version checking
         if LooseVersion(FW_VERSION) < LooseVersion("0.3.9"):
             module.fail_json(
-                msg="Unsupported firewalld version %s, offline operation "
-                "requires >= 0.3.9" % FW_VERSION
+                msg="Unsupported firewalld version %s" " requires >= 0.3.9" % FW_VERSION
             )
 
         try:

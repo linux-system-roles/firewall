@@ -17,7 +17,6 @@
     target: "{{ item.target | default(omit) }}"
     permanent: yes
     runtime: yes
-    offline: no
     state: "{{ item.state }}"
   with_items:
     - "{{ firewall }}"
