@@ -146,7 +146,6 @@ options:
     aliases: ["immediate"]
     required: false
     type: bool
-    default: no
   state:
     description:
       Ensure presence or absence of entries.  Use C(present) and C(absent) only
@@ -255,27 +254,28 @@ def parse_forward_port(module, item):
 def main():
     module = AnsibleModule(
         argument_spec=dict(
-            service=dict(required=False, type="list", default=[]),
-            port=dict(required=False, type="list", default=[]),
-            source_port=dict(required=False, type="list", default=[]),
+            service=dict(required=False, type="list", elements="str", default=[]),
+            port=dict(required=False, type="list", elements="str", default=[]),
+            source_port=dict(required=False, type="list", elements="str", default=[]),
             forward_port=dict(
                 required=False,
                 type="list",
+                elements="str",
                 default=[],
                 aliases=["port_forward"],
                 deprecated_aliases=[
                     {
                         "name": "port_forward",
                         "date": "2021-09-23",
-                        "collection": "ansible.posix",
+                        "collection_name": "ansible.posix",
                     },
                 ],
             ),
             masquerade=dict(required=False, type="bool", default=None),
-            rich_rule=dict(required=False, type="list", default=[]),
-            source=dict(required=False, type="list", default=[]),
-            interface=dict(required=False, type="list", default=[]),
-            icmp_block=dict(required=False, type="list", default=[]),
+            rich_rule=dict(required=False, type="list", elements="str", default=[]),
+            source=dict(required=False, type="list", elements="str", default=[]),
+            interface=dict(required=False, type="list", elements="str", default=[]),
+            icmp_block=dict(required=False, type="list", elements="str", default=[]),
             icmp_block_inversion=dict(required=False, type="bool", default=None),
             timeout=dict(required=False, type="int", default=0),
             target=dict(
@@ -295,7 +295,7 @@ def main():
                     {
                         "name": "immediate",
                         "date": "2021-09-23",
-                        "collection": "ansible.posix",
+                        "collection_name": "ansible.posix",
                     },
                 ],
             ),
