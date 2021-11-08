@@ -206,6 +206,28 @@ firewall:
 NOTE: `target` - you can also use `state: present` to add a target - `state:
 absent` will reset the target to the default.
 
+### runtime
+Enable changes in runtime configuration. If `runtime` parameter is not provided, the default will be set to`True`.
+
+```
+runtime: yes
+```
+
+### permanent
+
+Enable changes in permanent configuration. If `permanent` parameter is not provided, the default will be set to `True`. 
+
+```
+permanent: yes
+```
+
+If changes are to be made to both to permanent and runtime configuration then both are to be enabled.
+
+```
+permanent: yes
+runtime: yes
+```
+
 Example Playbooks
 -----------------
 

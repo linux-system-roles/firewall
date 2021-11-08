@@ -15,8 +15,8 @@
     icmp_block_inversion: "{{ item.icmp_block_inversion | default(omit) }}"
     timeout: "{{ item.timeout | default(omit) }}"
     target: "{{ item.target | default(omit) }}"
-    permanent: yes
-    runtime: yes
+    permanent: "{{ item.permanent | default(True) }}"
+    runtime: "{{ item.runtime | default(True) }}"
     state: "{{ item.state }}"
   with_items:
     - "{{ firewall }}"
