@@ -207,10 +207,10 @@ NOTE: `target` - you can also use `state: present` to add a target - `state:
 absent` will reset the target to the default.
 
 ### runtime
-Enable changes in runtime configuration. If `runtime` parameter is not provided, the default will be set to`True`.
+Enable changes in runtime configuration. If `runtime` parameter is not provided, the default will be set to `True`.
 
 ```
-runtime: yes
+runtime: true
 ```
 
 ### permanent
@@ -218,15 +218,11 @@ runtime: yes
 Enable changes in permanent configuration. If `permanent` parameter is not provided, the default will be set to `True`. 
 
 ```
-permanent: yes
+permanent: true
 ```
 
-If changes are to be made to both to permanent and runtime configuration then both are to be enabled.
-
-```
-permanent: yes
-runtime: yes
-```
+The permanent and runtime settings are independent, so you can set only the runtime, or only the permanent.  You cannot
+set both permanent and runtime to `false`.
 
 Example Playbooks
 -----------------
