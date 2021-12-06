@@ -30,7 +30,7 @@ physical access to the machine to fix the issue.
 Variables
 ---------
 
-These are the variables that can be passed to the role:
+The firewall role uses the variable `firewall` to specify the parameters.  This variable is a `list` of `dict` values.  Each `dict` value is comprised of one or more keys listed below. These are the variables that can be passed to the role:
 
 ### zone
 
@@ -200,8 +200,8 @@ NOTE: `zone` - use `state: present` to add a zone, and `state: absent` to remove
 a zone, when zone is the only variable e.g.
 ```
 firewall:
-  zone: my-new-zone
-  state: present
+  - zone: my-new-zone
+    state: present
 ```
 NOTE: `target` - you can also use `state: present` to add a target - `state:
 absent` will reset the target to the default.
@@ -224,6 +224,79 @@ permanent: true
 The permanent and runtime settings are independent, so you can set only the runtime, or only the permanent.  You cannot
 set both permanent and runtime to `false`.
 
+Examples of Options
+-------------------
+By default, any changes will be applied immediately, and to the permanent settings. If you want the changes to apply immediately but not permanently, use `permanent: no`. Conversely, use `runtime: no`.
+
+Permit TCP traffic for port 80 in default zone:
+
+```yaml
+firewall:
+  - port: 80/tcp
+    state: enabled
+```
+
+Do not permit TCP traffic for port 80 in default zone:
+
+```yaml
+firewall:
+  - port: 80/tcp
+    state: disabled
+```
+
+Add masquerading to dmz zone:
+
+```yaml
+firewall:  
+  - masquerade: yes
+    zone: dmz
+    state: enabled
+```
+
+Remove masquerading to dmz zone:
+
+```yaml
+firewall:
+  - masquerade: no
+    zone: dmz
+    state: enabled
+```
+
+Allow interface eth2 in trusted zone:
+
+```yaml
+firewall:
+  - interface: eth2
+    zone: trusted
+    state: enabled
+```
+
+Don't allow interface eth2 in trusted zone:
+
+```yaml
+firewall:
+  - interface: eth2
+    zone: trusted
+    state: disabled
+```
+
+
+Permit traffic in default zone for https service:
+
+```yaml
+firewall:
+  - service: https
+    state: enabled
+```
+
+Do not permit traffic in default zone for https service:
+
+```yaml
+firewall:
+  - service: https
+    state: disabled
+```
+
 Example Playbooks
 -----------------
 
@@ -236,8 +309,8 @@ With this playbook it is possible to make sure the ssh service is enabled in the
 
   vars:
     firewall:
-      service: 'ssh'
-      state: 'enabled'
+      - service: 'ssh'
+        state: 'enabled'
   roles:
     - linux-system-roles.firewall
 ```
@@ -251,8 +324,8 @@ With this playbook you can make sure that the tftp service is disabled in the fi
 
   vars:
     firewall:
-      service: 'tftp'
-      state: 'disabled'
+      - service: 'tftp'
+        state: 'disabled'
   roles:
     - linux-system-roles.firewall
 ```
@@ -268,8 +341,8 @@ It is also possible to combine several settings into blocks:
     firewall:
       - { service: [ 'tftp', 'ftp' ],
           port: [ '443/tcp', '443/udp' ],
--         state: 'enabled' }
--     - { forward_port: [ 'eth2;447/tcp;;1.2.3.4',
+          state: 'enabled' }
+      - { forward_port: [ 'eth2;447/tcp;;1.2.3.4',
                           'eth2;448/tcp;;1.2.3.5' ],
           state: 'enabled' }
       - { zone: "internal", service: 'tftp', state: 'enabled' }
