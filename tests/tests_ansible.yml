@@ -333,12 +333,33 @@
           zone: customzone
           state: present
           permanent: yes
+          immediate: yes
         register: result
 
       - name: assert firewalld custom zone
         assert:
           that:
             - result is changed
+
+      - name: Add masquerade to custom zone
+        firewall_lib:
+          masquerade: yes
+          zone: customzone
+          state: enabled
+          permanent: yes
+          immediate: yes
+        register: result
+        failed_when: result is failed or not result is changed
+
+      - name: Add masquerade to custom zone, again
+        firewall_lib:
+          masquerade: yes
+          zone: customzone
+          state: enabled
+          permanent: yes
+          immediate: yes
+        register: result
+        failed_when: result is failed or result is changed
 
     always:
 
