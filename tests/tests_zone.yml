@@ -16,12 +16,12 @@
           name: linux-system-roles.firewall
         vars:
           firewall:
-            - { zone: 'internal',
-                state: 'enabled' }
-            - { zone: 'external',
-                state: 'enabled' }
-            - { zone: 'trusted',
-                state: 'enabled' }
+            - zone: 'internal'
+              state: 'enabled'
+            - zone: 'external'
+              state: 'enabled'
+            - zone: 'trusted'
+              state: 'enabled'
 
       - name: Fail on missing zones
         fail: msg="Required zones do not exist"
@@ -35,12 +35,12 @@
         vars:
           firewall_setup_default_solution: no
           firewall:
-            - { zone: 'internal',
-                service: [ 'tftp', 'ftp' ],
-                port: [ '443/tcp', '443/udp' ],
-                forward_port: [ '447/tcp;;1.2.3.4',
-                                '448/tcp;;1.2.3.5' ],
-                state: 'enabled' }
+            - zone: 'internal'
+              service: [ 'tftp', 'ftp' ]
+              port: [ '443/tcp', '443/udp' ]
+              forward_port: [ '447/tcp;;1.2.3.4',
+                              '448/tcp;;1.2.3.5' ]
+              state: 'enabled'
 
       - name: Fail if no changes are done
         fail: msg="FAILED"
@@ -54,12 +54,12 @@
         vars:
           firewall_setup_default_solution: no
           firewall:
-            - { zone: 'internal',
-                service: [ 'tftp', 'ftp' ],
-                port: [ '443/tcp', '443/udp' ],
-                forward_port: [ '447/tcp;;1.2.3.4',
-                                '448/tcp;;1.2.3.5' ],
-                state: 'enabled' }
+            - zone: 'internal'
+              service: [ 'tftp', 'ftp' ]
+              port: [ '443/tcp', '443/udp' ]
+              forward_port: [ '447/tcp;;1.2.3.4',
+                              '448/tcp;;1.2.3.5' ]
+              state: 'enabled'
 
       - name: Fail on newly changes
         fail: msg="FAILED"
