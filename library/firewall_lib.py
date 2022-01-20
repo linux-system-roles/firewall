@@ -525,10 +525,12 @@ def main():
         if state == "present" and not zone_exists:
             if not module.check_mode:
                 fw.config().addZone(zone, FirewallClientZoneSettings())
+                fw.reload()
             changed = True
         elif state == "absent" and zone_exists:
             if not module.check_mode:
                 fw_zone.remove()
+                fw.reload()
             changed = True
             fw_zone = None
             fw_settings = None
