@@ -3,6 +3,7 @@
 - name: Configure firewall
   firewall_lib:
     zone: "{{ item.zone | default(omit) }}"
+    set_default_zone: "{{ item.set_default_zone | default(omit) }}"
     service: "{{ item.service | default(omit) }}"
     port: "{{ item.port | default(omit) }}"
     source_port: "{{ item.source_port | default(omit) }}"

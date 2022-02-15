@@ -130,6 +130,10 @@ options:
       If the zone name is not given, then the default zone will be used.
     required: false
     type: str
+  set_default_zone:
+    description: Sets the default zone.
+    required: false
+    type: str
   permanent:
     description:
       The permanent bool flag.
@@ -251,6 +255,10 @@ def parse_forward_port(module, item):
     return (_port, _protocol, _to_port, _to_addr)
 
 
+def set_the_default_zone(fw, set_default_zone):
+    fw.setDefaultZone(set_default_zone)
+
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
@@ -285,6 +293,7 @@ def main():
                 default=None,
             ),
             zone=dict(required=False, type="str", default=None),
+            set_default_zone=dict(required=False, type="str", default=None),
             permanent=dict(required=False, type="bool", default=None),
             runtime=dict(
                 required=False,
@@ -338,6 +347,7 @@ def main():
     timeout = module.params["timeout"]
     target = module.params["target"]
     zone = module.params["zone"]
+    set_default_zone = module.params["set_default_zone"]
     permanent = module.params["permanent"]
     runtime = module.params["runtime"]
     state = module.params["state"]
@@ -362,13 +372,14 @@ def main():
                 source,
                 interface,
                 icmp_block,
+                set_default_zone,
             )
         )
     ):
         module.fail_json(
             msg="One of service, port, source_port, forward_port, "
             "masquerade, rich_rule, source, interface, icmp_block, "
-            "icmp_block_inversion, target or zone needs to be set"
+            "icmp_block_inversion, target, zone or set_default_zone needs to be set"
         )
 
     zone_operation = False
@@ -534,6 +545,12 @@ def main():
             changed = True
             fw_zone = None
             fw_settings = None
+
+    # set default zone
+    if set_default_zone:
+        if fw.getDefaultZone() != set_default_zone:
+            set_the_default_zone(fw, set_default_zone)
+            changed = True
 
     # service
     for item in service:
