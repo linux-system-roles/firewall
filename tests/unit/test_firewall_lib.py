@@ -390,7 +390,7 @@ class FirewallLibMain(unittest.TestCase):
         with self.assertRaises(MockException):
             firewall_lib.main()
         am.fail_json.assert_called_with(
-            msg="timeout can not be used with icmp_block_inverson only"
+            msg="timeout can not be used with icmp_block_inversion only"
         )
 
     @patch("firewall_lib.HAS_FIREWALLD", True)

@@ -1,0 +1,44 @@
+- hosts: all
+  tasks:
+    - name: Call role to change target settings
+      include_role:
+        name: linux-system-roles.firewall
+      vars:
+        firewall:
+          - set_default_zone: public
+            state: enabled
+            permanent: yes
+          - target: DROP
+            state: enabled
+            permanent: yes
+
+    - name: Get target setting
+      command: firewall-cmd --info-zone=public
+      changed_when: false
+      register: __result
+
+    - name: Verify target setting
+      assert:
+        that: __expected in __result.stdout_lines
+      vars:
+        __expected: "  target: DROP"
+
+    - name: Call role to reset target settings
+      include_role:
+        name: linux-system-roles.firewall
+      vars:
+        firewall:
+          target: DROP
+          state: absent
+          permanent: yes
+
+    - name: Get target setting
+      command: firewall-cmd --info-zone=public
+      changed_when: false
+      register: __result
+
+    - name: Verify target setting was reset
+      assert:
+        that: __expected not in __result.stdout_lines
+      vars:
+        __expected: "  target: DROP"
