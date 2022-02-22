@@ -314,8 +314,8 @@ def main():
         ),
         supports_check_mode=True,
         required_if=(
-            ("state", "present", ("zone",), True),
-            ("state", "absent", ("zone",), True),
+            ("state", "present", ("zone", "target"), True),
+            ("state", "absent", ("zone", "target"), True),
         ),
     )
 
@@ -438,7 +438,7 @@ def main():
 
         if icmp_block_inversion is not None and not _timeout_ok:
             module.fail_json(
-                msg="timeout can not be used with icmp_block_inverson only"
+                msg="timeout can not be used with icmp_block_inversion only"
             )
 
         if len(source) > 0 and not _timeout_ok:
@@ -530,18 +530,19 @@ def main():
     # Firewall modification starts here
 
     changed = False
+    need_reload = False
 
     # zone
     if zone_operation:
         if state == "present" and not zone_exists:
             if not module.check_mode:
                 fw.config().addZone(zone, FirewallClientZoneSettings())
-                fw.reload()
+                need_reload = True
             changed = True
         elif state == "absent" and zone_exists:
             if not module.check_mode:
                 fw_zone.remove()
-                fw.reload()
+                need_reload = True
             changed = True
             fw_zone = None
             fw_settings = None
@@ -782,20 +783,25 @@ def main():
             if permanent and fw_settings.getTarget() != target:
                 if not module.check_mode:
                     fw_settings.setTarget(target)
+                    need_reload = True
                 changed = True
         elif state in ["absent", "disabled"]:
             target = "default"
             if permanent and fw_settings.getTarget() != target:
                 if not module.check_mode:
                     fw_settings.setTarget(target)
+                    need_reload = True
                 changed = True
 
     # apply permanent changes
-    if permanent and fw_zone and fw_settings:
-        if fw_offline:
-            fw.config.set_zone_config(fw_zone, fw_settings.settings)
-        else:
-            fw_zone.update(fw_settings)
+    if changed and (zone_operation or permanent):
+        if fw_zone and fw_settings:
+            if fw_offline:
+                fw.config.set_zone_config(fw_zone, fw_settings.settings)
+            else:
+                fw_zone.update(fw_settings)
+        if need_reload:
+            fw.reload()
 
     module.exit_json(changed=changed)
 
