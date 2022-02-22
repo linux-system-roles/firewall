@@ -378,8 +378,9 @@ class FirewallLibMain(unittest.TestCase):
         with self.assertRaises(MockException):
             firewall_lib.main()
         am_class.return_value.fail_json.assert_called_with(
-            msg="One of service, port, source_port, forward_port, masquerade, rich_rule, source, "
-            "interface, icmp_block, icmp_block_inversion, target or zone needs to be set"
+            msg="One of service, port, source_port, forward_port, "
+            "masquerade, rich_rule, source, interface, icmp_block, "
+            "icmp_block_inversion, target, zone or set_default_zone needs to be set"
         )
 
     @patch("firewall_lib.HAS_FIREWALLD", True)
@@ -511,6 +512,20 @@ class FirewallLibMain(unittest.TestCase):
         am.fail_json.assert_called_with(
             msg="Unsupported firewalld version 0.2.8, requires >= 0.2.11"
         )
+
+    @patch("firewall_lib.FirewallClient", create=True)
+    @patch("firewall_lib.HAS_FIREWALLD", True)
+    @patch("firewall_lib.FW_VERSION", "0.3.8", create=True)
+    def test_set_default_zone(self, firewall_class, am_class):
+        am = am_class.return_value
+        am.params = {
+            "set_default_zone": "public",
+        }
+        fw = firewall_class.return_value
+        fw.connected = True
+        firewall_lib = Mock()
+        firewall_lib.set_the_default_zone()
+        firewall_lib.set_the_default_zone.assert_called()
 
 
 @pytest.mark.parametrize("method,state,input,expected", TEST_PARAMS)

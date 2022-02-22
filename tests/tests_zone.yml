@@ -54,6 +54,10 @@
               permanent: yes
               masquerade: yes
               state: enabled
+            - set_default_zone: dmz
+              state: enabled
+            - service: http
+              state: enabled
 
       - name: Fail if no changes are done
         fail: msg="FAILED"
@@ -85,6 +89,10 @@
             - zone: customzone
               permanent: yes
               masquerade: yes
+              state: enabled
+            - set_default_zone: dmz
+              state: enabled
+            - service: http
               state: enabled
 
       - name: Fail on newly changes
@@ -122,6 +130,17 @@
         failed_when: result is failed
                      or "yes" not in result.stdout
 
+      - name: Verify custom zone has masquerade added to it
+        command: firewall-cmd --get-default-zone
+        register: result
+        failed_when: result is failed
+                     or "dmz" not in result.stdout
+
+      - name: Verify that service http has been added to the default zone dmz
+        command: firewall-cmd --zone=dmz --query-service=http
+        register: result
+        failed_when: result is failed
+                     or "yes" not in result.stdout
     always:
 
       # CLEANUP: RESET TO ZONE DEFAULTS

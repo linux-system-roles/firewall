@@ -349,7 +349,7 @@
           permanent: yes
           immediate: yes
         register: result
-        failed_when: result is failed or not result is changed
+        failed_when: result is failed or result is not changed
 
       - name: Add masquerade to custom zone, again
         firewall_lib:
@@ -360,6 +360,21 @@
           immediate: yes
         register: result
         failed_when: result is failed or result is changed
+
+      - name: set default zone
+        firewall_lib:
+          set_default_zone: dmz
+          state: enabled
+        register: result
+        failed_when: result is failed or result is not changed
+
+      - name: set default zone, again
+        firewall_lib:
+          set_default_zone: dmz
+          state: enabled
+        register: result
+        failed_when: result is failed or result is changed
+
 
     always:
 
@@ -398,8 +413,7 @@
       - name: Reset default zone to defaults
         shell:
           cmd: |
-            zone=$(firewall-cmd --get-default-zone)
-            firewall-cmd --permanent --load-zone-defaults=$zone
+            firewall-cmd --permanent --load-zone-defaults=public
         register: result
         failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
 
