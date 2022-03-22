@@ -597,7 +597,7 @@ def test_module_parameters(method, state, input, expected):
         if permanent:
             called_mock = getattr(fw_settings, called_mock_name)
             assert expected["permanent"] == called_mock.call_args_list
-        am.exit_json.assert_called_once_with(changed=True)
+        am.exit_json.assert_called_once_with(changed=True, __firewall_changed=True)
     finally:
         am_class_patcher.stop()
         fw_client_patcher.stop()

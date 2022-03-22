@@ -2,10 +2,41 @@
 
 - name: Enable and start firewalld service
   service:
-    name: firewalld
+    name: "{{ __firewall_service }}"
     state: started
-    enabled: yes
+    enabled: true
 
+- name: Check if previous replaced is defined
+  set_fact:
+    __firewall_previous_replaced: "{{ firewall | d([]) |
+      selectattr('previous', 'defined') |
+      selectattr('previous', 'match', '^replaced$') |
+      list | length > 0 }}"
+    __firewall_python_cmd: "{{ ansible_python_interpreter |
+      d(discovered_interpreter_python) }}"
+
+- name: Get config files, checksums before and remove
+  script:
+    cmd: >
+      files/get_files_checksums.sh {{ __firewall_python_cmd | quote }}
+      {{ __firewall_firewalld_dir | quote }} {{ __firewall_service | quote }}
+      true
+  register: __firewall_config_files_before
+  changed_when: false
+  when: __firewall_previous_replaced | bool
+
+# Explanation of loop - `firewall` is a list of dict.  We want
+# to remove any key: value matching previous: replaced from every
+# dict in the firewall list.  The `difference` filter removes
+# items from lists, not dicts.  So we use `map` with `dict2items`
+# to convert each dict in the `firewall` list to a list of key/value
+# pairs.  Then, we use `map` with `difference` to remove all
+# occurrences of previous: replaced from all dicts.  The `select`
+# removes any lists which are now empty (e.g. the item contained
+# only previous: replaced).  Then we use `map` with `items2dict`
+# to convert each item in the list back to a dict.
+# Also handle the case where firewall is a dict instead of a list by
+# "casting" it into a list.
 - name: Configure firewall
   firewall_lib:
     zone: "{{ item.zone | default(omit) }}"
@@ -25,6 +56,41 @@
     permanent: "{{ item.permanent | default(True) }}"
     runtime: "{{ item.runtime | default(True) }}"
     state: "{{ item.state }}"
-  with_items:
-    - "{{ firewall }}"
+    __report_changed: "{{ not __firewall_previous_replaced }}"
+  loop: "{{ firewall is mapping | ternary([firewall], firewall) |
+    map('dict2items') | map('difference', __previous) | select |
+    map('items2dict') | list }}"
+  vars:
+    __previous:
+      - key: previous
+        value: replaced
   register: firewall_lib_result
+
+- name: Check config files after removal
+  when: __firewall_previous_replaced | bool
+  block:
+    - name: Get config files, checksums after
+      script:
+        cmd: >
+          files/get_files_checksums.sh {{ __firewall_python_cmd | quote }}
+          {{ __firewall_firewalld_dir | quote }}
+      register: __firewall_config_files_after
+      changed_when: false
+
+    - name: Calculate what has changed
+      set_fact:
+        firewall_lib_result:
+          changed: "{{
+            __firewall_config_files_after.stdout_lines |
+            symmetric_difference(__firewall_config_files_before.stdout_lines) |
+            length > 0 }}"
+      changed_when: firewall_lib_result.changed
+
+    - name: Show diffs
+      when: __firewall_debug | d(false)
+      debug:
+        msg: |
+          __firewall_config_files_before {{
+            __firewall_config_files_before.stdout_lines | to_nice_json }}
+          __firewall_config_files_after {{
+            __firewall_config_files_after.stdout_lines | to_nice_json }}

@@ -1,7 +1,2 @@
 ---
 firewall: []
-firewall_setup_default_solution: true
-
-# ansible_facts required by the role
-__firewall_required_facts:
-  - python_version
