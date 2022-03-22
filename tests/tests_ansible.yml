@@ -375,47 +375,47 @@
         register: result
         failed_when: result is failed or result is changed
 
-
-    always:
-
-      # CLEANUP: RESET TO ZONE DEFAULTS
-
-      - name: Remove custom zone
-        command: firewall-cmd --permanent --delete-zone=custom
+      - name: set previous replaced
+        firewall_lib:
+          zone: dmz
+          state: enabled
+          icmp_block_inversion: yes
+          permanent: yes
+          immediate: yes
+          previous: replaced
         register: result
-        failed_when: result.failed and "INVALID_ZONE" not in result.stderr
+        failed_when: result is failed or result is not changed
 
-      - name: Reset internal zone to defaults
-        command: firewall-cmd --permanent --load-zone-defaults=internal
+      - name: set previous replaced again
+        firewall_lib:
+          zone: dmz
+          state: enabled
+          icmp_block_inversion: yes
+          permanent: yes
+          immediate: no
+          previous: replaced
         register: result
-        failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+        failed_when: result is failed or result is changed
 
-      - name: Reset trusted zone to defaults
-        command: firewall-cmd --permanent --load-zone-defaults=trusted
+      - name: set previous replaced as only parameter
+        firewall_lib:
+          previous: replaced
+          state: enabled
         register: result
-        failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+        failed_when: result is failed or result is not changed
 
-      - name: Reset dmz zone to defaults
-        command: firewall-cmd --permanent --load-zone-defaults=dmz
+      - name: set previous replaced as only parameter again
+        firewall_lib:
+          previous: replaced
+          state: enabled
         register: result
-        failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
-
-      - name: Reset drop zone to defaults
-        command: firewall-cmd --permanent --load-zone-defaults=drop
-        register: result
-        failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
-
-      - name: Reset public zone to defaults
-        command: firewall-cmd --permanent --load-zone-defaults=public
-        register: result
-        failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
-
-      - name: Reset default zone to defaults
-        shell:
-          cmd: |
-            firewall-cmd --permanent --load-zone-defaults=public
-        register: result
-        failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+        failed_when: result is failed or result is changed
+   
+    always: 
+      - name: set previous replaced to clean
+        firewall_lib:
+          previous: replaced
+          state: enabled
 
       - name: Reload firewalld
         command: firewall-cmd --reload

@@ -161,6 +161,17 @@ options:
 
 from ansible.module_utils.basic import AnsibleModule
 from distutils.version import LooseVersion
+from subprocess import check_output
+import hashlib
+import shutil
+import os
+import glob
+
+CONFIGS_TO_DELETE = [
+    "/etc/firewalld/zones/*",
+    "/etc/firewalld/policies/*",
+    "/etc/firewalld/direct.xml",
+]
 
 try:
     import firewall.config
@@ -172,6 +183,49 @@ try:
     HAS_FIREWALLD = True
 except ImportError:
     HAS_FIREWALLD = False
+
+CONFIGS_TO_DELETE = [
+    "/etc/firewalld/zones/*",
+    "/etc/firewalld/policies/*",
+    "/etc/firewalld/direct.xml",
+]
+
+
+def hash_file(file_name):
+    out = check_output(["xmllint", "--c14n", file_name])
+    # return hashlib.md5(out).hexdigest()
+    return file_name
+
+
+def get_hashes_of_all_configs():
+    hashes = set()
+    for config in CONFIGS_TO_DELETE:
+        files = glob.glob(config)
+        for config_file in files:
+            if config_file.endswith(".old"):
+                continue
+            if os.path.isfile(config_file) or os.path.islink(config_file):
+                hashes.add(hash_file(config_file))
+            elif os.path.isdir(config_file):
+                continue
+    return hashes
+
+
+def delete_config_files(fw):
+    for config in CONFIGS_TO_DELETE:
+        files = glob.glob(config)
+        for config_file in files:
+            if os.path.isfile(config_file) or os.path.islink(config_file):
+                os.remove(config_file)
+            elif os.path.isdir(config_file):
+                shutil.rmtree(config_file)
+    fw.reload()
+
+
+def restore_defaults(fw):
+    previous_hashes = get_hashes_of_all_configs()
+    delete_config_files(fw)
+    return previous_hashes
 
 
 def handle_interface_permanent(
@@ -280,6 +334,7 @@ def main():
                 ],
             ),
             masquerade=dict(required=False, type="bool", default=None),
+            previous=dict(choices=["replaced"], required=False),
             rich_rule=dict(required=False, type="list", elements="str", default=[]),
             source=dict(required=False, type="list", elements="str", default=[]),
             interface=dict(required=False, type="list", elements="str", default=[]),
@@ -351,7 +406,16 @@ def main():
     permanent = module.params["permanent"]
     runtime = module.params["runtime"]
     state = module.params["state"]
+    previous = module.params["previous"]
 
+    previous_hashes = None
+    if not HAS_FIREWALLD:
+        module.fail_json(msg="No firewalld")
+
+    fw = FirewallClient()
+    
+    if previous:
+        previous_hashes = restore_defaults(fw)
     if permanent is None:
         runtime = True
     elif not any((permanent, runtime)):
@@ -376,11 +440,14 @@ def main():
             )
         )
     ):
-        module.fail_json(
-            msg="One of service, port, source_port, forward_port, "
-            "masquerade, rich_rule, source, interface, icmp_block, "
-            "icmp_block_inversion, target, zone or set_default_zone needs to be set"
-        )
+        if previous:
+            module.exit_json(changed=bool(previous_hashes))
+        else:
+            module.fail_json(
+                msg="One of service, port, source_port, forward_port, "
+                "masquerade, rich_rule, source, interface, icmp_block, "
+                "icmp_block_inversion, target, zone or set_default_zone needs to be set"
+            )
 
     zone_operation = False
     if state == "present" or state == "absent":
@@ -453,10 +520,6 @@ def main():
     if len(source) > 0 and permanent is None:
         module.fail_json(msg="source cannot be set without permanent")
 
-    if not HAS_FIREWALLD:
-        module.fail_json(msg="No firewalld")
-
-    fw = FirewallClient()
 
     fw_offline = False
     if not fw.connected:
@@ -803,6 +866,9 @@ def main():
         if need_reload:
             fw.reload()
 
+    if previous:
+        current_hashes = get_hashes_of_all_configs()
+        changed = current_hashes != previous_hashes
     module.exit_json(changed=changed)
 
 
