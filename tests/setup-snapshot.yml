@@ -1,0 +1,7 @@
+- hosts: all
+  tasks:
+    - name: Set platform/version specific variables
+      include_role:
+        name: linux-system-roles.firewall
+        tasks_from: firewalld.yml
+        public: true

@@ -1,4 +1,10 @@
 ---
+- name: Ensure ansible_facts used by role
+  setup:
+    gather_subset: min
+  when: not ansible_facts.keys() | list |
+    intersect(__firewall_required_facts) == __firewall_required_facts
+
 - name: Install firewalld
   package:
     name: firewalld
@@ -15,9 +21,3 @@
     name: python3-firewall
     state: present
   when: ansible_python_version is version('3', '>=')
-
-- name: Enable and start firewalld service
-  service:
-    name: firewalld
-    state: started
-    enabled: yes
