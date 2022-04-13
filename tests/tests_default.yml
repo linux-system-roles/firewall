@@ -1,5 +1,5 @@
 - name: Ensure that the roles runs with default parameters
   hosts: all
-
+  gather_facts: false
   roles:
     - linux-system-roles.firewall

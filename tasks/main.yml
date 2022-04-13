@@ -1,4 +1,10 @@
-- include: firewalld.yml
+- include_tasks: firewalld.yml
+
+- name: Enable and start firewalld service
+  service:
+    name: firewalld
+    state: started
+    enabled: yes
 
 - name: Configure firewall
   firewall_lib:
