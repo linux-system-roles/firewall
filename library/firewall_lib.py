@@ -167,12 +167,6 @@ import shutil
 import os
 import glob
 
-CONFIGS_TO_DELETE = [
-    "/etc/firewalld/zones/*",
-    "/etc/firewalld/policies/*",
-    "/etc/firewalld/direct.xml",
-]
-
 try:
     import firewall.config
 
@@ -190,36 +184,50 @@ CONFIGS_TO_DELETE = [
     "/etc/firewalld/direct.xml",
 ]
 
+CONFIG_EXTENSIONS = set([".conf", ".xml"])
 
-def hash_file(file_name):
-    out = check_output(["xmllint", "--c14n", file_name])
+# figure out how to "hash" a .conf file
+def hash_file(file_name, ext):
+    if ext == ".xml":
+        out = check_output(["xmllint", "--c14n", file_name])
+    elif ext == ".conf":
+        pass  # figure out what to do here
     # return hashlib.md5(out).hexdigest()
     return file_name
 
 
+def get_configs():
+    """Get all files and directories in config directories."""
+    configs = []
+    for config in CONFIGS_TO_DELETE:
+        configs.extend(glob.glob(config))
+    return configs
+
+
 def get_hashes_of_all_configs():
     hashes = set()
-    for config in CONFIGS_TO_DELETE:
-        files = glob.glob(config)
-        for config_file in files:
-            if config_file.endswith(".old"):
-                continue
-            if os.path.isfile(config_file) or os.path.islink(config_file):
-                hashes.add(hash_file(config_file))
-            elif os.path.isdir(config_file):
-                continue
+    for config_file in get_configs():
+        unused_, ext = os.path.splitext(config_file)
+        if ext not in CONFIG_EXTENSIONS:
+            continue
+        if os.path.isfile(config_file) or os.path.islink(config_file):
+            hashes.add(hash_file(config_file, ext))
+        elif os.path.isdir(config_file):
+            continue
     return hashes
 
 
 def delete_config_files(fw):
-    for config in CONFIGS_TO_DELETE:
-        files = glob.glob(config)
-        for config_file in files:
-            if os.path.isfile(config_file) or os.path.islink(config_file):
-                os.remove(config_file)
-            elif os.path.isdir(config_file):
-                shutil.rmtree(config_file)
-    fw.reload()
+    need_reload = False
+    for config_file in get_configs():
+        if os.path.isfile(config_file) or os.path.islink(config_file):
+            os.remove(config_file)
+            need_reload = True
+        elif os.path.isdir(config_file):
+            shutil.rmtree(config_file)
+            need_reload = True
+    if need_reload:
+        fw.reload()
 
 
 def restore_defaults(fw):
@@ -408,12 +416,9 @@ def main():
     state = module.params["state"]
     previous = module.params["previous"]
 
-    previous_hashes = None
-    if not HAS_FIREWALLD:
-        module.fail_json(msg="No firewalld")
-
     fw = FirewallClient()
-    
+
+    previous_hashes = None
     if previous:
         previous_hashes = restore_defaults(fw)
     if permanent is None:
