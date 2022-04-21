@@ -365,6 +365,7 @@ class FirewallLibParsers(unittest.TestCase):
 class FirewallLibMain(unittest.TestCase):
     """Test main function."""
 
+    @patch("firewall_lib.FirewallClient", MagicMock, create=True)
     @patch("firewall_lib.HAS_FIREWALLD", False)
     def test_main_error_no_firewall_backend(self, am_class):
         with self.assertRaises(MockException):
@@ -373,6 +374,7 @@ class FirewallLibMain(unittest.TestCase):
             msg="No firewall backend could be imported."
         )
 
+    @patch("firewall_lib.FirewallClient", MagicMock, create=True)
     @patch("firewall_lib.HAS_FIREWALLD", True)
     def test_main_error_no_params(self, am_class):
         with self.assertRaises(MockException):
@@ -383,6 +385,7 @@ class FirewallLibMain(unittest.TestCase):
             "icmp_block_inversion, target, zone or set_default_zone needs to be set"
         )
 
+    @patch("firewall_lib.FirewallClient", MagicMock, create=True)
     @patch("firewall_lib.HAS_FIREWALLD", True)
     def test_main_error_timeout_icmp_block_inversion(self, am_class):
         am = am_class.return_value
@@ -393,6 +396,7 @@ class FirewallLibMain(unittest.TestCase):
             msg="timeout can not be used with icmp_block_inversion only"
         )
 
+    @patch("firewall_lib.FirewallClient", MagicMock, create=True)
     @patch("firewall_lib.HAS_FIREWALLD", True)
     def test_main_error_timeout_source(self, am_class):
         am = am_class.return_value
@@ -401,6 +405,7 @@ class FirewallLibMain(unittest.TestCase):
             firewall_lib.main()
         am.fail_json.assert_called_with(msg="timeout can not be used with source only")
 
+    @patch("firewall_lib.FirewallClient", MagicMock, create=True)
     @patch("firewall_lib.HAS_FIREWALLD", True)
     def test_main_error_source_without_permanent(self, am_class):
         am = am_class.return_value
@@ -409,6 +414,7 @@ class FirewallLibMain(unittest.TestCase):
             firewall_lib.main()
         am.fail_json.assert_called_with(msg="source cannot be set without permanent")
 
+    @patch("firewall_lib.FirewallClient", MagicMock, create=True)
     @patch("firewall_lib.HAS_FIREWALLD", True)
     def test_permanent_runtime_offline(self, am_class):
         am = am_class.return_value
@@ -423,6 +429,7 @@ class FirewallLibMain(unittest.TestCase):
             msg="One of permanent, runtime needs to be enabled"
         )
 
+    @patch("firewall_lib.FirewallClient", MagicMock, create=True)
     @patch("firewall_lib.HAS_FIREWALLD", True)
     def test_timeout_with_disabled_state(self, am_class):
         am = am_class.return_value
@@ -433,6 +440,7 @@ class FirewallLibMain(unittest.TestCase):
             msg="timeout can not be used with state: disabled"
         )
 
+    @patch("firewall_lib.FirewallClient", MagicMock, create=True)
     @patch("firewall_lib.HAS_FIREWALLD", True)
     def test_masquerade_with_disabled_state(self, am_class):
         am = am_class.return_value
@@ -447,6 +455,7 @@ class FirewallLibMain(unittest.TestCase):
             msg="masquerade can not be used with state: disabled"
         )
 
+    @patch("firewall_lib.FirewallClient", MagicMock, create=True)
     @patch("firewall_lib.HAS_FIREWALLD", True)
     def test_icmp_block_inversion_with_disabled_state(self, am_class):
         am = am_class.return_value
@@ -461,6 +470,7 @@ class FirewallLibMain(unittest.TestCase):
             msg="icmp_block_inversion can not be used with state: disabled"
         )
 
+    @patch("firewall_lib.FirewallClient", MagicMock, create=True)
     @patch("firewall_lib.HAS_FIREWALLD", True)
     def test_main_error_timeout_interface(self, am_class):
         am = am_class.return_value
@@ -471,6 +481,7 @@ class FirewallLibMain(unittest.TestCase):
             msg="timeout can not be used with interface only"
         )
 
+    @patch("firewall_lib.FirewallClient", MagicMock, create=True)
     @patch("firewall_lib.HAS_FIREWALLD", True)
     def test_main_error_timeout_target(self, am_class):
         am = am_class.return_value
