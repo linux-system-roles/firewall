@@ -1,0 +1,13 @@
+__firewall_firewalld_dir: /etc/firewalld
+__firewall_firewalld_conf: "{{ __firewall_firewalld_dir }}/firewalld.conf"
+
+# ansible_facts required by the role
+__firewall_required_facts:
+  - python_interpreter
+  - python_version
+
+__firewall_packages_base: [firewalld]
+__firewall_packages_python2: [python-firewall]
+__firewall_packages_python3: [python3-firewall]
+
+__firewall_service: firewalld

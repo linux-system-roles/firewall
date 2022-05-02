@@ -224,14 +224,34 @@ permanent: true
 The permanent and runtime settings are independent, so you can set only the runtime, or only the permanent.  You cannot
 set both permanent and runtime to `false`.
 
+### previous
+
+If you want to completely wipe out all existing firewall configuration, add
+`previous: replaced` to the `firewall` list. This will cause all existing
+configuration to be removed and replaced with your given configuration.  This is
+useful if you have existing machines that may have existing firewall
+configuration, and you want to make all of the firewall configuration the same
+across all of the machines.
+
 Examples of Options
 -------------------
 By default, any changes will be applied immediately, and to the permanent settings. If you want the changes to apply immediately but not permanently, use `permanent: no`. Conversely, use `runtime: no`.
 
-Permit TCP traffic for port 80 in default zone:
+Permit TCP traffic for port 80 in default zone, in addition to any existing
+configuration:
 
 ```yaml
 firewall:
+  - port: 80/tcp
+    state: enabled
+```
+
+Remove all existing firewall configuration, and permit TCP traffic for port 80
+in default zone:
+
+```yaml
+firewall:
+  - previous: replaced
   - port: 80/tcp
     state: enabled
 ```
@@ -300,15 +320,16 @@ firewall:
 Example Playbooks
 -----------------
 
-With this playbook it is possible to make sure the ssh service is enabled in the firewall:
+Erase all existing configuration, and enable ssh service:
 
 ```
 ---
-- name: Make sure ssh service is enabled
+- name: Erase existing config and enable ssh service
   hosts: myhost
 
   vars:
     firewall:
+      - previous: replaced
       - service: 'ssh'
         state: 'enabled'
   roles:

@@ -157,6 +157,12 @@ options:
     required: true
     type: str
     choices: ["enabled", "disabled", "present", "absent"]
+  __report_changed:
+    description:
+      If false, do not report changed true even if changed.
+    required: false
+    type: bool
+    default: true
 """
 
 from ansible.module_utils.basic import AnsibleModule
@@ -311,6 +317,7 @@ def main():
             state=dict(
                 choices=["enabled", "disabled", "present", "absent"], required=True
             ),
+            __report_changed=dict(required=False, type="bool", default=True),
         ),
         supports_check_mode=True,
         required_if=(
@@ -803,7 +810,9 @@ def main():
         if need_reload:
             fw.reload()
 
-    module.exit_json(changed=changed)
+    if not module.params["__report_changed"]:
+        changed = False
+    module.exit_json(changed=changed, __firewall_changed=changed)
 
 
 #################################################
