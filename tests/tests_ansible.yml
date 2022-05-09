@@ -375,52 +375,55 @@
         register: result
         failed_when: result is failed or result is changed
 
-
     always:
 
-      # CLEANUP: RESET TO ZONE DEFAULTS
+      - name: Cleanup
+        tags:
+          - tests::cleanup
+        block:
+          # CLEANUP: RESET TO ZONE DEFAULTS
 
-      - name: Remove custom zone
-        command: firewall-cmd --permanent --delete-zone=custom
-        register: result
-        failed_when: result.failed and "INVALID_ZONE" not in result.stderr
+          - name: Remove custom zone
+            command: firewall-cmd --permanent --delete-zone=custom
+            register: result
+            failed_when: result.failed and "INVALID_ZONE" not in result.stderr
 
-      - name: Remove customzone zone
-        command: firewall-cmd --permanent --delete-zone=customzone
-        register: result
-        failed_when: result.failed and "INVALID_ZONE" not in result.stderr
+          - name: Remove customzone zone
+            command: firewall-cmd --permanent --delete-zone=customzone
+            register: result
+            failed_when: result.failed and "INVALID_ZONE" not in result.stderr
 
-      - name: Reset internal zone to defaults
-        command: firewall-cmd --permanent --load-zone-defaults=internal
-        register: result
-        failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+          - name: Reset internal zone to defaults
+            command: firewall-cmd --permanent --load-zone-defaults=internal
+            register: result
+            failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
 
-      - name: Reset trusted zone to defaults
-        command: firewall-cmd --permanent --load-zone-defaults=trusted
-        register: result
-        failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+          - name: Reset trusted zone to defaults
+            command: firewall-cmd --permanent --load-zone-defaults=trusted
+            register: result
+            failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
 
-      - name: Reset dmz zone to defaults
-        command: firewall-cmd --permanent --load-zone-defaults=dmz
-        register: result
-        failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+          - name: Reset dmz zone to defaults
+            command: firewall-cmd --permanent --load-zone-defaults=dmz
+            register: result
+            failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
 
-      - name: Reset drop zone to defaults
-        command: firewall-cmd --permanent --load-zone-defaults=drop
-        register: result
-        failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+          - name: Reset drop zone to defaults
+            command: firewall-cmd --permanent --load-zone-defaults=drop
+            register: result
+            failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
 
-      - name: Reset public zone to defaults
-        command: firewall-cmd --permanent --load-zone-defaults=public
-        register: result
-        failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+          - name: Reset public zone to defaults
+            command: firewall-cmd --permanent --load-zone-defaults=public
+            register: result
+            failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
 
-      - name: Reset default zone to defaults
-        command: firewall-cmd --permanent --load-zone-defaults=public
-        register: result
-        failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+          - name: Reset default zone to defaults
+            command: firewall-cmd --permanent --load-zone-defaults=public
+            register: result
+            failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
 
-      - name: Reload firewalld
-        command: firewall-cmd --reload
-        register: result
-        failed_when: result.failed or not result.changed
+          - name: Reload firewalld
+            command: firewall-cmd --reload
+            register: result
+            failed_when: result.failed or not result.changed
