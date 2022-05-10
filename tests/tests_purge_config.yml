@@ -22,104 +22,136 @@
       - service: http
         state: enabled
   tasks:
-    - name: Run the role with no config
-      include_role:
-        name: linux-system-roles.firewall
+    - name: Run previous replaced tests
+      block:
+        - name: Start from a clean slate
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - previous: replaced
 
-    - name: Verify that nothing changed
-      fail:
-        msg: The role changed something
-      when: firewall_lib_result.changed
+        - name: Run the role with no config
+          include_role:
+            name: linux-system-roles.firewall
 
-    - name: Apply basic config
-      include_role:
-        name: linux-system-roles.firewall
-      vars:
-        firewall: "{{ basic_config }}"
+        - name: Verify that nothing changed
+          fail:
+            msg: The role changed something
+          when: firewall_lib_result.changed
 
-    - name: Verify role reports changed
-      fail:
-        msg: The role reported no changes
-      when: not firewall_lib_result.changed
+        - name: Apply basic config
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall: "{{ basic_config }}"
 
-    - name: Apply again basic config
-      include_role:
-        name: linux-system-roles.firewall
-      vars:
-        firewall: "{{ basic_config }}"
+        - name: Verify role reports changed
+          fail:
+            msg: The role reported no changes
+          when: not firewall_lib_result.changed
 
-    - name: Verify role reports nothing changed
-      fail:
-        msg: The role reported changes
-      when: firewall_lib_result.changed
+        - name: Apply again basic config
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall: "{{ basic_config }}"
 
-    - name: Use previous replaced and basic config
-      include_role:
-        name: linux-system-roles.firewall
-      vars:
-        firewall: "{{ basic_config + [{'previous': 'replaced'}] }}"
+        - name: Verify role reports nothing changed
+          fail:
+            msg: The role reported changes
+          when: firewall_lib_result.changed
 
-    - name: Verify role reports changes
-      fail:
-        msg: The role reported no changes
-      when: not firewall_lib_result.changed
+        - name: Use previous replaced and basic config
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall: "{{ basic_config + [{'previous': 'replaced'}] }}"
 
-    - name: Use again previous replaced and basic config
-      include_role:
-        name: linux-system-roles.firewall
-      vars:
-        firewall: "{{ basic_config + [{'previous': 'replaced'}] }}"
+        - name: Verify role reports no changes
+          fail:
+            msg: The role reported changes
+          when: firewall_lib_result.changed
 
-    - name: Verify role reports no changes
-      fail:
-        msg: The role reported changes
-      when: firewall_lib_result.changed
+        - name: Use again previous replaced and basic config
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall: "{{ basic_config + [{'previous': 'replaced'}] }}"
 
-    - name: Apply basic config
-      include_role:
-        name: linux-system-roles.firewall
-      vars:
-        firewall: "{{ basic_config }}"
+        - name: Verify role reports no changes
+          fail:
+            msg: The role reported changes
+          when: firewall_lib_result.changed
 
-    - name: Verify role reports no changes
-      fail:
-        msg: The role reported changes
-      when: firewall_lib_result.changed
+        - name: Apply basic config
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall: "{{ basic_config }}"
 
-    - name: Use only previous replaced
-      include_role:
-        name: linux-system-roles.firewall
-      vars:
-        firewall:
-          - previous: replaced
+        - name: Verify role reports no changes
+          fail:
+            msg: The role reported changes
+          when: firewall_lib_result.changed
 
-    - name: Verify role reports changed
-      fail:
-        msg: The role reported no changes
-      when: not firewall_lib_result.changed
+        - name: Use only previous replaced
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - previous: replaced
 
-    - name: Apply only default zone
-      include_role:
-        name: linux-system-roles.firewall
-      vars:
-        firewall:
-          - set_default_zone: dmz
-            state: enabled
+        - name: Verify role reports changed
+          fail:
+            msg: The role reported no changes
+          when: not firewall_lib_result.changed
 
-    - name: Verify role reports changed
-      fail:
-        msg: The role reported no changes
-      when: not firewall_lib_result.changed
+        - name: Apply only default zone
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - set_default_zone: dmz
+                state: enabled
 
-    - name: Apply only default zone again
-      include_role:
-        name: linux-system-roles.firewall
-      vars:
-        firewall:
-          - set_default_zone: dmz
-            state: enabled
+        - name: Verify role reports changed
+          fail:
+            msg: The role reported no changes
+          when: not firewall_lib_result.changed
 
-    - name: Verify role reports not changed
-      fail:
-        msg: The role reported changes
-      when: firewall_lib_result.changed
+        - name: Apply only default zone again
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - set_default_zone: dmz
+                state: enabled
+
+        - name: Verify role reports not changed
+          fail:
+            msg: The role reported changes
+          when: firewall_lib_result.changed
+
+        - name: Apply only default zone again with previous replaced
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - previous: replaced
+              - set_default_zone: dmz
+                state: enabled
+
+        - name: Verify role reports not changed
+          fail:
+            msg: The role reported changes
+          when: firewall_lib_result.changed
+      always:
+        - name: Cleanup
+          tags:
+            - tests::cleanup
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - previous: replaced

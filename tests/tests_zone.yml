@@ -1,158 +1,162 @@
-- name: Ensure that the roles runs with default parameters
+- name: Test firewalld zones
   hosts: all
   become: true
-
   tasks:
-  - include_role:
-      name: linux-system-roles.firewall
+    - name: Test firewalld zones
+      block:
 
-  - name: Test firewalld zones
-    block:
+        # INIT TEST
 
-      # INIT TEST
+        - name: Verify used firewalld zones
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - zone: 'internal'
+                state: 'enabled'
+              - zone: 'external'
+                state: 'enabled'
+              - zone: 'trusted'
+                state: 'enabled'
 
-      - name: Verify used firewalld zones
-        include_role:
-          name: linux-system-roles.firewall
-        vars:
-          firewall:
-            - zone: 'internal'
-              state: 'enabled'
-            - zone: 'external'
-              state: 'enabled'
-            - zone: 'trusted'
-              state: 'enabled'
+        - name: Fail on missing zones
+          fail: msg="Required zones do not exist"
+          when: firewall_lib_result.changed
 
-      - name: Fail on missing zones
-        fail: msg="Required zones do not exist"
-        when: firewall_lib_result.changed
+        # ENSURE STATE
 
-      # ENSURE STATE
+        - name: Setup firewalld
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - previous: replaced
+              - zone: 'internal'
+                service: [ 'tftp', 'ftp' ]
+                port: [ '443/tcp', '443/udp' ]
+                forward_port: [ '447/tcp;;1.2.3.4',
+                                '448/tcp;;1.2.3.5' ]
+                state: 'enabled'
+              - zone: 'internal'
+                service: [ 'tftp', 'ftp' ]
+                port: [ '443/tcp', '443/udp' ]
+                forward_port: [ '447/tcp;;1.2.3.4',
+                                '448/tcp;;1.2.3.5' ]
+                state: 'enabled'
+              - zone: customzone
+                permanent: yes
+                state: present
+              - zone: customzone
+                permanent: yes
+                masquerade: yes
+                state: enabled
+              - set_default_zone: dmz
+                state: enabled
+              - service: http
+                state: enabled
 
-      - name: Setup firewalld
-        include_role:
-          name: linux-system-roles.firewall
-        vars:
-          firewall:
-            - previous: replaced
-            - zone: 'internal'
-              service: [ 'tftp', 'ftp' ]
-              port: [ '443/tcp', '443/udp' ]
-              forward_port: [ '447/tcp;;1.2.3.4',
-                              '448/tcp;;1.2.3.5' ]
-              state: 'enabled'
-            - zone: 'internal'
-              service: [ 'tftp', 'ftp' ]
-              port: [ '443/tcp', '443/udp' ]
-              forward_port: [ '447/tcp;;1.2.3.4',
-                              '448/tcp;;1.2.3.5' ]
-              state: 'enabled'
-            - zone: customzone
-              permanent: yes
-              state: present
-            - zone: customzone
-              permanent: yes
-              masquerade: yes
-              state: enabled
-            - set_default_zone: dmz
-              state: enabled
-            - service: http
-              state: enabled
+        - name: Fail if no changes are done
+          fail: msg="FAILED"
+          when: not firewall_lib_result.changed
 
-      - name: Fail if no changes are done
-        fail: msg="FAILED"
-        when: not firewall_lib_result.changed
+        # ENSURE STATE AGAIN
 
-      # ENSURE STATE AGAIN
+        - name: Setup firewalld again
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - previous: replaced
+              - zone: 'internal'
+                service: [ 'tftp', 'ftp' ]
+                port: [ '443/tcp', '443/udp' ]
+                forward_port: [ '447/tcp;;1.2.3.4',
+                                '448/tcp;;1.2.3.5' ]
+                state: 'enabled'
+              - zone: 'internal'
+                service: [ 'tftp', 'ftp' ]
+                port: [ '443/tcp', '443/udp' ]
+                forward_port: [ '447/tcp;;1.2.3.4',
+                                '448/tcp;;1.2.3.5' ]
+                state: 'enabled'
+              - zone: customzone
+                permanent: yes
+                state: present
+              - zone: customzone
+                permanent: yes
+                masquerade: yes
+                state: enabled
+              - set_default_zone: dmz
+                state: enabled
+              - service: http
+                state: enabled
 
-      - name: Setup firewalld again
-        include_role:
-          name: linux-system-roles.firewall
-        vars:
-          firewall:
-            - previous: replaced
-            - zone: 'internal'
-              service: [ 'tftp', 'ftp' ]
-              port: [ '443/tcp', '443/udp' ]
-              forward_port: [ '447/tcp;;1.2.3.4',
-                              '448/tcp;;1.2.3.5' ]
-              state: 'enabled'
-            - zone: 'internal'
-              service: [ 'tftp', 'ftp' ]
-              port: [ '443/tcp', '443/udp' ]
-              forward_port: [ '447/tcp;;1.2.3.4',
-                              '448/tcp;;1.2.3.5' ]
-              state: 'enabled'
-            - zone: customzone
-              permanent: yes
-              state: present
-            - zone: customzone
-              permanent: yes
-              masquerade: yes
-              state: enabled
-            - set_default_zone: dmz
-              state: enabled
-            - service: http
-              state: enabled
+        - name: Fail on newly changes
+          fail: msg="FAILED"
+          when: firewall_lib_result.changed
 
-      - name: Fail on newly changes
-        fail: msg="FAILED"
-        when: firewall_lib_result.changed
+        # VERIFY
 
-      # VERIFY
+        - name: Verify firewalld zone internal services
+          command: firewall-cmd --permanent --zone=internal --list-services
+          register: result
+          failed_when: result.failed
+                      or "tftp" not in result.stdout
+                      or "ftp" not in result.stdout
 
-      - name: Verify firewalld zone internal services
-        command: firewall-cmd --permanent --zone=internal --list-services
-        register: result
-        failed_when: result.failed
-                     or "tftp" not in result.stdout
-                     or "ftp" not in result.stdout
+        - name: Verify firewalld zone internal ports
+          command: firewall-cmd --permanent --zone=internal --list-ports
+          register: result
+          failed_when: result.failed
+                      or "443/tcp" not in result.stdout
+                      or "443/udp" not in result.stdout
 
-      - name: Verify firewalld zone internal ports
-        command: firewall-cmd --permanent --zone=internal --list-ports
-        register: result
-        failed_when: result.failed
-                     or "443/tcp" not in result.stdout
-                     or "443/udp" not in result.stdout
+        - name: Verify firewalld zone internal forward ports
+          command: firewall-cmd --permanent --zone=internal --list-forward-ports
+          register: result
+          failed_when: result.failed
+                      or "port=447:proto=tcp:toport=:toaddr=1.2.3.4"
+                          not in result.stdout
+                      or "port=448:proto=tcp:toport=:toaddr=1.2.3.5"
+                          not in result.stdout
 
-      - name: Verify firewalld zone internal forward ports
-        command: firewall-cmd --permanent --zone=internal --list-forward-ports
-        register: result
-        failed_when: result.failed
-                     or "port=447:proto=tcp:toport=:toaddr=1.2.3.4"
-                        not in result.stdout
-                     or "port=448:proto=tcp:toport=:toaddr=1.2.3.5"
-                        not in result.stdout
+        - name: Verify custom zone has masquerade added to it
+          command: firewall-cmd --permanent --zone=customzone --query-masquerade
+          register: result
+          failed_when: result is failed
+                      or "yes" not in result.stdout
 
-      - name: Verify custom zone has masquerade added to it
-        command: firewall-cmd --permanent --zone=customzone --query-masquerade
-        register: result
-        failed_when: result is failed
-                     or "yes" not in result.stdout
+        - name: Verify custom zone has masquerade added to it
+          command: firewall-cmd --get-default-zone
+          register: result
+          failed_when: result is failed
+                      or "dmz" not in result.stdout
 
-      - name: Verify custom zone has masquerade added to it
-        command: firewall-cmd --get-default-zone
-        register: result
-        failed_when: result is failed
-                     or "dmz" not in result.stdout
+        - name: Verify that service http has been added to the default zone dmz
+          command: firewall-cmd --zone=dmz --query-service=http
+          register: result
+          failed_when: result is failed
+                      or "yes" not in result.stdout
+      always:
+        - name: Cleanup
+          tags:
+            - tests::cleanup
+          block:
+            # CLEANUP: RESET TO ZONE DEFAULTS
 
-      - name: Verify that service http has been added to the default zone dmz
-        command: firewall-cmd --zone=dmz --query-service=http
-        register: result
-        failed_when: result is failed
-                     or "yes" not in result.stdout
-    always:
+            - name: Remove customzone zone
+              command: firewall-cmd --permanent --delete-zone=customzone
+              register: result
+              failed_when: result.failed and "INVALID_ZONE" not in result.stderr
 
-      # CLEANUP: RESET TO ZONE DEFAULTS
+            - name: Reset to zone defaults
+              shell:
+                cmd: |
+                  firewall-cmd --permanent --load-zone-defaults=internal
+                  firewall-cmd --permanent --load-zone-defaults=external
+                  firewall-cmd --permanent --load-zone-defaults=trusted
+                  firewall-cmd --reload
 
-      - name: Reset to zone defaults
-        shell:
-          cmd: |
-            firewall-cmd --permanent --load-zone-defaults=internal
-            firewall-cmd --permanent --load-zone-defaults=external
-            firewall-cmd --permanent --load-zone-defaults=trusted
-            firewall-cmd --reload
-
-    when: ansible_distribution == "Fedora" or
-      ((ansible_distribution == "CentOS" or ansible_distribution == "RedHat")
-       and ansible_distribution_major_version|int >= 7)
+      when: ansible_distribution == "Fedora" or
+        ((ansible_distribution == "CentOS" or ansible_distribution == "RedHat")
+        and ansible_distribution_major_version|int >= 7)
