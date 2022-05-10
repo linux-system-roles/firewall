@@ -361,6 +361,9 @@
         register: result
         failed_when: result is failed or result is changed
 
+      - name: Set the default zone to something other than dmz
+        command: firewall-cmd --set-default-zone public
+
       - name: set default zone
         firewall_lib:
           set_default_zone: dmz
