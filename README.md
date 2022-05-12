@@ -53,8 +53,8 @@ Name of a service or service list to add or remove inbound access to. The
 service needs to be defined in firewalld.
 
 ```
-service: 'ftp'
-service: [ 'ftp', 'tftp' ]
+service: ftp
+service: [ftp,tftp]
 ```
 
 ### port
@@ -64,7 +64,7 @@ needs to be in the format ```<port>[-<port>]/<protocol>```.
 
 ```
 port: '443/tcp'
-port: [ '443/tcp', '443/udp' ]
+port: ['443/tcp','443/udp']
 ```
 
 ### source_port
@@ -74,7 +74,7 @@ needs to be in the format ```<port>[-<port>]/<protocol>```.
 
 ```
 source_port: '443/tcp'
-source_port: [ '443/tcp', '443/udp' ]
+source_port: ['443/tcp','443/udp']
 ```
 
 ### forward_port
@@ -95,7 +95,7 @@ forward_port:
 examples
 ```
 forward_port: '447/tcp;;1.2.3.4'
-forward_port: [ '447/tcp;;1.2.3.4', '448/tcp;;1.2.3.5' ]
+forward_port: ['447/tcp;;1.2.3.4','448/tcp;;1.2.3.5']
 forward_port:
   - port: 447
     proto: tcp
@@ -345,7 +345,7 @@ With this playbook you can make sure that the tftp service is disabled in the fi
 
   vars:
     firewall:
-      - service: 'tftp'
+      - service: tftp
         state: 'disabled'
   roles:
     - linux-system-roles.firewall
@@ -360,13 +360,13 @@ It is also possible to combine several settings into blocks:
 
   vars:
     firewall:
-      - { service: [ 'tftp', 'ftp' ],
-          port: [ '443/tcp', '443/udp' ],
+      - { service: [tftp,ftp],
+          port: ['443/tcp','443/udp'],
           state: 'enabled' }
-      - { forward_port: [ 'eth2;447/tcp;;1.2.3.4',
-                          'eth2;448/tcp;;1.2.3.5' ],
+      - { forward_port: [eth2;447/tcp;;1.2.3.4,
+                          eth2;448/tcp;;1.2.3.5],
           state: 'enabled' }
-      - { zone: "internal", service: 'tftp', state: 'enabled' }
+      - { zone: "internal", service: tftp, state: 'enabled' }
       - { service: 'tftp', state: 'enabled' }
       - { port: '443/tcp', state: 'enabled' }
       - { forward_port: 'eth0;445/tcp;;1.2.3.4', state: 'enabled' }
@@ -384,10 +384,10 @@ The block with several services, ports, etc. will be applied at once. If there i
   vars:
     firewall:
       - { zone: 'external',
-          service: [ 'tftp', 'ftp' ],
-          port: [ '443/tcp', '443/udp' ],
-          forward_port: [ '447/tcp;;1.2.3.4',
-                          '448/tcp;;1.2.3.5' ],
+          service: [tftp,ftp],
+          port: ['443/tcp','443/udp'],
+          forward_port: ['447/tcp;;1.2.3.4',
+                         '448/tcp;;1.2.3.5'],
           state: 'enabled' }
   roles:
     - linux-system-roles.firewall
