@@ -154,7 +154,7 @@ options:
     description:
       Ensure presence or absence of entries.  Use C(present) and C(absent) only
       for zone-only operations, or for target operations.
-    required: true
+    required: false
     type: str
     choices: ["enabled", "disabled", "present", "absent"]
   __report_changed:
@@ -315,7 +315,9 @@ def main():
                 ],
             ),
             state=dict(
-                choices=["enabled", "disabled", "present", "absent"], required=True
+                choices=["enabled", "disabled", "present", "absent"],
+                required=False,
+                default=None,
             ),
             __report_changed=dict(required=False, type="bool", default=True),
         ),
@@ -359,6 +361,19 @@ def main():
     runtime = module.params["runtime"]
     state = module.params["state"]
 
+    # All options that require state to be set
+    state_required = any(
+        (
+            interface,
+            source,
+            service,
+            source_port,
+            port,
+            forward_port,
+            icmp_block,
+            rich_rule,
+        )
+    )
     if permanent is None:
         runtime = True
     elif not any((permanent, runtime)):
@@ -459,6 +474,9 @@ def main():
 
     if len(source) > 0 and permanent is None:
         module.fail_json(msg="source cannot be set without permanent")
+
+    if state is None and state_required:
+        module.fail_json(msg="Options invalid without state option set")
 
     if not HAS_FIREWALLD:
         module.fail_json(msg="No firewalld")

@@ -18,7 +18,6 @@
                        '448/tcp;;1.2.3.5']
         state: enabled
       - masquerade: yes
-        state: enabled
       - service: http
         state: enabled
   tasks:
@@ -113,7 +112,6 @@
           vars:
             firewall:
               - set_default_zone: dmz
-                state: enabled
 
         - name: Verify role reports changed
           fail:
@@ -126,7 +124,6 @@
           vars:
             firewall:
               - set_default_zone: dmz
-                state: enabled
 
         - name: Verify role reports not changed
           fail:
@@ -140,7 +137,6 @@
             firewall:
               - previous: replaced
               - set_default_zone: dmz
-                state: enabled
 
         - name: Verify role reports not changed
           fail:
