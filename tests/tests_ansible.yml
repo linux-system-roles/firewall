@@ -311,7 +311,7 @@
                      to-port=8443
           zone: public
           permanent: yes
-          immediate: yes
+          runtime: yes
           state: enabled
         register: result
         failed_when: result.failed or not result.changed
@@ -323,7 +323,7 @@
                      to-port=8443
           zone: public
           permanent: yes
-          immediate: yes
+          runtime: yes
           state: enabled
         register: result
         failed_when: result.failed or result.changed
@@ -333,7 +333,7 @@
           zone: customzone
           state: present
           permanent: yes
-          immediate: yes
+          runtime: yes
         register: result
 
       - name: assert firewalld custom zone
@@ -347,7 +347,7 @@
           zone: customzone
           state: enabled
           permanent: yes
-          immediate: yes
+          runtime: yes
         register: result
         failed_when: result is failed or result is not changed
 
@@ -357,7 +357,7 @@
           zone: customzone
           state: enabled
           permanent: yes
-          immediate: yes
+          runtime: yes
         register: result
         failed_when: result is failed or result is changed
 
