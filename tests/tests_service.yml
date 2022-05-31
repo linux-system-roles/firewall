@@ -1,0 +1,315 @@
+- name: Test firewall user defined services
+  hosts: all
+  become: true
+  tasks:
+    - name: Test firewall user defined services
+      block:
+
+        # INIT TEST
+
+        - name: Start from clean slate
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - previous: replaced
+
+        # Verify service states are as intended
+
+        - name: get all services
+          command: firewall-cmd --permanent --get-services
+          register: result
+
+        - name: Fail if http not present after reset
+          fail:
+            msg: >-
+              Reset default resulted in unexpected state -
+              builtin service http not present
+          when: result.stdout | regex_search("(^|\s)http(\s|$)") == ""
+
+        - name: Fail if systemroletest present prior to test run
+          fail:
+            msg: test service present after reseting defaults
+          when: result.stdout.find("systemroletest") != -1
+
+        - name: ensure http has default configuration
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - service: http
+                short: "WWW (HTTP)"
+                description: >-
+                  HTTP is the protocol used to serve Web pages.
+                  If you plan to make your Web server publicly available,
+                  enable this option.
+                  This option is not required for
+                  viewing pages locally or developing Web pages.
+                port: ["80/tcp"]
+                permanent: yes
+                state: present
+
+        - name: Fail if service changed
+          fail:
+            msg: FAILED - Defaults not properly reset for services
+          when: firewall_lib_result.changed
+
+        ## Begin builtin service tests
+
+        - name: change default service http
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - service: http
+                description: "linux system role test description"
+                port: ["8080/tcp"]
+                destination:
+                  - 1.1.1.1
+                  - 1::1
+                permanent: yes
+                state: present
+
+        - name: Fail when http is unchanged
+          fail:
+            msg: FAILED - http unchanged
+          when: not firewall_lib_result.changed
+
+        - name: change default service http again
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - service: http
+                description: "linux system role test description"
+                port: ["8080/tcp"]
+                destination:
+                  - 1.1.1.1
+                  - 1::1
+                permanent: yes
+                state: present
+
+        - name: Fail when http changes affect permanent configuration
+          fail:
+            msg: http changed when reapplying the same changes
+          when: firewall_lib_result.changed
+
+        ## End builtin service tests
+
+        ## Begin custom service tests
+
+        - name: Add custom service
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - service: systemroletest
+                short: Test service (Ansible)
+                description: >-
+                  This should only be available
+                  when firewalld is being configured
+                  by the firewall linux system role
+                port: ["9999/udp"]
+                source_port: ["10000/udp"]
+                destination:
+                  - 1.1.1.1
+                  - 1::1
+                helper_module: ftp
+                protocol: icmp
+                permanent: yes
+                state: present
+
+        # Verify that custom service is added to permanent configuration
+
+        - name: get all services
+          command: firewall-cmd --permanent --get-services
+          register: result
+
+        - name: Fail if systemrole test not created
+          fail:
+            msg: system role test not created by role
+          when: result.stdout.find("systemroletest") == -1
+
+        - name: Fail when custom service not changed
+          fail:
+            msg: New custom service did not set changed flag
+          when: not firewall_lib_result.changed
+
+        # Verify idempotency
+
+        - name: Add same custom service again
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - service: systemroletest
+                short: Test service (Ansible)
+                description: >-
+                  This should only be available when
+                  firewalld is being configured by the
+                  firewall linux system role
+                port: 9999/udp
+                source_port: ["10000/udp"]
+                destination:
+                  - 1.1.1.1
+                  - 1::1
+                helper_module: ftp
+                protocol: icmp
+                permanent: yes
+                state: present
+
+        - name: Fail when custom service changed
+          fail:
+            msg: Custom service changed when it should not have
+          when: firewall_lib_result.changed
+
+        # Verify that custom service not a part of default zone for some reason
+
+        - name: Query if default zone has custom service added
+          command: firewall-cmd --query-service systemroletest
+          ignore_errors: yes
+          register: result
+
+        - name: Fail if query return code incorrect
+          fail:
+            msg: query should return code 1
+          when: result.rc != 1
+
+        - name: Fail if custom service in default zone
+          fail:
+            msg: >-
+              custom zone should not already in default zone
+              without being added
+          when: result.stdout.find("yes") != -1
+
+        # Test that service can be added to zones
+
+        - name: Add custom service to default zone
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - service: systemroletest
+                state: enabled
+
+        # Verify that custom service in zone permanent configuration
+
+        - name: Query if service has been added to default zone
+          command: firewall-cmd --query-service systemroletest
+          register: result
+
+        - name: Fail if service not added to default zone
+          fail:
+            msg: custom service should be in default zone
+          when: result.stdout.find("yes") == -1
+
+        # Remove custom service from default zone to prevent errors later
+
+        - name: Remove custom service from default zone
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - service: systemroletest
+                state: disabled
+
+        # Test removing elements from custom service
+
+        - name: Remove custom service elements
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - service: systemroletest
+                port: ["9999/udp"]
+                source_port: ["10000/udp"]
+                destination:
+                  - 1.1.1.1
+                  - 1::1
+                helper_module: ftp
+                protocol: icmp
+                permament: yes
+                state: absent
+
+        # Verify nothing is removed in this case
+
+        - name: fail if custom service elements unchanged
+          fail:
+            msg: Custom service unchanged (should not be)
+          when: not firewall_lib_result.changed
+
+        - name: Remove custom service elements again
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - service: systemroletest
+                port: ["9999/udp"]
+                source_port: ["10000/udp"]
+                destination:
+                  - 1.1.1.1
+                  - 1::1
+                helper_module: ftp
+                protocol: icmp
+                permament: yes
+                state: absent
+
+        - name: fail if custom service elements changed
+          fail:
+            msg: Custom service changed when it should not have
+          when: firewall_lib_result.changed
+
+        - name: get all services
+          command: firewall-cmd --permanent --get-services
+          register: result
+
+        - name: Fail if systemroletest removed
+          fail:
+            msg: >-
+              custom service incorrectly removed when removing
+              elements from service
+          when: result.stdout.find("systemroletest") == -1
+
+        # Test remove service
+
+        - name: remove custom service
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - service: systemroletest
+                permament: yes
+                state: absent
+
+        - name: get all services
+          command: firewall-cmd --permanent --get-services
+          register: result
+
+        - name: Fail when custom service not removed
+          fail:
+            msg: custom service not removed by role
+          when: result.stdout.find("systemroletest") != -1
+
+        - name: remove custom service again
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - service: systemroletest
+                permament: yes
+                state: absent
+
+        - name: Fail if second removal changes anything
+          fail:
+            msg: something changed when systemrole test removed
+          when: firewall_lib_result.changed
+
+      always:
+        - name: Cleanup
+          tags:
+            - tests::cleanup
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              previous: replaced

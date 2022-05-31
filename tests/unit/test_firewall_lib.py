@@ -418,6 +418,79 @@ class FirewallLibMain(unittest.TestCase):
         am.fail_json.assert_called_with(msg="source cannot be set without permanent")
 
     @patch("firewall_lib.HAS_FIREWALLD", True)
+    def test_main_error_zone_operation_invalid_options(self, am_class):
+        am = am_class.return_value
+        am.params = {
+            "zone": "customzone",
+            "state": "present",
+            "permanent": True,
+            "description": "This element shouldn't be here for this operation",
+        }
+        with self.assertRaises(MockException):
+            firewall_lib.main()
+        am.fail_json.assert_called_with(
+            msg="short, description, port, source_port, helper_module, protocol, or destination "
+            "cannot be set while zone is specified and state is set to present or absent"
+        )
+
+    @patch("firewall_lib.HAS_FIREWALLD", True)
+    def test_main_error_service_and_zone_operations(self, am_class):
+        am = am_class.return_value
+        am.params = {
+            "zone": "customzone",
+            "service": "customservice",
+            "permanent": True,
+            "state": "present",
+        }
+        with self.assertRaises(MockException):
+            firewall_lib.main()
+        am.fail_json.assert_called_with(
+            msg="both zone and service while state present/absent"
+        )
+
+    @patch("firewall_lib.HAS_FIREWALLD", True)
+    def test_main_error_service_operation_with_invalid_options(self, am_class):
+        am = am_class.return_value
+        am.params = {
+            "service": "customservice",
+            "state": "present",
+            "permanent": True,
+            "target": "accept",
+        }
+        with self.assertRaises(MockException):
+            firewall_lib.main()
+        am.fail_json.assert_called_with(
+            msg="both service and target cannot be set while state is either present or absent"
+        )
+
+    @patch("firewall_lib.HAS_FIREWALLD", True)
+    def test_main_error_add_multiple_services(self, am_class):
+        am = am_class.return_value
+        am.params = {
+            "service": ["customservice", "othercustomservice"],
+            "permanent": True,
+            "state": "present",
+        }
+        with self.assertRaises(MockException):
+            firewall_lib.main()
+        am.fail_json.assert_called_with(
+            msg="can only add, modify, or remove one service at a time"
+        )
+
+    @patch("firewall_lib.HAS_FIREWALLD", True)
+    def test_main_error_add_service_permanent_false(self, am_class):
+        am = am_class.return_value
+        am.params = {
+            "service": ["customservice"],
+            "state": "present",
+        }
+        with self.assertRaises(MockException):
+            firewall_lib.main()
+        am.fail_json.assert_called_with(
+            msg="permanent must be enabled for service configuration. Additionally, service runtime configuration is not possible"
+        )
+
+    @patch("firewall_lib.HAS_FIREWALLD", True)
     def test_permanent_runtime_offline(self, am_class):
         am = am_class.return_value
         am.params = {

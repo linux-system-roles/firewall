@@ -57,6 +57,63 @@ service: ftp
 service: [ftp,tftp]
 ```
 
+###### User defined services
+
+You can use `service` with `state: present` to add a service, along
+with any of the options `short`, `description`, `port`, `source_port`, `protocol`,
+`helper_module`, or `destination` to initialize and add options to the service e.g.
+```yaml
+firewall:
+  # Adds custom service named customservice,
+  # defines the new services short to be "Custom Service",
+  # sets its description to "Custom service for example purposes,
+  # and adds the port 8080/tcp
+  - service: customservice
+    short: Custom Service
+    description: Custom service for example purposes
+    port: 8080/tcp
+    state: present
+    permanent: yes
+```
+
+Existing services can be modified in the same way as you would create a service.
+`short`, `description`, and `destination` can be reassigned this way, while `port`,
+`source port`, `protocol`, and `helper_module` will add the specified options if they
+did not exist previously without removing any previous elements. e.g.
+```yaml
+firewall:
+  # changes ftp's description, and adds the port 9090/tcp if it was not previously present
+  - service: ftp
+    description: I am modifying the builtin service ftp's description as an example
+    port: 9090/tcp
+    state: present
+    permanent: yes
+```
+
+You can remove a `service` or specific `port`, `source_port`, `protocol`, `helper_module`
+elements (or `destination` attributes) by using `service` with `state: absent` with any
+of the removable attributes listed. e.g.
+```yaml
+firewall:
+  # Removes the port 8080/tcp from customservice if it exists.
+  # DOES NOT REMOVE CUSTOM SERVICE
+  - service: customservice
+    port: 8080/tcp
+    state: absent
+    permanent: yes
+  # Removes the service named customservice if it exists
+  - service: customservice
+    state: absent
+    permanent: yes
+```
+
+NOTE: `permanent: yes` needs to be specified in order to define, modify, or remove
+a service. This is so anyone using `service` with `state: present/absent` acknowledges
+that this will affect permanent firewall configuration. Additionally,
+defining services for runtime configuration is not supported by firewalld
+
+For more information about custom services, see https://firewalld.org/documentation/man-pages/firewalld.service.html
+
 ### port
 
 Port or port range or a list of them to add or remove inbound access to. It
@@ -170,7 +227,48 @@ target to default.  Valid values are "default", "ACCEPT", "DROP", "%%REJECT%%".
 ```
 target: ACCEPT
 ```
+### short
 
+Short description, only usable when adding or modifying a service.
+See `service` for more usage information.
+
+```yaml
+short: WWW (HTTP)
+```
+
+### description
+
+Description for a service, only usable when adding a new service or
+modifying an existing service.
+See `service` for more information
+
+```yaml
+description: Your description goes here
+```
+
+### destination
+
+list of destination addresses, option only implemented for user defined services.
+Takes 0-2 addresses, allowing for one IPv4 address and one IPv6 address or address range.
+
+IPv4 format: x.x.x.x[/mask]
+IPv6 format: x:x:x:x:x:x:x:x[/mask] (x::x works when abbreviating one or more subsequent IPv6 segments where x = 0)
+
+```yaml
+destination:
+  - 1.1.1.0/24
+  - AAAA::AAAA:AAAA
+```
+
+### helper_module
+
+Name of a connection tracking helper supported by firewalld. 
+
+```yaml
+# Both properly specify nf_conntrack_ftp
+helper_module: ftp
+helper_module: nf_conntrack_ftp
+```
 ### timeout
 
 The amount of time in seconds a setting is in effect. The timeout is usable if
@@ -193,7 +291,7 @@ Enable or disable the entry.
 ```
 state: 'enabled' | 'disabled' | 'present' | 'absent'
 ```
-NOTE: `present` and `absent` are only used for `zone` and `target` operations,
+NOTE: `present` and `absent` are only used for `zone`, `target`, and `service` operations,
 and cannot be used for any other operation.
 
 NOTE: `zone` - use `state: present` to add a zone, and `state: absent` to remove
@@ -205,6 +303,8 @@ firewall:
 ```
 NOTE: `target` - you can also use `state: present` to add a target - `state:
 absent` will reset the target to the default.
+
+NOTE: `service` - to see how to manage services, see the service section.
 
 ### runtime
 Enable changes in runtime configuration. If `runtime` parameter is not provided, the default will be set to `True`.

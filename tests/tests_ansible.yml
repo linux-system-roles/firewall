@@ -374,6 +374,157 @@
         register: result
         failed_when: result is failed or result is changed
 
+      - name: add multiple custom services
+        firewall_lib:
+          service:
+            - custom
+            - another_custom
+          permanent: yes
+          state: present
+        register: result
+        failed_when: result is not failed or result is changed
+
+      - name: add custom service without details
+        firewall_lib:
+          service: customservice
+          permanent: yes
+          state: present
+        register: result
+        failed_when: result is failed or result is not changed
+
+      - name: add custom service that already exists
+        firewall_lib:
+          service: customservice
+          permanent: yes
+          state: present
+        register: result
+        failed_when: result is failed or result is changed
+
+      - name: add description to custom service
+        firewall_lib:
+          service: customservice
+          description: "This is a custom service that does absolutely nothing"
+          permanent: yes
+          state: present
+        register: result
+        failed_when: result is failed or result is not changed
+
+      - name: add short description to custom service
+        firewall_lib:
+          service: customservice
+          short: "custom service"
+          permanent: yes
+          state: present
+        register: result
+        failed_when: result is failed or result is not changed
+
+      - name: add source_ports to custom service
+        firewall_lib:
+          service: customservice
+          source_port: 333/tcp
+          permanent: yes
+          state: present
+        register: result
+        failed_when: result is failed or result is not changed
+
+      - name: add source_ports to custom service again
+        firewall_lib:
+          service: customservice
+          source_port: 333/tcp
+          permanent: yes
+          state: present
+        register: result
+        failed_when: result is failed or result is changed
+
+      - name: add invalid protocol to custom service
+        firewall_lib:
+          service: customservice
+          protocol: nonexistentprotocol
+          permanent: yes
+          state: present
+        register: result
+        failed_when: result is not failed or result is changed
+
+      - name: add valid protocol to custom service
+        firewall_lib:
+          service: customservice
+          protocol: icmp
+          permanent: yes
+          state: present
+        register: result
+        failed_when: result is failed or result is not changed
+
+      - name: remove valid protocol from customservice
+        firewall_lib:
+          service: customservice
+          protocol: icmp
+          permanent: yes
+          state: absent
+        register: result
+        failed_when: result is failed or result is not changed
+
+      - name: remove ports from custom service without deleting service
+        firewall_lib:
+          service: customservice
+          source_port: 333/tcp
+          permanent: yes
+          state: absent
+        register: result
+        failed_when: result is failed or result is not changed
+
+      - name: add destination addresses
+        firewall_lib:
+          service: customservice
+          destination:
+            - 146.19.6.63
+            - "aaaa:aaaa:aaaa:aaaa::"
+          state: present
+          permanent: yes
+        register: result
+        failed_when: result is failed or result is not changed
+
+      - name: delete custom service
+        firewall_lib:
+          service: customservice
+          permanent: yes
+          state: absent
+        register: result
+        failed_when: result is failed or result is not changed
+
+      - name: delete custom service again
+        firewall_lib:
+          service: customservice
+          permanent: yes
+          state: absent
+        register: result
+        failed_when: result is failed or result is changed
+
+      - name: add custom service with all the elements at once
+        firewall_lib:
+          service: customservice
+          short: Custom service
+          port: 333/tcp
+          source_port: 333/tcp
+          protocol: ipv6
+          helper_module: nf_conntrack_ftp
+          description: Custom Service that does not do a single thing
+          destination:
+            - 123.45.6.78
+            - "aaaa:aaaa:aaaa:aaa:aaaa:aaaa:aaaa::"
+          permanent: yes
+          state: present
+        register: result
+        failed_when: result is failed or result is not changed
+
+      - name: add helper module that already is on customservice
+        firewall_lib:
+          service: customservice
+          helper_module: nf_conntrack_ftp
+          permanent: yes
+          state: present
+        register: result
+        failed_when: result is failed or result is changed
+
     always:
 
       - name: Cleanup
