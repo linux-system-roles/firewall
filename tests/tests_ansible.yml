@@ -200,7 +200,6 @@
       - name: Allow masquerading in permament dmz zone
         firewall_lib:
           masquerade: yes
-          state: enabled
           permanent: yes
           zone: dmz
         register: result
@@ -209,7 +208,6 @@
       - name: Allow masquerading in permament dmz zone, again
         firewall_lib:
           masquerade: yes
-          state: enabled
           permanent: yes
           zone: dmz
         register: result
@@ -226,7 +224,6 @@
       - name: Ensure ICMP block inversion in permanent drop zone
         firewall_lib:
           zone: drop
-          state: enabled
           permanent: yes
           icmp_block_inversion: yes
         register: result
@@ -235,7 +232,6 @@
       - name: Ensure ICMP block inversion in permanent drop zone, again
         firewall_lib:
           zone: drop
-          state: enabled
           permanent: yes
           icmp_block_inversion: yes
         register: result

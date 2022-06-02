@@ -8,7 +8,6 @@
           vars:
             firewall:
               - set_default_zone: public
-                state: enabled
                 permanent: yes
               - target: DROP
                 state: enabled

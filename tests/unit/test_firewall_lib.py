@@ -384,6 +384,14 @@ class FirewallLibMain(unittest.TestCase):
         )
 
     @patch("firewall_lib.HAS_FIREWALLD", True)
+    def test_main_error_state_required_for_options(self, am_class):
+        am = am_class.return_value
+        am.params = {"permanent": True, "source": ["192.0.2.0/24"]}
+        with self.assertRaises(MockException):
+            firewall_lib.main()
+        am.fail_json.assert_called_with(msg="Options invalid without state option set")
+
+    @patch("firewall_lib.HAS_FIREWALLD", True)
     def test_main_error_timeout_icmp_block_inversion(self, am_class):
         am = am_class.return_value
         am.params = {"icmp_block_inversion": True, "timeout": 1}

@@ -55,7 +55,7 @@
     target: "{{ item.target | default(omit) }}"
     permanent: "{{ item.permanent | default(True) }}"
     runtime: "{{ item.runtime | default(True) }}"
-    state: "{{ item.state }}"
+    state: "{{ item.state | default(omit) }}"
     __report_changed: "{{ not __firewall_previous_replaced }}"
   loop: "{{ firewall is mapping | ternary([firewall], firewall) |
     map('dict2items') | map('difference', __previous) | select |
