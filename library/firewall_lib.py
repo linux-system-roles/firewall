@@ -43,6 +43,8 @@ options:
     description:
       List of service name strings.
       The service names needs to be defined in firewalld configuration.
+      services in firewalld configuration can be defined by setting
+      this option to a single service name and state to present.
     required: false
     type: list
     elements: str
@@ -153,10 +155,46 @@ options:
   state:
     description:
       Ensure presence or absence of entries.  Use C(present) and C(absent) only
-      for zone-only operations, or for target operations.
+      for zone-only operations, service-only operations, or target operations.
     required: false
     type: str
     choices: ["enabled", "disabled", "present", "absent"]
+  description:
+    description:
+      Creates or updates the description of a new or existing service.
+      State needs to be present for the use of this option
+      Currently only supported for permanent service operations
+    required: false
+    type: str
+  short:
+    description:
+      Creates or updates a short description, generally just a full name of a
+      new or existing service.
+      Currently supported for service-only operations while state is present
+    required: false
+    type: str
+  protocol:
+    description:
+      list of protocols supported by managed system.
+      Supported for service configuration only
+    required: false
+    type: list
+    elements: str
+  helper_module:
+    description:
+      List of netfiler kernel helper module names
+    required: false
+    type: list
+    elements: str
+  destination:
+    description:
+      List of IPv4/IPv6 addresses with optional mask
+      format - address[/mask]
+      Currently only supported for service configuration
+      Only one IPv4 and one IPv6 address allowed in list.
+    required: false
+    type: list
+    elements: str
   __report_changed:
     description:
       If false, do not report changed true even if changed.
@@ -165,19 +203,35 @@ options:
     default: true
 """
 
-from ansible.module_utils.basic import AnsibleModule
 from distutils.version import LooseVersion
+from ansible.module_utils.basic import AnsibleModule
 
 try:
     import firewall.config
 
     FW_VERSION = firewall.config.VERSION
 
-    from firewall.client import FirewallClient, Rich_Rule, FirewallClientZoneSettings
+    from firewall.client import (
+        FirewallClient,
+        Rich_Rule,
+        FirewallClientZoneSettings,
+        FirewallClientServiceSettings,
+    )
 
     HAS_FIREWALLD = True
 except ImportError:
     HAS_FIREWALLD = False
+
+
+def create_service(module, fw, service):
+    if not module.check_mode:
+        fw.config().addService(service, FirewallClientServiceSettings())
+        fw_service = fw.config().getServiceByName(service)
+        fw_service_settings = fw_service.getSettings()
+    else:
+        fw_service = None
+        fw_service_settings = FirewallClientServiceSettings()
+    return fw_service, fw_service_settings
 
 
 def handle_interface_permanent(
@@ -220,6 +274,99 @@ def parse_port(module, item):
     if _protocol is None:
         module.fail_json(msg="improper port format (missing protocol?)")
     return (_port, _protocol)
+
+
+ipv4_charset = "0123456789./"
+ipv6_charset = "0123456789abcdef:/"
+
+
+def parse_destination_address(module, item):
+    # Preventing long iterations for no reason
+    if len(item) > 43:
+        module.fail_json(msg="destination argument too long to be valid")
+
+    ipv4 = True
+    ipv6 = True
+
+    for character in item:
+        if character not in ipv4_charset:
+            ipv4 = False
+        if character not in ipv6_charset:
+            ipv6 = False
+
+    if (ipv4 and ipv6) or (not ipv4 and not ipv6):
+        module.fail_json(msg="Invalid IPv4 or IPv6 address - " + item)
+
+    # ipv4 specific error checking
+    if ipv4:
+        address = item.split(".")
+        if len(address) != 4:
+            module.fail_json(msg="IPv4 address does not have 4 octets - " + item)
+
+        for octet in range(4):
+            if "/" in address[octet] and octet != 3:
+                module.fail_json(
+                    msg="IPv4 address can only have a / "
+                    "at the end of the address to specify "
+                    "a subnet mask"
+                )
+            octet_value = address[octet]
+            if octet == 3 and "/" in octet_value:
+                octet_value, mask = octet_value.split("/")
+
+                if int(mask) > 32:
+                    module.fail_json(
+                        msg="invalid IPv4 subnet mask - "
+                        + mask
+                        + " (must be between 0 and 32 inclusive)"
+                    )
+
+                if int(octet_value) > 255:
+                    module.fail_json(
+                        msg="invalid IPv4 octet "
+                        + str(octet_value)
+                        + " in address "
+                        + item
+                    )
+        return "ipv4"
+    if ipv6:
+        address = item.split(":")
+        num_segments = len(address)
+        if num_segments > 10:
+            module.fail_json(
+                msg="Invalid IPv6 address " + item + " - too many segments"
+            )
+        for segment_number in range(num_segments):
+            segment = address[segment_number]
+            if segment != "":
+                if segment_number != num_segments - 1 and "/" in segment:
+                    module.fail_json(
+                        msg="Invalid IPv6 address - subnet mask"
+                        " found before last segment"
+                    )
+                if segment_number == num_segments - 1 and "/" in segment:
+                    segment, mask = segment.split("/")
+                    if int(mask) > 128:
+                        module.fail_json(
+                            msg="Invalid IPv6 address "
+                            + item
+                            + " - subnet mask "
+                            + mask
+                            + " invalid"
+                        )
+                if int(segment, 16) > 65535:
+                    module.fail_json(
+                        msg="Invalid IPv6 address " + item + " -"
+                        " invalid segment " + segment
+                    )
+
+        return "ipv6"
+
+
+def parse_helper_module(module, item):
+    item = item.split("_")
+    _module = [word for word in item if word != "nf" or word != "conntrack"]
+    return "_".join(_module)
 
 
 def parse_forward_port(module, item):
@@ -319,12 +466,17 @@ def main():
                 required=False,
                 default=None,
             ),
+            description=dict(required=False, type="str", default=None),
+            short=dict(required=False, type="str", default=None),
+            protocol=dict(required=False, type="list", elements="str", default=[]),
+            helper_module=dict(required=False, type="list", elements="str", default=[]),
+            destination=dict(required=False, type="list", elements="str", default=[]),
             __report_changed=dict(required=False, type="bool", default=True),
         ),
         supports_check_mode=True,
         required_if=(
-            ("state", "present", ("zone", "target"), True),
-            ("state", "absent", ("zone", "target"), True),
+            ("state", "present", ("zone", "target", "service"), True),
+            ("state", "absent", ("zone", "target", "service"), True),
         ),
     )
 
@@ -332,6 +484,12 @@ def main():
         module.fail_json(msg="No firewall backend could be imported.")
 
     service = module.params["service"]
+    short = module.params["short"]
+    description = module.params["description"]
+    protocol = module.params["protocol"]
+    helper_module = []
+    for _module in module.params["helper_module"]:
+        helper_module.append(parse_helper_module(module, _module))
     port = []
     for port_proto in module.params["port"]:
         port.append(parse_port(module, port_proto))
@@ -350,6 +508,18 @@ def main():
         except Exception as e:
             module.fail_json(msg="Rich Rule '%s' is not valid: %s" % (item, str(e)))
     source = module.params["source"]
+    destination_ipv4 = None
+    destination_ipv6 = None
+    for address in module.params["destination"]:
+        ip_type = parse_destination_address(module, address)
+        if ip_type == "ipv4" and not destination_ipv4:
+            destination_ipv4 = address
+        elif destination_ipv4 and ip_type == "ipv4":
+            module.fail_json(msg="cannot have more than one destination ipv4")
+        if ip_type == "ipv6" and not destination_ipv6:
+            destination_ipv6 = address
+        elif destination_ipv6 and ip_type == "ipv6":
+            module.fail_json(msg="cannot have more than one destination ipv6")
     interface = module.params["interface"]
     icmp_block = module.params["icmp_block"]
     icmp_block_inversion = module.params["icmp_block_inversion"]
@@ -404,16 +574,15 @@ def main():
             "icmp_block_inversion, target, zone or set_default_zone needs to be set"
         )
 
+    # Checking for any permanent configuration operations
     zone_operation = False
+    service_operation = False
     if state == "present" or state == "absent":
         if (
             masquerade is not None
             and icmp_block_inversion is not None
             and any(
                 (
-                    service,
-                    port,
-                    source_port,
                     forward_port,
                     rich_rule,
                     source,
@@ -423,10 +592,69 @@ def main():
             )
         ):
             module.fail_json(
-                msg="The states present and absent can only be used in zone level operations (i.e. when no other parameters but zone and state are set)."
+                msg="states present and absent only usable for zone, service, or target operations "
+                "(when no parameters but zone or target and state(absent/present) are set, "
+                "or when state and service are set with optional parameters short, description "
+                " port, source_port, protocol, destination, or helper_module)"
             )
+
+        # Zone and service are incompatible when state is set to present or absent
+        if zone and service:
+            module.fail_json(msg="both zone and service while state present/absent")
+
+        # While short and description are options for new zones, they are unimplemented
         if target is None and zone is not None:
-            zone_operation = True
+            if any(
+                (
+                    service,
+                    description,
+                    short,
+                    port,
+                    source_port,
+                    helper_module,
+                    protocol,
+                    destination_ipv4,
+                    destination_ipv6,
+                )
+            ):
+                module.fail_json(
+                    msg="short, description, port, source_port, helper_module, "
+                    "protocol, or destination cannot be set while zone is specified "
+                    "and state is set to present or absent"
+                )
+            else:
+                zone_operation = True
+
+        elif service:
+            if target is not None:
+                module.fail_json(
+                    msg="both service and target cannot be set "
+                    "while state is either present or absent"
+                )
+            elif not permanent:
+                module.fail_json(
+                    msg="permanent must be enabled for service configuration. "
+                    "Additionally, service runtime configuration is not possible"
+                )
+            else:
+                service_operation = True
+
+    if service_operation:
+        if state == "absent" and any(
+            (
+                description,
+                short,
+            )
+        ):
+            module.fail_json(
+                msg="description or short is only usable with present state"
+            )
+        if len(service) != 1:
+            module.fail_json(
+                msg="can only add, modify, or remove one service at a time"
+            )
+        else:
+            service = service[0]
 
     # Parameter checks
     if state == "disabled":
@@ -552,6 +780,7 @@ def main():
             zone = zone or fw.getDefaultZone()
             fw_zone = fw.config().getZoneByName(zone)
             fw_settings = fw_zone.getSettings()
+
     # Firewall modification starts here
 
     changed = False
@@ -579,24 +808,131 @@ def main():
             changed = True
 
     # service
-    for item in service:
-        if state == "enabled":
-            if runtime and not fw.queryService(zone, item):
+    if service_operation and permanent:
+        service_exists = service in fw.config().getServiceNames()
+        if service_exists:
+            fw_service = fw.config().getServiceByName(service)
+            fw_service_settings = fw_service.getSettings()
+        elif state == "present":
+            fw_service, fw_service_settings = create_service(module, fw, service)
+            changed = True
+            service_exists = True
+
+        if state == "present":
+            if (
+                description is not None
+                and description != fw_service_settings.getDescription()
+            ):
                 if not module.check_mode:
-                    fw.addService(zone, item, timeout)
+                    fw_service_settings.setDescription(description)
                 changed = True
-            if permanent and not fw_settings.queryService(item):
+            if short is not None and short != fw_service_settings.getShort():
                 if not module.check_mode:
-                    fw_settings.addService(item)
+                    fw_service_settings.setShort(short)
                 changed = True
-        elif state == "disabled":
-            if runtime and fw.queryService(zone, item):
+            for _port, _protocol in port:
+                if not fw_service_settings.queryPort(_port, _protocol):
+                    if not module.check_mode:
+                        fw_service_settings.addPort(_port, _protocol)
+                    changed = True
+            for _protocol in protocol:
+                if not fw_service_settings.queryProtocol(_protocol):
+                    if not module.check_mode:
+                        fw_service_settings.addProtocol(_protocol)
+                    changed = True
+            for _port, _protocol in source_port:
+                if not fw_service_settings.querySourcePort(_port, _protocol):
+                    if not module.check_mode:
+                        fw_service_settings.addSourcePort(_port, _protocol)
+                    changed = True
+            for _module in helper_module:
+                if fw_service_settings.queryModule(_module):
+                    if not module.check_mode:
+                        fw_service_settings.addModule(_module)
+                    changed = True
+            if destination_ipv4:
+                if not fw_service_settings.queryDestination("ipv4", destination_ipv4):
+                    if not module.check_mode:
+                        fw_service_settings.setDestination("ipv4", destination_ipv4)
+                    changed = True
+            if destination_ipv6:
+                if not fw_service_settings.queryDestination("ipv6", destination_ipv6):
+                    if not module.check_mode:
+                        fw_service_settings.setDestination("ipv6", destination_ipv6)
+                    changed = True
+        if state == "absent" and service_exists:
+            if port:
+                for _port, _protocol in port:
+                    if fw_service_settings.queryPort(_port, _protocol):
+                        if not module.check_mode:
+                            fw_service_settings.removePort(_port, _protocol)
+                        changed = True
+            if source_port:
+                for _port, _protocol in source_port:
+                    if fw_service_settings.querySourcePort(_port, _protocol):
+                        if not module.check_mode:
+                            fw_service_settings.removeSourcePort(_port, _protocol)
+                        changed = True
+            if protocol:
+                for _protocol in protocol:
+                    if fw_service_settings.queryProtocol(_protocol):
+                        if not module.check_mode:
+                            fw_service_settings.removeProtocol(_protocol)
+                        changed = True
+            if helper_module:
+                for _module in helper_module:
+                    if fw_service_settings.queryModule(_module):
+                        if not module.check_mode:
+                            fw_service_settings.removeModule(_module)
+                        changed = True
+            if destination_ipv4:
+                if fw_service_settings.queryDestination("ipv4", destination_ipv4):
+                    if not module.check_mode:
+                        fw_service_settings.removeDestination("ipv4", destination_ipv4)
+                    changed = True
+            if destination_ipv6:
+                if fw_service_settings.queryDestination("ipv6", destination_ipv6):
+                    if not module.check_mode:
+                        fw_service_settings.removeDestination("ipv6", destination_ipv6)
+                    changed = True
+            if not any(
+                (
+                    port,
+                    source_port,
+                    protocol,
+                    helper_module,
+                    destination_ipv4,
+                    destination_ipv6,
+                )
+            ):
                 if not module.check_mode:
-                    fw.removeService(zone, item)
-            if permanent and fw_settings.queryService(item):
-                if not module.check_mode:
-                    fw_settings.removeService(item)
+                    fw_service.remove()
+                    service_exists = False
                 changed = True
+        # If service operation occurs, this should be the only instruction executed by the script
+        if changed and not module.check_mode:
+            if service_exists:
+                fw_service.update(fw_service_settings)
+            need_reload = True
+    else:
+        for item in service:
+            if state == "enabled":
+                if runtime and not fw.queryService(zone, item):
+                    if not module.check_mode:
+                        fw.addService(zone, item, timeout)
+                    changed = True
+                if permanent and not fw_settings.queryService(item):
+                    if not module.check_mode:
+                        fw_settings.addService(item)
+                    changed = True
+            elif state == "disabled":
+                if runtime and fw.queryService(zone, item):
+                    if not module.check_mode:
+                        fw.removeService(zone, item)
+                if permanent and fw_settings.queryService(item):
+                    if not module.check_mode:
+                        fw_settings.removeService(item)
+                    changed = True
 
     # port
     for _port, _protocol in port:
