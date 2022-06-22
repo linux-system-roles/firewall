@@ -1,6 +1,7 @@
 - name: Test firewalld zones
   hosts: all
   become: true
+  gather_facts: true
   tasks:
     - name: Test firewalld zones
       block:
