@@ -65,12 +65,13 @@ options:
   forward_port:
     description:
       List of forward port strings.
+      Elements must be str or dict.
       The format of a forward port needs to be
       <port>[-<port>]/<protocol>;[<to-port>];[<to-addr>].
     aliases: ["port_forward"]
     required: false
     type: list
-    elements: str
+    elements: raw
   masquerade:
     description:
       The masquerade bool setting.
@@ -390,7 +391,7 @@ def parse_forward_port(module, item):
         else:
             _to_port = None
         _to_addr = item.get("toaddr")
-    else:
+    elif isinstance(item, str):
         args = item.split(";")
         if len(args) == 3:
             __port, _to_port, _to_addr = args
@@ -404,6 +405,10 @@ def parse_forward_port(module, item):
             _to_port = None
         if _to_addr == "":
             _to_addr = None
+    else:
+        module.fail_json(
+            msg="improper %s type (must be str or dict): %s" % (type_string, item)
+        )
 
     return (_port, _protocol, _to_port, _to_addr)
 
@@ -421,7 +426,7 @@ def main():
             forward_port=dict(
                 required=False,
                 type="list",
-                elements="str",
+                elements="raw",
                 default=[],
                 aliases=["port_forward"],
                 deprecated_aliases=[

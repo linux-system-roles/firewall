@@ -44,7 +44,8 @@
     service: "{{ item.service | default(omit) }}"
     port: "{{ item.port | default(omit) }}"
     source_port: "{{ item.source_port | default(omit) }}"
-    forward_port: "{{ item.forward_port | default(omit) }}"
+    forward_port: "{{ (item.forward_port is mapping) |
+      ternary([item.forward_port], item.forward_port) | default(omit) }}"
     masquerade: "{{ item.masquerade | default(omit) }}"
     rich_rule: "{{ item.rich_rule | default(omit) }}"
     source: "{{ item.source | default(omit) }}"
