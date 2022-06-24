@@ -29,10 +29,10 @@
       vars:
         firewall:
           - forward_port:
-              - port: 40
-                proto: tcp
-                toport: 8080
-                toaddr: 0.0.0.0
+              port: 40
+              proto: tcp
+              toport: 8080
+              toaddr: 0.0.0.0
             state: enabled
           - forward_port:
               - port: 40

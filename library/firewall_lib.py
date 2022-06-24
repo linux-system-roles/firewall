@@ -64,14 +64,13 @@ options:
     elements: str
   forward_port:
     description:
-      List of forward port strings.
-      Elements must be str or dict.
-      The format of a forward port needs to be
+      List of forward port strings or dicts,
+      or a single string or dict.
+      The format of a forward port string needs to be
       <port>[-<port>]/<protocol>;[<to-port>];[<to-addr>].
     aliases: ["port_forward"]
     required: false
-    type: list
-    elements: raw
+    type: raw
   masquerade:
     description:
       The masquerade bool setting.
@@ -370,6 +369,14 @@ def parse_helper_module(module, item):
     return "_".join(_module)
 
 
+def get_forward_port(module):
+    forward_port = module.params["forward_port"]
+    if isinstance(forward_port, list):
+        return forward_port
+    else:
+        return [forward_port]
+
+
 def parse_forward_port(module, item):
     type_string = "forward_port"
 
@@ -425,8 +432,7 @@ def main():
             source_port=dict(required=False, type="list", elements="str", default=[]),
             forward_port=dict(
                 required=False,
-                type="list",
-                elements="raw",
+                type="raw",
                 default=[],
                 aliases=["port_forward"],
                 deprecated_aliases=[
@@ -502,7 +508,7 @@ def main():
     for port_proto in module.params["source_port"]:
         source_port.append(parse_port(module, port_proto))
     forward_port = []
-    for item in module.params["forward_port"]:
+    for item in get_forward_port(module):
         forward_port.append(parse_forward_port(module, item))
     masquerade = module.params["masquerade"]
     rich_rule = []

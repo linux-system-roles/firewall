@@ -549,10 +549,10 @@
       - name: forward port (dict form)
         firewall_lib:
           forward_port:
-            - port: 40
-              proto: tcp
-              toport: 8080
-              toaddr: 0.0.0.0
+            port: 40
+            proto: tcp
+            toport: 8080
+            toaddr: 0.0.0.0
           state: enabled
         register: result
         failed_when: result is failed or result is not changed
