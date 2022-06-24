@@ -539,7 +539,7 @@
         register: result
         failed_when: result is failed or result is changed
 
-      - name: diable forward port (string)
+      - name: disable forward port (string)
         firewall_lib:
           forward_port: 40/tcp;8080;0.0.0.0
           state: disabled
@@ -557,7 +557,7 @@
         register: result
         failed_when: result is failed or result is not changed
 
-      - name: forward port again (list-dict form)
+      - name: forward port again (dict form)
         firewall_lib:
           forward_port:
             - port: 40
