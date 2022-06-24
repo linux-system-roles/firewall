@@ -140,19 +140,24 @@ Add or remove port forwarding for ports or port ranges for a zone. It takes two
 different formats:
 * string or a list of strings in the format like `firewall-cmd
   --add-forward-port` e.g. `<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>]`
-* dict or list of dicts in the format like `ansible.posix.firewalld`:
+* list of dicts in the format like `ansible.posix.firewalld`:
+
+NOTE: single dict form is not supported by the system role.
 
 ```
 forward_port:
-  port: <port>
-  proto: <protocol>
-  [toport: <to-port>]
-  [toaddr: <to-addr>]
+  - port: <port>
+    proto: <protocol>
+    [toport: <to-port>]
+    [toaddr: <to-addr>]
 ```
 examples
-```
+```yaml
 forward_port: '447/tcp;;1.2.3.4'
 forward_port: ['447/tcp;;1.2.3.4','448/tcp;;1.2.3.5']
+forward_port:
+  - 447/tcp;;1.2.3.4
+  - 448/tcp;;1.2.3.5
 forward_port:
   - port: 447
     proto: tcp
