@@ -142,7 +142,7 @@ different formats:
   --add-forward-port` e.g. `<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>]`
 * list of dicts in the format like `ansible.posix.firewalld`:
 
-NOTE: single dict form is not supported by the system role.
+NOTE: single dict form for `forward_port` is not supported by the system role.
 
 ```
 forward_port:
