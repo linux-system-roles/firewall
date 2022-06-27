@@ -525,6 +525,60 @@
         register: result
         failed_when: result is failed or result is changed
 
+      - name: forward port 40 to 0.0.0.0:8080 (string)
+        firewall_lib:
+          forward_port: 40/tcp;8080;0.0.0.0
+          state: enabled
+        register: result
+        failed_when: result is failed or result is not changed
+
+      - name: forward same port again (string)
+        firewall_lib:
+          forward_port: 40/tcp;8080;0.0.0.0
+          state: enabled
+        register: result
+        failed_when: result is failed or result is changed
+
+      - name: disable forward port (string)
+        firewall_lib:
+          forward_port: 40/tcp;8080;0.0.0.0
+          state: disabled
+        register: result
+        failed_when: result is failed or result is not changed
+
+      - name: forward port (dict form)
+        firewall_lib:
+          forward_port:
+            port: 40
+            proto: tcp
+            toport: 8080
+            toaddr: 0.0.0.0
+          state: enabled
+        register: result
+        failed_when: result is failed or result is not changed
+
+      - name: forward port again (dict form)
+        firewall_lib:
+          forward_port:
+            - port: 40
+              proto: tcp
+              toport: 8080
+              toaddr: 0.0.0.0
+          state: enabled
+        register: result
+        failed_when: result is failed or result is changed
+
+      - name: disable forward port (dict form)
+        firewall_lib:
+          forward_port:
+            - port: 40
+              proto: tcp
+              toport: 8080
+              toaddr: 0.0.0.0
+          state: disabled
+        register: result
+        failed_when: result is failed or result is not changed
+
     always:
 
       - name: Cleanup

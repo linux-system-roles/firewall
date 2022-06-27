@@ -142,7 +142,7 @@ different formats:
   --add-forward-port` e.g. `<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>]`
 * dict or list of dicts in the format like `ansible.posix.firewalld`:
 
-```
+```yaml
 forward_port:
   port: <port>
   proto: <protocol>
@@ -150,9 +150,12 @@ forward_port:
   [toaddr: <to-addr>]
 ```
 examples
-```
+```yaml
 forward_port: '447/tcp;;1.2.3.4'
 forward_port: ['447/tcp;;1.2.3.4','448/tcp;;1.2.3.5']
+forward_port:
+  - 447/tcp;;1.2.3.4
+  - 448/tcp;;1.2.3.5
 forward_port:
   - port: 447
     proto: tcp
