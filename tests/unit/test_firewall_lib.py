@@ -188,6 +188,20 @@ TEST_DATA = {
             }
         },
     },
+    "InterfacePciId": {
+        "input": {"interface_pci_id": ["600D:7C1D"]},
+        "enabled": {
+            "expected": {
+                "runtime": [call("default", "600D:7C1D")],
+            },
+        },
+        "disabled": {
+            "expected": {
+                "runtime": [call("default", "600D:7C1D")],
+                "permanent": [call("600D:7C1D")],
+            },
+        },
+    },
     "IcmpBlock": {
         "input": {
             "icmp_block": ["echo-request"],
@@ -359,6 +373,24 @@ class FirewallLibParsers(unittest.TestCase):
         item = "a/b;;"
         rc = firewall_lib.parse_forward_port(module, item)
         self.assertEqual(("a", "b", None, None), rc)
+
+    @patch("firewall_lib.AnsibleModule", new_callable=MockAnsibleModule)
+    @patch("firewall_lib.HAS_FIREWALLD", True)
+    @patch("firewall_lib.pci_ids", {"600D:7C1D": ["eth0"]})
+    def test_parse_pci_id(self, am_class):
+        am = am_class.return_value
+
+        am.params = {"interface_pci_id": ["123G:1111"]}
+        with self.assertRaises(MockException):
+            firewall_lib.main()
+        am.fail_json.assert_called_with(
+            msg="PCI id 123G:1111 does not match format: XXXX:XXXX (X = hexadecimal number)"
+        )
+
+        am.params = {"interface_pci_id": ["600D:7C1D"]}
+        with self.assertRaises(MockException):
+            firewall_lib.main()
+        am.fail_json.assert_called_with(msg="Options invalid without state option set")
 
 
 @patch("firewall_lib.AnsibleModule", new_callable=MockAnsibleModule)
