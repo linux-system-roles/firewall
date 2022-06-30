@@ -254,8 +254,8 @@ description: Your description goes here
 list of destination addresses, option only implemented for user defined services.
 Takes 0-2 addresses, allowing for one IPv4 address and one IPv6 address or address range.
 
-IPv4 format: x.x.x.x[/mask]
-IPv6 format: x:x:x:x:x:x:x:x[/mask] (x::x works when abbreviating one or more subsequent IPv6 segments where x = 0)
+* IPv4 format: `x.x.x.x[/mask]`
+* IPv6 format: `x:x:x:x:x:x:x:x[/mask]` (`x::x` works when abbreviating one or more subsequent IPv6 segments where x = 0)
 
 ```yaml
 destination:
