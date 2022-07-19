@@ -1,6 +1,67 @@
 Changelog
 =========
 
+[1.3.0] - 2022-07-19
+--------------------
+
+### New Features
+
+- Feature: add/update/delete services
+
+- Can add services by using the present state, with the specified details for the service (Permanent required)
+  - Only required details are the service name using the service option, other options supported:
+    - short, description, port, source port, protocol, module (helper_module), destination
+- remove services by using absent state and only the service name (no "detail" options) (Permanent required)
+  - remove service elements by adding the elements and their values
+  - service will not be removed if any of the removable elements are specified as well
+- update short and descriptions of services by using present state with the options while short or description are defined
+  - Cannot remove short or descriptions
+  - as with the rest of this feature, permanent is required to do this
+
+Fixes: #80
+
+### Bug Fixes
+
+- bugfix: port forward dict form
+
+- fixed bug where port_forward argument only worked with string argument
+
+ - additionally argument convert to list if necessary
+
+- minimal tests added for port forward
+
+ - tests_port_forward.yml only has the fail case that the role fails
+
+Fixes: #85
+
+### Other Changes
+
+- make all tests work with gather_facts: false (#84)
+
+The tests_zone.yml test uses facts outside of the role and
+needs to `gather_facts: true` when using ANSIBLE_GATHERING=explicit
+
+- remove support for non-list dict
+
+- update forward_port on readme
+
+- update readme note to be less misleading
+
+- cannot comfortably rely on context
+
+- readd single dict support, update README and tests
+
+- make min_ansible_version a string in meta/main.yml (#88)
+
+The Ansible developers say that `min_ansible_version` in meta/main.yml
+must be a `string` value like `"2.9"`, not a `float` value like `2.9`.
+
+- fix destination rendering in github markdown renderer
+
+Just make the problematic text a literal string so it won't get rendered incorrectly
+
+- Add CHANGELOG.md (#90)
+
 [1.2.2] - 2022-06-02
 --------------------
 
