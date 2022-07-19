@@ -63,13 +63,58 @@
     state: "{{ item.state | default(omit) }}"
     __report_changed: "{{ not __firewall_previous_replaced }}"
   loop: "{{ firewall is mapping | ternary([firewall], firewall) |
-    map('dict2items') | map('difference', __previous) | select |
+    map('dict2items') | map('difference', __previous) |
+    map('difference', __detailed) | select |
     map('items2dict') | list }}"
   vars:
     __previous:
       - key: previous
         value: replaced
+    __detailed:
+      - key: detailed
+        value: true
+      - key: detailed
+        value: false
   register: firewall_lib_result
+
+- name: gather firewall ansible fact with args
+  vars:
+    fw: "{{ firewall is mapping | ternary([firewall], firewall) }}"
+  block:
+    - name: gather firewall config information
+      vars:
+        __previous:
+          - key: previous
+            value: replaced
+      firewall_lib_facts:
+        detailed: "{{ item.detailed | default(False) }}"
+      loop: "{{ fw | map('dict2items') | map('difference', __previous) |
+        select | map('items2dict') | list }}"
+      register: __firewalld_facts
+
+    - name: update firewalld_config fact
+      vars:
+        firewalld_facts: "{{ __firewalld_facts.results[0] }}"
+      set_fact:
+        firewall_config: "{{ firewalld_facts.firewall_config }}"
+  when:
+    - firewall != None
+    - firewall | length == 1
+    - "'detailed' in fw[0]"
+
+- name: gather firewall ansible fact if no args
+  block:
+    - name: gather firewall config if no arguments
+      firewall_lib_facts:
+        detailed: false
+      register: __firewalld_facts
+
+    - name: update firewalld_config fact
+      set_fact:
+        firewall_config: "{{ __firewalld_facts.firewall_config }}"
+  when: >-
+    firewall == None or firewall | length == 0
+
 
 - name: Check config files after removal
   when: __firewall_previous_replaced | bool

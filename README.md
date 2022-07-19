@@ -27,6 +27,172 @@ WARNING: If the configuration failed or if the firewall configuration limits
 access to the machine in a bad way, it is most likely be needed to get
 physical access to the machine to fix the issue.
 
+Ansible Facts
+-------------
+
+## Gathering firewall ansible facts
+
+To gather the firewall system role's ansible facts, 
+call the system role with no arguments e.g.
+```yaml
+vars:
+  firewall:
+```
+
+Another option is to gather a more detailed version of the
+ansible facts by using the detailed argument e.g.
+```yaml
+vars:
+  firewall:
+    detailed: true
+```
+
+```
+WARNING: `firewall_config` uses considerably more memory (+ ~165KB) when `detailed=True`.
+For reference, by default, `firewall_config` takes ~3KB when converted to a string.
+```
+
+## Available ansible facts
+
+### firewall_config
+
+This ansible fact shows the permanent configuration of
+of firewalld on the managed node in dictionary format.
+The top level of the fact is made up of three keys:
+- `default`
+- `custom`
+- `default_zone`
+
+Each dictionaries custom and default have the keys:
+- `zones`
+- `services`
+- `icmptypes`
+- `helpers`
+- `ipsets`
+- `policies` (if supported by remote host's firewalld installation)
+
+Each of the keys contains a list of elements present in 
+permanent configuration for each respective option.
+
+`custom` will have a list of subdictionaries for each key,
+providing a more detailed description.
+
+`default` will have only the names of each setting,
+unless the detailed option is supplied, in which case
+it will be structured in the same manner as custom.
+
+`default_zone` contains the configured default zone
+for the managed node's firewalld installation. It
+is a string value.
+
+JSON representation of the structure of firewall_config fact:
+```json
+{
+  "default": {...},
+  "custom": {...},
+  "default_zone": "public",
+}
+```
+
+#### default
+
+The default subdictionary of firewall_config contains the default
+configuration for the managed node's firewalld configuration. 
+This subdictionary only changes with changes to the managed node's 
+firewalld installation.
+
+default without detailed parameter set to true
+```json
+"default": {
+  "zones": ["public",...],
+  "services": ["amanda_client",...],
+  "icmptypes": [...],
+  "helpers": [...],
+  "ipsets": [...],
+  "policies": [...],
+}
+```
+
+default when parameter set to true
+```json
+"default": {
+  "zones": {
+    "public": {
+      ...
+    },
+    ...
+  },
+  "services": {
+    "amanda_client":{
+      ...
+    },
+    ...
+  },
+  "icmptypes": {
+    ...
+  },
+  "helpers": {
+    ...
+  },
+  "ipsets": {
+    ...
+  },
+  "policies": {
+    ...
+  },
+}
+```
+
+#### custom
+
+The custom subdictionary contains any differences from the default
+firewalld configuration. This includes a repeat for a default
+element if that element has been modified in any way, and any new
+elements introduced in addition to the defaults.
+
+This subdictionary will be modified by any changes to the
+firewalld installation done locally or remotely via the 
+firewall system role.
+
+If the managed nodes firewalld settings are not different from the defaults,
+the custom key and subdictionary will not be present in firewall_config.
+Additionally, if any of firewalld's settings have not changed from the default,
+there will not be a key-value pair for that setting in custom.
+
+Below is the state of the custom subdictionary where at least one
+permanent change was made to each setting:
+```json
+"custom": {
+  "zones": {
+    "custom_zone": {
+      ...
+    },
+    ...
+  },
+  "services": {
+    "custom_service": {
+      ...
+    },
+    ...
+  },
+  "icmptypes": {
+    "custom": {
+      ...
+    },
+    ...
+  },
+  "helpers": {
+    ...
+  },
+  "ipsets": {
+    ...
+  },
+  "policies": {
+    ...
+  },
+}
+```
+
 Variables
 ---------
 

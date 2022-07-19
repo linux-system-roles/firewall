@@ -167,7 +167,7 @@
 
         - name: Query if default zone has custom service added
           command: firewall-cmd --query-service systemroletest
-          ignore_errors: yes
+          ignore_errors: true
           register: result
 
         - name: Fail if query return code incorrect
@@ -312,4 +312,4 @@
             name: linux-system-roles.firewall
           vars:
             firewall:
-              previous: replaced
+              - previous: replaced
