@@ -98,6 +98,13 @@ options:
     required: false
     type: list
     elements: str
+  interface_pci_id:
+    description:
+      List of inteface PCI device ID strings.
+      PCI device ID needs to correspond to a named network interface.
+    required: false
+    type: list
+    elements: str
   icmp_block:
     description:
       List of ICMP type strings to block.
@@ -205,6 +212,8 @@ options:
 
 from distutils.version import LooseVersion
 from ansible.module_utils.basic import AnsibleModule
+import re
+import os
 
 try:
     import firewall.config
@@ -221,6 +230,52 @@ try:
     HAS_FIREWALLD = True
 except ImportError:
     HAS_FIREWALLD = False
+
+try:
+    from firewall.core.fw_nm import (
+        nm_is_imported,
+        nm_get_connection_of_interface,
+        nm_get_zone_of_connection,
+        nm_set_zone_of_connection,
+        nm_get_interfaces,
+        nm_get_client,
+    )
+
+    NM_IMPORTED = nm_is_imported()
+except ImportError:
+    NM_IMPORTED = False
+
+
+PCI_REGEX = re.compile("[0-9a-fA-F]{4}:[0-9a-fA-F]{4}")
+
+
+def try_get_connection_of_interface(interface):
+    try:
+        return nm_get_connection_of_interface(interface)
+    except Exception:
+        return None
+
+
+def try_set_zone_of_interface(module, _zone, interface):
+    if NM_IMPORTED:
+        connection = try_get_connection_of_interface(interface)
+        if connection is not None:
+            if _zone == "":
+                zone_string = "the default zone"
+            else:
+                zone_string = _zone
+            if _zone == nm_get_zone_of_connection(connection):
+                module.log(
+                    msg="The interface is under control of NetworkManager and already bound to '%s'"
+                    % zone_string
+                )
+            elif not module.check_mode:
+                nm_set_zone_of_connection(_zone, connection)
+            return True
+    return False
+
+
+# Above: adapted from firewall-cmd source code
 
 
 def create_service(module, fw, service):
@@ -267,6 +322,46 @@ def handle_interface_permanent(
                 old_zone_settings.removeInterface(item)
                 old_zone_obj.update(old_zone_settings)
             fw_settings.addInterface(item)
+
+
+pci_ids = None
+
+
+def get_interface_pci():
+    pci_dict = {}
+    for interface in nm_get_interfaces():
+        # udi/device/[vendor, device]
+        interface_ids = []
+        device_udi = nm_get_client().get_device_by_iface(interface).get_udi()
+        device_path = os.path.join(device_udi, "device")
+        for field in ["vendor", "device"]:
+            with open(os.path.join(device_path, field)) as _file:
+                interface_ids.append(_file.readline().strip(" \n")[2:])
+        interface_ids = ":".join(interface_ids)
+        if interface_ids not in pci_dict:
+            pci_dict[interface_ids] = [interface]
+        else:
+            pci_dict[interface_ids].append(interface)
+    return pci_dict
+
+
+def parse_pci_id(module, item):
+    if PCI_REGEX.search(item):
+        global pci_ids
+        if not pci_ids:
+            pci_ids = get_interface_pci()
+
+        interface_name = pci_ids.get(item)
+        if interface_name:
+            return interface_name
+
+        module.warn(msg="No network interfaces found with PCI device ID %s" % item)
+    else:
+        module.fail_json(
+            msg="PCI id %s does not match format: XXXX:XXXX (X = hexadecimal number)"
+            % item
+        )
+    return []
 
 
 def parse_port(module, item):
@@ -447,6 +542,9 @@ def main():
             rich_rule=dict(required=False, type="list", elements="str", default=[]),
             source=dict(required=False, type="list", elements="str", default=[]),
             interface=dict(required=False, type="list", elements="str", default=[]),
+            interface_pci_id=dict(
+                required=False, type="list", elements="str", default=[]
+            ),
             icmp_block=dict(required=False, type="list", elements="str", default=[]),
             icmp_block_inversion=dict(required=False, type="bool", default=None),
             timeout=dict(required=False, type="int", default=0),
@@ -532,6 +630,10 @@ def main():
         elif destination_ipv6 and ip_type == "ipv6":
             module.fail_json(msg="cannot have more than one destination ipv6")
     interface = module.params["interface"]
+    for _interface in module.params["interface_pci_id"]:
+        for interface_name in parse_pci_id(module, _interface):
+            if interface_name not in interface:
+                interface.append(interface_name)
     icmp_block = module.params["icmp_block"]
     icmp_block_inversion = module.params["icmp_block_inversion"]
     timeout = module.params["timeout"]
@@ -1091,21 +1193,27 @@ def main():
                 if not module.check_mode:
                     fw.changeZoneOfInterface(zone, item)
                 changed = True
-            if permanent and not fw_settings.queryInterface(item):
-                if not module.check_mode:
-                    handle_interface_permanent(
-                        zone, item, fw_zone, fw_settings, fw, fw_offline, module
-                    )
-                changed = True
+            if permanent:
+                if try_set_zone_of_interface(module, zone, item):
+                    changed = True
+                elif not fw_settings.queryInterface(item):
+                    if not module.check_mode:
+                        handle_interface_permanent(
+                            zone, item, fw_zone, fw_settings, fw, fw_offline, module
+                        )
+                    changed = True
         elif state == "disabled":
             if runtime and fw.queryInterface(zone, item):
                 if not module.check_mode:
                     fw.removeInterface(zone, item)
                 changed = True
-            if permanent and fw_settings.queryInterface(item):
-                if not module.check_mode:
-                    fw_settings.removeInterface(item)
-                changed = True
+            if permanent:
+                if try_set_zone_of_interface(module, "", item):
+                    changed = True
+                elif fw_settings.queryInterface(item):
+                    if not module.check_mode:
+                        fw_settings.removeInterface(item)
+                    changed = True
 
     # icmp_block
     for item in icmp_block:

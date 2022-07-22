@@ -1,0 +1,79 @@
+---
+# Tests interface_pci field, test must be used in VM
+- name: Test interfaces with PCI ids
+  hosts: all
+  become: true
+  roles:
+    - linux-system-roles.firewall
+
+  tasks:
+    - name: get backend from dbus
+      command: >-
+        dbus-send --system --print-reply --type=method_call
+        --dest=org.fedoraproject.FirewallD1
+        /org/fedoraproject/FirewallD1/config
+        org.freedesktop.DBus.Properties.Get
+        string:"org.fedoraproject.FirewallD1.config"
+        string:"FirewallBackend"
+      ignore_errors: yes
+      register: result
+
+    - name: get backend from result
+      set_fact:
+        nftables_backend:
+          "{{ result is not failed and 'nftables' in result.stdout }}"
+
+    - name: test interfaces with PCI ids
+      block:
+        - name: add pci device ethernet controller
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              zone: internal
+              interface_pci_id: 1af4:0001
+              state: enabled
+              permanent: yes
+
+        - name: add pci device again
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              zone: internal
+              interface_pci_id: 1af4:0001
+              state: enabled
+              permanent: yes
+
+        - name: assert pcid not in nftable ruleset
+          command: nft list ruleset
+          register: result
+          failed_when: result is failed or '1af4:0001' in result.stdout
+          when: nftables_backend | bool
+
+        - name: assert pcid not in iptables rules
+          command: iptables -S
+          register: result
+          failed_when: result is failed or '1af4:0001' in result.stdout
+          when: not nftables_backend | bool
+
+        - name: remove interface from internal
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              zone: internal
+              interface_pci_id: 1af4:0001
+              state: disabled
+              permament: yes
+      always:
+        - name: Cleanup
+          tags:
+            - tests::cleanup
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - previous: replaced
+
+...

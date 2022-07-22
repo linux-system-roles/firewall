@@ -366,9 +366,62 @@ source: 192.0.2.0/24
 
 String or list of interface name strings.
 
-```
+```yaml
 interface: eth2
 ```
+
+This role handles interface arguments similar to
+how firewalld's cli, `firewall-cmd` does, i.e.
+manages the interface through NetworkManger if possible,
+and handles the interface binding purely through firewalld
+otherwise.
+
+```
+WARNING: Neither firewalld nor this role throw any
+errors if the interface name specified is not
+tied to any existing network interface. This can cause confusion
+when attempting to add an interface via PCI device ID,
+for which you should use the parameter `interface_pci_id`
+instead of the `interface` parameter.
+
+Allow interface named '8086:15d7' in dmz zone
+
+firewall:
+  - zone: dmz
+    interface: 8086:15d7
+    state: enabled
+
+The above will successfully add a nftables/iptables rule
+for an interface named `8086:15d7`, but no traffic should/will
+ever match to an interface with this name.
+
+TLDR - When using this parameter, please stick only to using
+logical interface names that you know exist on the device to 
+avoid confusing behavior.
+```
+
+### interface_pci_id
+
+String or list of interface PCI device IDs.
+Accepts PCI IDs if the wildcard `XXXX:YYYY` applies
+where:
+- XXXX: Hexadecimal, corresponds to Vendor ID
+- YYYY: Hexadecimal, corresponds to Device ID
+
+```yaml
+# PCI id for Intel Corporation Ethernet Connection
+interface_pci_id: 8086:15d7
+```
+
+Only accepts PCI devices IDs that correspond to a named network interface,
+and converts all PCI device IDs to their respective logical interface names.
+
+If a PCI id corresponds to more than one logical interface name,
+all interfaces with the PCI id specified will have the play applied.
+
+A list of PCI devices with their IDs can be retrieved using `lcpci -nn`.
+For more information on PCI device IDs, see the linux man page at:
+https://man7.org/linux/man-pages/man5/pci.ids.5.html
 
 ### icmp_block
 
@@ -584,6 +637,14 @@ Do not permit traffic in default zone for https service:
 firewall:
   - service: https
     state: disabled
+```
+
+Allow interface with PCI device ID '8086:15d7' in dmz zone
+```yaml
+firewall:
+  - zone: dmz
+    interface_pci_id: 8086:15d7
+    state: enabled
 ```
 
 Example Playbooks
