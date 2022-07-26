@@ -1,6 +1,35 @@
 Changelog
 =========
 
+[1.4.0] - 2022-07-26
+--------------------
+
+### New Features
+
+- feature - add/remove interfaces by PCI ID
+
+FEATURE OVERVIEW
+
+* allows users to add by what a device is (vendor:device_type) instead of interface names
+
+    * interface names that match the wildcard XXXX:XXXX (X = hex) will be converted to interface names.
+
+    * Multiple matches will result in play being done on multiple devices
+
+* Add Network Manager interaction when adding/removing interfaces from zones
+
+* Add functions that convert PCI IDs into network interface names
+
+Fixes #87
+
+### Bug Fixes
+
+- none
+
+### Other Changes
+
+- changelog_to_tag action - support other than "master" for the main branch name, as well (#96)
+
 [1.3.0] - 2022-07-20
 --------------------
 
