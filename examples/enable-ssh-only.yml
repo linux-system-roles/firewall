@@ -1,0 +1,11 @@
+---
+- name: Erase existing config and enable ssh service
+  hosts: "{{ targets }}"
+
+  vars:
+    firewall:
+      - previous: replaced
+      - service: ssh
+        state: enabled
+  roles:
+    - linux-system-roles.firewall
