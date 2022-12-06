@@ -1,5 +1,5 @@
 ---
-- name: Enable http and https service in default zone
+- name: Disable cockpit and dhcpv6-client service in default zone
   hosts: "{{ targets }}"
 
   vars:
