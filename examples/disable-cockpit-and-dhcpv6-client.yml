@@ -4,7 +4,7 @@
 
   vars:
     firewall:
-      - service: [cockpit,dhcpv6-client]
+      - service: [cockpit, dhcpv6-client]
         state: disabled
   roles:
     - linux-system-roles.firewall
