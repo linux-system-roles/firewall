@@ -4,7 +4,7 @@
 
   vars:
     firewall:
-      - service: [http,https]
+      - service: [http, https]
         state: enabled
   roles:
     - linux-system-roles.firewall
