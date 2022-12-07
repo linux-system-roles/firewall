@@ -1,0 +1,10 @@
+---
+- name: Enable http and https service in default zone
+  hosts: "{{ targets }}"
+
+  vars:
+    firewall:
+      - service: [http, https]
+        state: enabled
+  roles:
+    - linux-system-roles.firewall
