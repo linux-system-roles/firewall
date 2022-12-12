@@ -1,6 +1,21 @@
 Changelog
 =========
 
+[1.4.1] - 2022-12-12
+--------------------
+
+### New Features
+
+- none
+
+### Bug Fixes
+
+- none
+
+### Other Changes
+
+- Added some example playbooks (#110)
+
 [1.4.0] - 2022-07-26
 --------------------
 
