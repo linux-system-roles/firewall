@@ -43,7 +43,7 @@ Fixes #87
 
 ### Other Changes
 
-- changelog_to_tag action - support other than "master" for the main branch name, as well (#96)
+- changelog_to_tag action - github action ansible test improvements
 
 [1.3.0] - 2022-07-20
 --------------------
