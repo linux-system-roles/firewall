@@ -7,7 +7,7 @@
     - linux-system-roles.firewall
 
   tasks:
-    - name: get backend from dbus
+    - name: Get backend from dbus
       command: >-
         dbus-send --system --print-reply --type=method_call
         --dest=org.fedoraproject.FirewallD1
@@ -15,17 +15,18 @@
         org.freedesktop.DBus.Properties.Get
         string:"org.fedoraproject.FirewallD1.config"
         string:"FirewallBackend"
-      ignore_errors: yes
+      ignore_errors: true  # noqa ignore-errors
       register: result
+      changed_when: false
 
-    - name: get backend from result
+    - name: Get backend from result
       set_fact:
         nftables_backend:
           "{{ result is not failed and 'nftables' in result.stdout }}"
 
-    - name: test interfaces with PCI ids
+    - name: Test interfaces with PCI ids
       block:
-        - name: add pci device ethernet controller
+        - name: Add pci device ethernet controller
           include_role:
             name: linux-system-roles.firewall
           vars:
@@ -33,9 +34,9 @@
               zone: internal
               interface_pci_id: 1af4:0001
               state: enabled
-              permanent: yes
+              permanent: true
 
-        - name: add pci device again
+        - name: Add pci device again
           include_role:
             name: linux-system-roles.firewall
           vars:
@@ -43,21 +44,23 @@
               zone: internal
               interface_pci_id: 1af4:0001
               state: enabled
-              permanent: yes
+              permanent: true
 
-        - name: assert pcid not in nftable ruleset
+        - name: Assert pcid not in nftable ruleset
           command: nft list ruleset
           register: result
           failed_when: result is failed or '1af4:0001' in result.stdout
           when: nftables_backend | bool
+          changed_when: false
 
-        - name: assert pcid not in iptables rules
+        - name: Assert pcid not in iptables rules
           command: iptables -S
           register: result
           failed_when: result is failed or '1af4:0001' in result.stdout
           when: not nftables_backend | bool
+          changed_when: false
 
-        - name: remove interface from internal
+        - name: Remove interface from internal
           include_role:
             name: linux-system-roles.firewall
           vars:
@@ -65,7 +68,7 @@
               zone: internal
               interface_pci_id: 1af4:0001
               state: disabled
-              permament: yes
+              permament: true
       always:
         - name: Cleanup
           tags:
@@ -75,5 +78,3 @@
           vars:
             firewall:
               - previous: replaced
-
-...

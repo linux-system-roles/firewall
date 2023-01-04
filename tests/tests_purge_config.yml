@@ -1,3 +1,4 @@
+---
 - name: Test that old config can be purged idempotently
   hosts: all
   vars:
@@ -17,7 +18,7 @@
         forward_port: ['447/tcp;;1.2.3.4',
                        '448/tcp;;1.2.3.5']
         state: enabled
-      - masquerade: yes
+      - masquerade: true
       - service: http
         state: enabled
   tasks:

@@ -1,3 +1,4 @@
+---
 - name: Test firewall ansible fact
   hosts: all
   become: true
@@ -40,20 +41,21 @@
             msg: default zone should be public
           when: firewall_config.default_zone != "public"
 
-        - name: save default ansible fact value
+        - name: Save default ansible fact value
           set_fact:
             __previous_firewall_config: "{{ firewall_config }}"
           no_log: true
 
         # Test fact after adding custom settings
 
-        - name: modify firewalld configuration
+        - name: Modify firewalld configuration
           shell:
             cmd: |
               firewall-cmd --permanent --add-service https
               firewall-cmd --permanent --new-service custom
+          changed_when: false
 
-        - name: refetch firewall_config
+        - name: Refetch firewall_config
           include_role:
             name: linux-system-roles.firewall
           vars:
@@ -79,19 +81,19 @@
             'zones' not in firewall_config.custom or
             'services' not in firewall_config.custom
 
-        - name: store previous firewall_config
+        - name: Store previous firewall_config
           set_fact:
             __previous_firewall_config: "{{ firewall_config }}"
           no_log: true
 
         # Test detailed mode
 
-        - name: get firewall_config with detailed on
+        - name: Get firewall_config with detailed on
           include_role:
             name: linux-system-roles.firewall
           vars:
             firewall:
-              detailed: yes
+              detailed: true
 
         - name: Fail if default settings values not dictionaries
           fail:

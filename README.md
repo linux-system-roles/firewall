@@ -209,8 +209,8 @@ You can also use this to add/remove user-created zones.  Specify the `zone`
 variable with no other variables, and use `state: present` to add the zone, or
 `state: absent` to remove it.
 
-```
-zone: 'public'
+```yaml
+zone: public
 ```
 
 ### service
@@ -218,7 +218,7 @@ zone: 'public'
 Name of a service or service list to add or remove inbound access to. The
 service needs to be defined in firewalld.
 
-```
+```yaml
 service: ftp
 service: [ftp,tftp]
 ```
@@ -239,7 +239,7 @@ firewall:
     description: Custom service for example purposes
     port: 8080/tcp
     state: present
-    permanent: yes
+    permanent: true
 ```
 
 Existing services can be modified in the same way as you would create a service.
@@ -253,7 +253,7 @@ firewall:
     description: I am modifying the builtin service ftp's description as an example
     port: 9090/tcp
     state: present
-    permanent: yes
+    permanent: true
 ```
 
 You can remove a `service` or specific `port`, `source_port`, `protocol`, `helper_module`
@@ -266,14 +266,14 @@ firewall:
   - service: customservice
     port: 8080/tcp
     state: absent
-    permanent: yes
+    permanent: true
   # Removes the service named customservice if it exists
   - service: customservice
     state: absent
-    permanent: yes
+    permanent: true
 ```
 
-NOTE: `permanent: yes` needs to be specified in order to define, modify, or remove
+NOTE: `permanent: true` needs to be specified in order to define, modify, or remove
 a service. This is so anyone using `service` with `state: present/absent` acknowledges
 that this will affect permanent firewall configuration. Additionally,
 defining services for runtime configuration is not supported by firewalld
@@ -372,7 +372,7 @@ interface: eth2
 
 This role handles interface arguments similar to
 how firewalld's cli, `firewall-cmd` does, i.e.
-manages the interface through NetworkManger if possible,
+manages the interface through NetworkManager if possible,
 and handles the interface binding purely through firewalld
 otherwise.
 
@@ -484,7 +484,7 @@ destination:
 
 ### helper_module
 
-Name of a connection tracking helper supported by firewalld. 
+Name of a connection tracking helper supported by firewalld.
 
 ```yaml
 # Both properly specify nf_conntrack_ftp
@@ -557,7 +557,7 @@ across all of the machines.
 
 Examples of Options
 -------------------
-By default, any changes will be applied immediately, and to the permanent settings. If you want the changes to apply immediately but not permanently, use `permanent: no`. Conversely, use `runtime: no`.
+By default, any changes will be applied immediately, and to the permanent settings. If you want the changes to apply immediately but not permanently, use `permanent: false`. Conversely, use `runtime: false`.
 
 Permit TCP traffic for port 80 in default zone, in addition to any existing
 configuration:
@@ -589,8 +589,8 @@ firewall:
 Add masquerading to dmz zone:
 
 ```yaml
-firewall:  
-  - masquerade: yes
+firewall:
+  - masquerade: true
     zone: dmz
     state: enabled
 ```
@@ -599,7 +599,7 @@ Remove masquerading to dmz zone:
 
 ```yaml
 firewall:
-  - masquerade: no
+  - masquerade: false
     zone: dmz
     state: enabled
 ```
@@ -652,7 +652,7 @@ Example Playbooks
 
 Erase all existing configuration, and enable ssh service:
 
-```
+```yaml
 ---
 - name: Erase existing config and enable ssh service
   hosts: myhost
@@ -660,15 +660,15 @@ Erase all existing configuration, and enable ssh service:
   vars:
     firewall:
       - previous: replaced
-      - service: 'ssh'
-        state: 'enabled'
+      - service: ssh
+        state: enabled
   roles:
     - linux-system-roles.firewall
 ```
 
 With this playbook you can make sure that the tftp service is disabled in the firewall:
 
-```
+```yaml
 ---
 - name: Make sure tftp service is disabled
   hosts: myhost
@@ -676,49 +676,50 @@ With this playbook you can make sure that the tftp service is disabled in the fi
   vars:
     firewall:
       - service: tftp
-        state: 'disabled'
+        state: disabled
   roles:
     - linux-system-roles.firewall
 ```
 
 It is also possible to combine several settings into blocks:
 
-```
+```yaml
 ---
 - name: Configure firewall
   hosts: myhost
 
   vars:
     firewall:
-      - { service: [tftp,ftp],
-          port: ['443/tcp','443/udp'],
-          state: 'enabled' }
-      - { forward_port: [eth2;447/tcp;;1.2.3.4,
-                          eth2;448/tcp;;1.2.3.5],
-          state: 'enabled' }
-      - { zone: "internal", service: tftp, state: 'enabled' }
-      - { service: 'tftp', state: 'enabled' }
-      - { port: '443/tcp', state: 'enabled' }
-      - { forward_port: 'eth0;445/tcp;;1.2.3.4', state: 'enabled' }
-          state: 'enabled' }
+      - {service: [tftp,ftp],
+         port: ['443/tcp','443/udp'],
+         state: enabled}
+      - {forward_port: [eth2;447/tcp;;1.2.3.4,
+                        eth2;448/tcp;;1.2.3.5],
+          state: enabled}
+      - {zone: internal, service: tftp, state: enabled}
+      - {service: tftp, state: enabled}
+      - {port: '443/tcp', state: enabled}
+      - {forward_port: 'eth0;445/tcp;;1.2.3.4', state: enabled}
+         state: enabled}
   roles:
     - linux-system-roles.firewall
 ```
 
 The block with several services, ports, etc. will be applied at once. If there is something wrong in the block it will fail as a whole.
 
-```---
+```yaml
+---
 - name: Configure external zone in firewall
   hosts: myhost
 
   vars:
     firewall:
-      - { zone: 'external',
-          service: [tftp,ftp],
-          port: ['443/tcp','443/udp'],
-          forward_port: ['447/tcp;;1.2.3.4',
-                         '448/tcp;;1.2.3.5'],
-          state: 'enabled' }
+      - {zone: external,
+         service: [tftp,ftp],
+         port: ['443/tcp','443/udp'],
+         forward_port: ['447/tcp;;1.2.3.4',
+                        '448/tcp;;1.2.3.5'],
+         state: enabled}
   roles:
     - linux-system-roles.firewall
 

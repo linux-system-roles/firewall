@@ -1,8 +1,22 @@
 ---
 skip_list:
-- '106'
-- '208'
-- '306'
-- '403'
-- '502'
-- '602'
+  - fqcn-builtins
+exclude_paths:
+  - tests/roles/
+  - .github/
+  - examples/roles/
+kinds:
+  - yaml: "**/meta/collection-requirements.yml"
+  - yaml: "**/tests/collection-requirements.yml"
+  - playbook: "**/tests/tests_*.yml"
+  - playbook: "**/tests/setup-snapshot.yml"
+  - tasks: "**/tests/*.yml"
+  - playbook: "**/tests/playbooks/*.yml"
+  - tasks: "**/tests/tasks/*.yml"
+  - tasks: "**/tests/tasks/*/*.yml"
+  - vars: "**/tests/vars/*.yml"
+  - playbook: "**/examples/*.yml"
+mock_roles:
+  - linux-system-roles.firewall
+extra_vars:
+  targets: targets
