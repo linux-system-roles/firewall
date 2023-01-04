@@ -1,4 +1,6 @@
-- include_tasks: firewalld.yml
+---
+- name: Setup firewalld
+  include_tasks: firewalld.yml
 
 - name: Enable and start firewalld service
   service:
@@ -38,6 +40,15 @@
 # Also handle the case where firewall is a dict instead of a list by
 # "casting" it into a list.
 - name: Configure firewall
+  vars:
+    __previous:
+      - key: previous
+        value: replaced
+    __detailed:
+      - key: detailed
+        value: true
+      - key: detailed
+        value: false
   firewall_lib:
     zone: "{{ item.zone | default(omit) }}"
     set_default_zone: "{{ item.set_default_zone | default(omit) }}"
@@ -66,22 +77,17 @@
     map('dict2items') | map('difference', __previous) |
     map('difference', __detailed) | select |
     map('items2dict') | list }}"
-  vars:
-    __previous:
-      - key: previous
-        value: replaced
-    __detailed:
-      - key: detailed
-        value: true
-      - key: detailed
-        value: false
   register: firewall_lib_result
 
-- name: gather firewall ansible fact with args
+- name: Gather firewall ansible fact with args
   vars:
     fw: "{{ firewall is mapping | ternary([firewall], firewall) }}"
+  when:
+    - firewall != None
+    - firewall | length == 1
+    - "'detailed' in fw[0]"
   block:
-    - name: gather firewall config information
+    - name: Gather firewall config information
       vars:
         __previous:
           - key: previous
@@ -92,29 +98,23 @@
         select | map('items2dict') | list }}"
       register: __firewalld_facts
 
-    - name: update firewalld_config fact
+    - name: Update firewalld_config fact
       vars:
         firewalld_facts: "{{ __firewalld_facts.results[0] }}"
       set_fact:
         firewall_config: "{{ firewalld_facts.firewall_config }}"
-  when:
-    - firewall != None
-    - firewall | length == 1
-    - "'detailed' in fw[0]"
 
-- name: gather firewall ansible fact if no args
+- name: Gather firewall ansible fact if no args
+  when: firewall == None or firewall | length == 0
   block:
-    - name: gather firewall config if no arguments
+    - name: Gather firewall config if no arguments
       firewall_lib_facts:
         detailed: false
       register: __firewalld_facts
 
-    - name: update firewalld_config fact
+    - name: Update firewalld_config fact
       set_fact:
         firewall_config: "{{ __firewalld_facts.firewall_config }}"
-  when: >-
-    firewall == None or firewall | length == 0
-
 
 - name: Check config files after removal
   when: __firewall_previous_replaced | bool

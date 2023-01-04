@@ -1,9 +1,13 @@
+---
 - name: Test firewalld zones
   hosts: all
   become: true
   gather_facts: true
   tasks:
     - name: Test firewalld zones
+      when: ansible_distribution == "Fedora" or
+        ((ansible_distribution == "CentOS" or ansible_distribution == "RedHat")
+        and ansible_distribution_major_version | int >= 7)
       block:
 
         # INIT TEST
@@ -21,7 +25,8 @@
                 state: 'enabled'
 
         - name: Fail on missing zones
-          fail: msg="Required zones do not exist"
+          fail:
+            msg: "Required zones do not exist"
           when: firewall_lib_result.changed
 
         # ENSURE STATE
@@ -33,23 +38,23 @@
             firewall:
               - previous: replaced
               - zone: 'internal'
-                service: [ 'tftp', 'ftp' ]
-                port: [ '443/tcp', '443/udp' ]
-                forward_port: [ '447/tcp;;1.2.3.4',
-                                '448/tcp;;1.2.3.5' ]
+                service: ['tftp', 'ftp']
+                port: ['443/tcp', '443/udp']
+                forward_port: ['447/tcp;;1.2.3.4',
+                               '448/tcp;;1.2.3.5']
                 state: 'enabled'
               - zone: 'internal'
-                service: [ 'tftp', 'ftp' ]
-                port: [ '443/tcp', '443/udp' ]
-                forward_port: [ '447/tcp;;1.2.3.4',
-                                '448/tcp;;1.2.3.5' ]
+                service: ['tftp', 'ftp']
+                port: ['443/tcp', '443/udp']
+                forward_port: ['447/tcp;;1.2.3.4',
+                               '448/tcp;;1.2.3.5']
                 state: 'enabled'
               - zone: customzone
-                permanent: yes
+                permanent: true
                 state: present
               - zone: customzone
-                permanent: yes
-                masquerade: yes
+                permanent: true
+                masquerade: true
                 state: enabled
               - set_default_zone: dmz
                 state: enabled
@@ -57,7 +62,8 @@
                 state: enabled
 
         - name: Fail if no changes are done
-          fail: msg="FAILED"
+          fail:
+            msg: "FAILED"
           when: not firewall_lib_result.changed
 
         # ENSURE STATE AGAIN
@@ -69,23 +75,23 @@
             firewall:
               - previous: replaced
               - zone: 'internal'
-                service: [ 'tftp', 'ftp' ]
-                port: [ '443/tcp', '443/udp' ]
-                forward_port: [ '447/tcp;;1.2.3.4',
-                                '448/tcp;;1.2.3.5' ]
+                service: ['tftp', 'ftp']
+                port: ['443/tcp', '443/udp']
+                forward_port: ['447/tcp;;1.2.3.4',
+                               '448/tcp;;1.2.3.5']
                 state: 'enabled'
               - zone: 'internal'
-                service: [ 'tftp', 'ftp' ]
-                port: [ '443/tcp', '443/udp' ]
-                forward_port: [ '447/tcp;;1.2.3.4',
-                                '448/tcp;;1.2.3.5' ]
+                service: ['tftp', 'ftp']
+                port: ['443/tcp', '443/udp']
+                forward_port: ['447/tcp;;1.2.3.4',
+                               '448/tcp;;1.2.3.5']
                 state: 'enabled'
               - zone: customzone
-                permanent: yes
+                permanent: true
                 state: present
               - zone: customzone
-                permanent: yes
-                masquerade: yes
+                permanent: true
+                masquerade: true
                 state: enabled
               - set_default_zone: dmz
                 state: enabled
@@ -93,7 +99,8 @@
                 state: enabled
 
         - name: Fail on newly changes
-          fail: msg="FAILED"
+          fail:
+            msg: "FAILED"
           when: firewall_lib_result.changed
 
         # VERIFY
@@ -101,6 +108,7 @@
         - name: Verify firewalld zone internal services
           command: firewall-cmd --permanent --zone=internal --list-services
           register: result
+          changed_when: false
           failed_when: result.failed
                       or "tftp" not in result.stdout
                       or "ftp" not in result.stdout
@@ -108,6 +116,7 @@
         - name: Verify firewalld zone internal ports
           command: firewall-cmd --permanent --zone=internal --list-ports
           register: result
+          changed_when: false
           failed_when: result.failed
                       or "443/tcp" not in result.stdout
                       or "443/udp" not in result.stdout
@@ -115,6 +124,7 @@
         - name: Verify firewalld zone internal forward ports
           command: firewall-cmd --permanent --zone=internal --list-forward-ports
           register: result
+          changed_when: false
           failed_when: result.failed
                       or "port=447:proto=tcp:toport=:toaddr=1.2.3.4"
                           not in result.stdout
@@ -124,18 +134,21 @@
         - name: Verify custom zone has masquerade added to it
           command: firewall-cmd --permanent --zone=customzone --query-masquerade
           register: result
+          changed_when: false
           failed_when: result is failed
                       or "yes" not in result.stdout
 
         - name: Verify custom zone has masquerade added to it
           command: firewall-cmd --get-default-zone
           register: result
+          changed_when: false
           failed_when: result is failed
                       or "dmz" not in result.stdout
 
         - name: Verify that service http has been added to the default zone dmz
           command: firewall-cmd --zone=dmz --query-service=http
           register: result
+          changed_when: false
           failed_when: result is failed
                       or "yes" not in result.stdout
       always:
@@ -149,6 +162,7 @@
               command: firewall-cmd --permanent --delete-zone=customzone
               register: result
               failed_when: result.failed and "INVALID_ZONE" not in result.stderr
+              changed_when: false
 
             - name: Reset to zone defaults
               shell:
@@ -157,7 +171,4 @@
                   firewall-cmd --permanent --load-zone-defaults=external
                   firewall-cmd --permanent --load-zone-defaults=trusted
                   firewall-cmd --reload
-
-      when: ansible_distribution == "Fedora" or
-        ((ansible_distribution == "CentOS" or ansible_distribution == "RedHat")
-        and ansible_distribution_major_version|int >= 7)
+              changed_when: false

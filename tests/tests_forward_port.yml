@@ -13,7 +13,7 @@
 
     # Tests string and dict form types
 
-    - name: forward_port and undo (string)
+    - name: Test forward_port and undo (string)
       include_role:
         name: linux-system-roles.firewall
       vars:
@@ -23,7 +23,7 @@
           - forward_port: 40/tcp;8080;0.0.0.0
             state: disabled
 
-    - name: forward_port (dict) and undo
+    - name: Test forward_port (dict) and undo
       include_role:
         name: linux-system-roles.firewall
       vars:
@@ -40,5 +40,3 @@
                 toport: 8080
                 toaddr: 0.0.0.0
             state: disabled
-
-...

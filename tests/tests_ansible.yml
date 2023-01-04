@@ -1,9 +1,11 @@
+---
 - name: Ensure that the roles runs with default parameters
   hosts: all
   become: true
 
   tasks:
-  - import_role:
+  - name: Import role
+    import_role:
       name: linux-system-roles.firewall
 
   - name: Test firewalld posix compatibility
@@ -15,31 +17,37 @@
         command: firewall-cmd --permanent --delete-zone=custom
         register: result
         failed_when: result.failed and "INVALID_ZONE" not in result.stderr
+        changed_when: false
 
       - name: Reset internal zone to defaults
         command: firewall-cmd --permanent --load-zone-defaults=internal
         register: result
         failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+        changed_when: false
 
       - name: Reset trusted zone to defaults
         command: firewall-cmd --permanent --load-zone-defaults=trusted
         register: result
         failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+        changed_when: false
 
       - name: Reset dmz zone to defaults
         command: firewall-cmd --permanent --load-zone-defaults=dmz
         register: result
         failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+        changed_when: false
 
       - name: Reset drop zone to defaults
         command: firewall-cmd --permanent --load-zone-defaults=drop
         register: result
         failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+        changed_when: false
 
       - name: Reset public zone to defaults
         command: firewall-cmd --permanent --load-zone-defaults=public
         register: result
         failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+        changed_when: false
 
       - name: Reset default zone to defaults
         shell:
@@ -48,13 +56,16 @@
             firewall-cmd --permanent --load-zone-defaults=$zone
         register: result
         failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+        changed_when: false
 
       - name: Create custom zone
+        # noqa no-changed-when
         command: firewall-cmd --permanent --new-zone=custom
         register: result
         failed_when: result.failed or not result.changed
 
       - name: Reload firewalld
+        # noqa no-changed-when
         command: firewall-cmd --reload
         register: result
         failed_when: result.failed or not result.changed
@@ -64,7 +75,7 @@
       - name: Permit traffic in default zone for https service
         firewall_lib:
           service: https
-          permanent: yes
+          permanent: true
           state: enabled
         register: result
         failed_when: result.failed or not result.changed
@@ -72,7 +83,7 @@
       - name: Permit traffic in default zone for https service, again
         firewall_lib:
           service: https
-          permanent: yes
+          permanent: true
           state: enabled
         register: result
         failed_when: result.failed or result.changed
@@ -80,7 +91,7 @@
       - name: Permit traffic in default zone on port 8081/tcp
         firewall_lib:
           port: 8081/tcp
-          permanent: yes
+          permanent: true
           state: enabled
         register: result
         failed_when: result.failed or not result.changed
@@ -88,7 +99,7 @@
       - name: Permit traffic in default zone on port 8081/tcp, again
         firewall_lib:
           port: 8081/tcp
-          permanent: yes
+          permanent: true
           state: enabled
         register: result
         failed_when: result.failed or result.changed
@@ -96,7 +107,7 @@
       - name: Allow port 161-162/udp in permanent default zone
         firewall_lib:
           port: 161-162/udp
-          permanent: yes
+          permanent: true
           state: enabled
         register: result
         failed_when: result.failed or not result.changed
@@ -104,7 +115,7 @@
       - name: Allow port 161-162/udp in permanent default zone, again
         firewall_lib:
           port: 161-162/udp
-          permanent: yes
+          permanent: true
           state: enabled
         register: result
         failed_when: result.failed or result.changed
@@ -112,7 +123,7 @@
       - name: Do not permit traffic in default zone on port 8081/tcp
         firewall_lib:
           port: 8081/tcp
-          permanent: yes
+          permanent: true
           state: disabled
         register: result
         failed_when: result.failed or not result.changed
@@ -120,7 +131,7 @@
       - name: Do not permit traffic in default zone on port 8081/tcp, again
         firewall_lib:
           port: 8081/tcp
-          permanent: yes
+          permanent: true
           state: disabled
         register: result
         failed_when: result.failed or result.changed
@@ -129,7 +140,7 @@
         firewall_lib:
           zone: dmz
           service: http
-          permanent: yes
+          permanent: true
           state: enabled
         register: result
         failed_when: result.failed or not result.changed
@@ -138,7 +149,7 @@
         firewall_lib:
           zone: dmz
           service: http
-          permanent: yes
+          permanent: true
           state: enabled
         register: result
         failed_when: result.failed or result.changed
@@ -147,7 +158,7 @@
               default zone
         firewall_lib:
           rich_rule: rule service name="ftp" audit limit value="1/m" accept
-          permanent: yes
+          permanent: true
           state: enabled
         register: result
         failed_when: result.failed or not result.changed
@@ -156,7 +167,7 @@
               default zone, again
         firewall_lib:
           rich_rule: rule service name="ftp" audit limit value="1/m" accept
-          permanent: yes
+          permanent: true
           state: enabled
         register: result
         failed_when: result.failed or result.changed
@@ -183,7 +194,7 @@
         firewall_lib:
           zone: trusted
           interface: eth2
-          permanent: yes
+          permanent: true
           state: enabled
         register: result
         failed_when: result.failed or not result.changed
@@ -192,23 +203,23 @@
         firewall_lib:
           zone: trusted
           interface: eth2
-          permanent: yes
+          permanent: true
           state: enabled
         register: result
         failed_when: result.failed or result.changed
 
       - name: Allow masquerading in permament dmz zone
         firewall_lib:
-          masquerade: yes
-          permanent: yes
+          masquerade: true
+          permanent: true
           zone: dmz
         register: result
         failed_when: result.failed or not result.changed
 
       - name: Allow masquerading in permament dmz zone, again
         firewall_lib:
-          masquerade: yes
-          permanent: yes
+          masquerade: true
+          permanent: true
           zone: dmz
         register: result
         failed_when: result.failed or result.changed
@@ -217,23 +228,23 @@
         firewall_lib:
           zone: custom
           state: enabled
-          permanent: yes
+          permanent: true
         register: result
         failed_when: result.failed or result.changed
 
       - name: Ensure ICMP block inversion in permanent drop zone
         firewall_lib:
           zone: drop
-          permanent: yes
-          icmp_block_inversion: yes
+          permanent: true
+          icmp_block_inversion: true
         register: result
         failed_when: result.failed or not result.changed
 
       - name: Ensure ICMP block inversion in permanent drop zone, again
         firewall_lib:
           zone: drop
-          permanent: yes
-          icmp_block_inversion: yes
+          permanent: true
+          icmp_block_inversion: true
         register: result
         failed_when: result.failed or result.changed
 
@@ -241,7 +252,7 @@
         firewall_lib:
           zone: drop
           state: enabled
-          permanent: yes
+          permanent: true
           icmp_block: echo-request
         register: result
         failed_when: result.failed or not result.changed
@@ -250,7 +261,7 @@
         firewall_lib:
           zone: drop
           state: enabled
-          permanent: yes
+          permanent: true
           icmp_block: echo-request
         register: result
         failed_when: result.failed or result.changed
@@ -259,7 +270,7 @@
         firewall_lib:
           zone: internal
           state: enabled
-          permanent: yes
+          permanent: true
           target: default
         register: result
         failed_when: result.failed or result.changed
@@ -268,7 +279,7 @@
         firewall_lib:
           zone: internal
           state: enabled
-          permanent: yes
+          permanent: true
           target: ACCEPT
         register: result
         failed_when: result.failed or not result.changed
@@ -277,7 +288,7 @@
         firewall_lib:
           zone: internal
           state: enabled
-          permanent: yes
+          permanent: true
           target: ACCEPT
         register: result
         failed_when: result.failed or result.changed
@@ -286,7 +297,7 @@
         firewall_lib:
           zone: internal
           state: enabled
-          permanent: yes
+          permanent: true
           target: default
         register: result
         failed_when: result.failed or not result.changed
@@ -295,7 +306,7 @@
         firewall_lib:
           zone: internal
           state: enabled
-          permanent: yes
+          permanent: true
           target: default
         register: result
         failed_when: result.failed or result.changed
@@ -306,8 +317,8 @@
           rich_rule: rule family=ipv4 forward-port port=443 protocol=tcp
                      to-port=8443
           zone: public
-          permanent: yes
-          runtime: yes
+          permanent: true
+          runtime: true
           state: enabled
         register: result
         failed_when: result.failed or not result.changed
@@ -318,8 +329,8 @@
           rich_rule: rule family=ipv4 forward-port port=443 protocol=tcp
                      to-port=8443
           zone: public
-          permanent: yes
-          runtime: yes
+          permanent: true
+          runtime: true
           state: enabled
         register: result
         failed_when: result.failed or result.changed
@@ -328,178 +339,179 @@
         firewall_lib:
           zone: customzone
           state: present
-          permanent: yes
-          runtime: yes
+          permanent: true
+          runtime: true
         register: result
 
-      - name: assert firewalld custom zone
+      - name: Assert firewalld custom zone
         assert:
           that:
             - result is changed
 
       - name: Add masquerade to custom zone
         firewall_lib:
-          masquerade: yes
+          masquerade: true
           zone: customzone
           state: enabled
-          permanent: yes
-          runtime: yes
+          permanent: true
+          runtime: true
         register: result
         failed_when: result is failed or result is not changed
 
       - name: Add masquerade to custom zone, again
         firewall_lib:
-          masquerade: yes
+          masquerade: true
           zone: customzone
           state: enabled
-          permanent: yes
-          runtime: yes
+          permanent: true
+          runtime: true
         register: result
         failed_when: result is failed or result is changed
 
       - name: Set the default zone to something other than dmz
         command: firewall-cmd --set-default-zone public
+        changed_when: false
 
-      - name: set default zone
+      - name: Set default zone
         firewall_lib:
           set_default_zone: dmz
           state: enabled
         register: result
         failed_when: result is failed or result is not changed
 
-      - name: set default zone, again
+      - name: Set default zone, again
         firewall_lib:
           set_default_zone: dmz
           state: enabled
         register: result
         failed_when: result is failed or result is changed
 
-      - name: add multiple custom services
+      - name: Add multiple custom services
         firewall_lib:
           service:
             - custom
             - another_custom
-          permanent: yes
+          permanent: true
           state: present
         register: result
         failed_when: result is not failed or result is changed
 
-      - name: add custom service without details
+      - name: Add custom service without details
         firewall_lib:
           service: customservice
-          permanent: yes
+          permanent: true
           state: present
         register: result
         failed_when: result is failed or result is not changed
 
-      - name: add custom service that already exists
+      - name: Add custom service that already exists
         firewall_lib:
           service: customservice
-          permanent: yes
+          permanent: true
           state: present
         register: result
         failed_when: result is failed or result is changed
 
-      - name: add description to custom service
+      - name: Add description to custom service
         firewall_lib:
           service: customservice
           description: "This is a custom service that does absolutely nothing"
-          permanent: yes
+          permanent: true
           state: present
         register: result
         failed_when: result is failed or result is not changed
 
-      - name: add short description to custom service
+      - name: Add short description to custom service
         firewall_lib:
           service: customservice
           short: "custom service"
-          permanent: yes
+          permanent: true
           state: present
         register: result
         failed_when: result is failed or result is not changed
 
-      - name: add source_ports to custom service
+      - name: Add source_ports to custom service
         firewall_lib:
           service: customservice
           source_port: 333/tcp
-          permanent: yes
+          permanent: true
           state: present
         register: result
         failed_when: result is failed or result is not changed
 
-      - name: add source_ports to custom service again
+      - name: Add source_ports to custom service again
         firewall_lib:
           service: customservice
           source_port: 333/tcp
-          permanent: yes
+          permanent: true
           state: present
         register: result
         failed_when: result is failed or result is changed
 
-      - name: add invalid protocol to custom service
+      - name: Add invalid protocol to custom service
         firewall_lib:
           service: customservice
           protocol: nonexistentprotocol
-          permanent: yes
+          permanent: true
           state: present
         register: result
         failed_when: result is not failed or result is changed
 
-      - name: add valid protocol to custom service
+      - name: Add valid protocol to custom service
         firewall_lib:
           service: customservice
           protocol: icmp
-          permanent: yes
+          permanent: true
           state: present
         register: result
         failed_when: result is failed or result is not changed
 
-      - name: remove valid protocol from customservice
+      - name: Remove valid protocol from customservice
         firewall_lib:
           service: customservice
           protocol: icmp
-          permanent: yes
+          permanent: true
           state: absent
         register: result
         failed_when: result is failed or result is not changed
 
-      - name: remove ports from custom service without deleting service
+      - name: Remove ports from custom service without deleting service
         firewall_lib:
           service: customservice
           source_port: 333/tcp
-          permanent: yes
+          permanent: true
           state: absent
         register: result
         failed_when: result is failed or result is not changed
 
-      - name: add destination addresses
+      - name: Add destination addresses
         firewall_lib:
           service: customservice
           destination:
             - 146.19.6.63
             - "aaaa:aaaa:aaaa:aaaa::"
           state: present
-          permanent: yes
+          permanent: true
         register: result
         failed_when: result is failed or result is not changed
 
-      - name: delete custom service
+      - name: Delete custom service
         firewall_lib:
           service: customservice
-          permanent: yes
+          permanent: true
           state: absent
         register: result
         failed_when: result is failed or result is not changed
 
-      - name: delete custom service again
+      - name: Delete custom service again
         firewall_lib:
           service: customservice
-          permanent: yes
+          permanent: true
           state: absent
         register: result
         failed_when: result is failed or result is changed
 
-      - name: add custom service with all the elements at once
+      - name: Add custom service with all the elements at once
         firewall_lib:
           service: customservice
           short: Custom service
@@ -511,42 +523,42 @@
           destination:
             - 123.45.6.78
             - "aaaa:aaaa:aaaa:aaa:aaaa:aaaa:aaaa::"
-          permanent: yes
+          permanent: true
           state: present
         register: result
         failed_when: result is failed or result is not changed
 
-      - name: add helper module that already is on customservice
+      - name: Add helper module that already is on customservice
         firewall_lib:
           service: customservice
           helper_module: nf_conntrack_ftp
-          permanent: yes
+          permanent: true
           state: present
         register: result
         failed_when: result is failed or result is changed
 
-      - name: forward port 40 to 0.0.0.0:8080 (string)
+      - name: Forward port 40 to 0.0.0.0:8080 (string)
         firewall_lib:
           forward_port: 40/tcp;8080;0.0.0.0
           state: enabled
         register: result
         failed_when: result is failed or result is not changed
 
-      - name: forward same port again (string)
+      - name: Forward same port again (string)
         firewall_lib:
           forward_port: 40/tcp;8080;0.0.0.0
           state: enabled
         register: result
         failed_when: result is failed or result is changed
 
-      - name: disable forward port (string)
+      - name: Disable forward port (string)
         firewall_lib:
           forward_port: 40/tcp;8080;0.0.0.0
           state: disabled
         register: result
         failed_when: result is failed or result is not changed
 
-      - name: forward port (dict form)
+      - name: Forward port (dict form)
         firewall_lib:
           forward_port:
             port: 40
@@ -557,7 +569,7 @@
         register: result
         failed_when: result is failed or result is not changed
 
-      - name: forward port again (dict form)
+      - name: Forward port again (dict form)
         firewall_lib:
           forward_port:
             - port: 40
@@ -568,7 +580,7 @@
         register: result
         failed_when: result is failed or result is changed
 
-      - name: disable forward port (dict form)
+      - name: Disable forward port (dict form)
         firewall_lib:
           forward_port:
             - port: 40
@@ -591,43 +603,52 @@
             command: firewall-cmd --permanent --delete-zone=custom
             register: result
             failed_when: result.failed and "INVALID_ZONE" not in result.stderr
+            changed_when: false
 
           - name: Remove customzone zone
             command: firewall-cmd --permanent --delete-zone=customzone
             register: result
             failed_when: result.failed and "INVALID_ZONE" not in result.stderr
+            changed_when: false
 
           - name: Reset internal zone to defaults
             command: firewall-cmd --permanent --load-zone-defaults=internal
             register: result
             failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+            changed_when: false
 
           - name: Reset trusted zone to defaults
             command: firewall-cmd --permanent --load-zone-defaults=trusted
             register: result
             failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+            changed_when: false
 
           - name: Reset dmz zone to defaults
             command: firewall-cmd --permanent --load-zone-defaults=dmz
             register: result
             failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+            changed_when: false
 
           - name: Reset drop zone to defaults
             command: firewall-cmd --permanent --load-zone-defaults=drop
             register: result
             failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+            changed_when: false
 
           - name: Reset public zone to defaults
             command: firewall-cmd --permanent --load-zone-defaults=public
             register: result
             failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+            changed_when: false
 
           - name: Reset default zone to defaults
             command: firewall-cmd --permanent --load-zone-defaults=public
             register: result
             failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+            changed_when: false
 
           - name: Reload firewalld
+            # noqa no-changed-when
             command: firewall-cmd --reload
             register: result
             failed_when: result.failed or not result.changed

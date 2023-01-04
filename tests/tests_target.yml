@@ -1,4 +1,6 @@
-- hosts: all
+---
+- name: Target tests
+  hosts: all
   tasks:
     - name: Run target tests
       block:
@@ -8,10 +10,10 @@
           vars:
             firewall:
               - set_default_zone: public
-                permanent: yes
+                permanent: true
               - target: DROP
                 state: enabled
-                permanent: yes
+                permanent: true
 
         - name: Get target setting
           command: firewall-cmd --info-zone=public
@@ -31,7 +33,7 @@
             firewall:
               target: DROP
               state: absent
-              permanent: yes
+              permanent: true
 
         - name: Get target setting
           command: firewall-cmd --info-zone=public
