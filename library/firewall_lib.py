@@ -210,7 +210,6 @@ options:
     default: true
 """
 
-from distutils.version import LooseVersion
 from ansible.module_utils.basic import AnsibleModule
 import re
 import os
@@ -247,6 +246,22 @@ except ImportError:
 
 
 PCI_REGEX = re.compile("[0-9a-fA-F]{4}:[0-9a-fA-F]{4}")
+
+
+# NOTE: Because of PEP632, we cannot use distutils.
+# In addition, because of the wide range of python
+# versions we have to support, there isn't a good
+# version parser across all of them, that is provided
+# with Ansible.
+def lsr_parse_version(v_str):
+    v_ary = v_str.split(".")
+    v = []
+    for v_ary_str in v_ary:
+        try:
+            v.append(int(v_ary_str))
+        except ValueError:
+            v.append(0)
+    return v
 
 
 def try_get_connection_of_interface(interface):
@@ -832,7 +847,7 @@ def main():
         permanent = True
 
         # Pre-run version checking
-        if LooseVersion(FW_VERSION) < LooseVersion("0.3.9"):
+        if lsr_parse_version(FW_VERSION) < lsr_parse_version("0.3.9"):
             module.fail_json(
                 msg="Unsupported firewalld version %s" " requires >= 0.3.9" % FW_VERSION
             )
@@ -851,7 +866,7 @@ def main():
         fw.start()
     else:
         # Pre-run version checking
-        if LooseVersion(FW_VERSION) < LooseVersion("0.2.11"):
+        if lsr_parse_version(FW_VERSION) < lsr_parse_version("0.2.11"):
             module.fail_json(
                 msg="Unsupported firewalld version %s, requires >= 0.2.11" % FW_VERSION
             )
