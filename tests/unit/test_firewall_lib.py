@@ -717,3 +717,27 @@ def test_module_parameters(method, state, input, expected):
         has_fw_patcher.stop()
         fw_ver_patcher.stop()
         rich_rule_patcher.stop()
+
+
+class FirewallVersionTest(unittest.TestCase):
+    """class to test lsr_parse_version"""
+
+    def test_lsr_parse_version(self):
+        ver = firewall_lib.lsr_parse_version("")
+        assert ver == [0]
+        ver = firewall_lib.lsr_parse_version("a.b")
+        assert ver == [0, 0]
+        ver = firewall_lib.lsr_parse_version("1")
+        assert ver == [1]
+        ver = firewall_lib.lsr_parse_version("1.2")
+        assert ver == [1, 2]
+        ver = firewall_lib.lsr_parse_version("1.2.3")
+        assert ver == [1, 2, 3]
+        ver = firewall_lib.lsr_parse_version("1.2.3.4")
+        assert ver == [1, 2, 3, 4]
+        ver_b = firewall_lib.lsr_parse_version("0.3")
+        assert ver_b < ver
+        ver_b = firewall_lib.lsr_parse_version("1.2.3")
+        assert ver_b < ver
+        ver_b = firewall_lib.lsr_parse_version("1.2.4")
+        assert ver_b > ver
