@@ -1,6 +1,23 @@
 Changelog
 =========
 
+[1.4.2] - 2023-01-20
+--------------------
+
+### New Features
+
+- none
+
+### Bug Fixes
+
+- ansible-lint 6.x fixes
+- cannot use distutils; use custom version
+
+### Other Changes
+
+- Add check for non-inclusive language (#114)
+- Add CodeQL workflow for GitHub code scanning
+
 [1.4.1] - 2022-12-12
 --------------------
 
