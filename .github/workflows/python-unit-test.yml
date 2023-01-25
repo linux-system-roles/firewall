@@ -6,7 +6,6 @@ on:  # yamllint disable-line rule:truthy
   push:
     branches:
       - main
-      - master
   workflow_dispatch:
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -29,6 +28,11 @@ jobs:
             os: ubuntu-latest
     runs-on: ${{ matrix.pyver_os.os }}
     steps:
+      - name: Update git
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y git
       - name: checkout PR
         uses: actions/checkout@v3
       - name: Set up Python
@@ -39,8 +43,6 @@ jobs:
         run: |
           set -euxo pipefail
           python -m pip install --upgrade pip
-          sudo apt-get update
-          sudo apt-get install -y git
           pip install "git+https://github.com/linux-system-roles/tox-lsr@2.13.1"
           # If you have additional OS dependency packages e.g. libcairo2-dev
           # then put them in .github/config/ubuntu-requirements.txt, one

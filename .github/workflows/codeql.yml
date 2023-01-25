@@ -20,6 +20,11 @@ jobs:
       matrix:
         language: [python]
     steps:
+      - name: Update pip, git
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y git
       - name: Checkout
         uses: actions/checkout@v3
 
