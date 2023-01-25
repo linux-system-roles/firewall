@@ -1,14 +1,12 @@
 ---
-name: "CodeQL"
-
+name: CodeQL
 on:  # yamllint disable-line rule:truthy
   push:
     branches: ["main"]
   pull_request:
     branches: ["main"]
   schedule:
-    - cron: "48 9 * * 6"
-
+    - cron: 48 9 * * 6
 jobs:
   analyze:
     name: Analyze
@@ -17,12 +15,10 @@ jobs:
       actions: read
       contents: read
       security-events: write
-
     strategy:
       fail-fast: false
       matrix:
         language: [python]
-
     steps:
       - name: Checkout
         uses: actions/checkout@v3

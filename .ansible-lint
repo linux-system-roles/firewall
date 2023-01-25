@@ -1,10 +1,5 @@
 ---
-skip_list:
-  - fqcn-builtins
-exclude_paths:
-  - tests/roles/
-  - .github/
-  - examples/roles/
+profile: production
 kinds:
   - yaml: "**/meta/collection-requirements.yml"
   - yaml: "**/tests/collection-requirements.yml"
@@ -16,7 +11,11 @@ kinds:
   - tasks: "**/tests/tasks/*/*.yml"
   - vars: "**/tests/vars/*.yml"
   - playbook: "**/examples/*.yml"
+skip_list:
+  - fqcn-builtins
+exclude_paths:
+  - tests/roles/
+  - .github/
+  - examples/roles/
 mock_roles:
   - linux-system-roles.firewall
-extra_vars:
-  targets: targets
