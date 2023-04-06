@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.4.3] - 2023-04-06
+--------------------
+
+### Other Changes
+
+- Add README-ansible.md to refer Ansible intro page on linux-system-roles.github.io (#132)
+
 [1.4.2] - 2023-01-20
 --------------------
 
