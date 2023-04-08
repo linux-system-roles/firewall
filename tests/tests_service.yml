@@ -54,7 +54,7 @@
         - name: Fail if service changed
           fail:
             msg: FAILED - Defaults not properly reset for services
-          when: firewall_lib_result.changed
+          when: firewall_lib_result.changed  # noqa no-handler
 
         ## Begin builtin service tests
 
@@ -75,7 +75,7 @@
         - name: Fail when http is unchanged
           fail:
             msg: FAILED - http unchanged
-          when: not firewall_lib_result.changed
+          when: not firewall_lib_result.changed  # noqa no-handler
 
         - name: Change default service http again
           include_role:
@@ -94,7 +94,7 @@
         - name: Fail when http changes affect permanent configuration
           fail:
             msg: http changed when reapplying the same changes
-          when: firewall_lib_result.changed
+          when: firewall_lib_result.changed  # noqa no-handler
 
         ## End builtin service tests
 
@@ -136,7 +136,7 @@
         - name: Fail when custom service not changed
           fail:
             msg: New custom service did not set changed flag
-          when: not firewall_lib_result.changed
+          when: not firewall_lib_result.changed  # noqa no-handler
 
         # Verify idempotency
 
@@ -164,7 +164,7 @@
         - name: Fail when custom service changed
           fail:
             msg: Custom service changed when it should not have
-          when: firewall_lib_result.changed
+          when: firewall_lib_result.changed  # noqa no-handler
 
         # Verify that custom service not a part of default zone for some reason
 
@@ -241,7 +241,7 @@
         - name: Fail if custom service elements unchanged
           fail:
             msg: Custom service unchanged (should not be)
-          when: not firewall_lib_result.changed
+          when: not firewall_lib_result.changed  # noqa no-handler
 
         - name: Remove custom service elements again
           include_role:
@@ -262,7 +262,7 @@
         - name: Fail if custom service elements changed
           fail:
             msg: Custom service changed when it should not have
-          when: firewall_lib_result.changed
+          when: firewall_lib_result.changed  # noqa no-handler
 
         - name: Get all services
           command: firewall-cmd --permanent --get-services
@@ -309,7 +309,7 @@
         - name: Fail if second removal changes anything
           fail:
             msg: something changed when systemrole test removed
-          when: firewall_lib_result.changed
+          when: firewall_lib_result.changed  # noqa no-handler
 
       always:
         - name: Cleanup

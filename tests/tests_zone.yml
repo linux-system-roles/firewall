@@ -27,7 +27,7 @@
         - name: Fail on missing zones
           fail:
             msg: "Required zones do not exist"
-          when: firewall_lib_result.changed
+          when: firewall_lib_result.changed  # noqa no-handler
 
         # ENSURE STATE
 
@@ -101,7 +101,7 @@
         - name: Fail on newly changes
           fail:
             msg: "FAILED"
-          when: firewall_lib_result.changed
+          when: firewall_lib_result.changed  # noqa no-handler
 
         # VERIFY
 

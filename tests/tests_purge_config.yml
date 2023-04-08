@@ -38,7 +38,7 @@
         - name: Verify that nothing changed
           fail:
             msg: The role changed something
-          when: firewall_lib_result.changed
+          when: firewall_lib_result.changed  # noqa no-handler
 
         - name: Apply basic config
           include_role:
@@ -49,7 +49,7 @@
         - name: Verify role reports changed
           fail:
             msg: The role reported no changes
-          when: not firewall_lib_result.changed
+          when: not firewall_lib_result.changed  # noqa no-handler
 
         - name: Apply again basic config
           include_role:
@@ -60,7 +60,7 @@
         - name: Verify role reports nothing changed
           fail:
             msg: The role reported changes
-          when: firewall_lib_result.changed
+          when: firewall_lib_result.changed  # noqa no-handler
 
         - name: Use previous replaced and basic config
           include_role:
@@ -71,7 +71,7 @@
         - name: Verify role reports no changes
           fail:
             msg: The role reported changes
-          when: firewall_lib_result.changed
+          when: firewall_lib_result.changed  # noqa no-handler
 
         - name: Use again previous replaced and basic config
           include_role:
@@ -82,7 +82,7 @@
         - name: Verify role reports no changes
           fail:
             msg: The role reported changes
-          when: firewall_lib_result.changed
+          when: firewall_lib_result.changed  # noqa no-handler
 
         - name: Apply basic config
           include_role:
@@ -93,7 +93,7 @@
         - name: Verify role reports no changes
           fail:
             msg: The role reported changes
-          when: firewall_lib_result.changed
+          when: firewall_lib_result.changed  # noqa no-handler
 
         - name: Use only previous replaced
           include_role:
@@ -105,7 +105,7 @@
         - name: Verify role reports changed
           fail:
             msg: The role reported no changes
-          when: not firewall_lib_result.changed
+          when: not firewall_lib_result.changed  # noqa no-handler
 
         - name: Apply only default zone
           include_role:
@@ -117,7 +117,7 @@
         - name: Verify role reports changed
           fail:
             msg: The role reported no changes
-          when: not firewall_lib_result.changed
+          when: not firewall_lib_result.changed  # noqa no-handler
 
         - name: Apply only default zone again
           include_role:
@@ -129,7 +129,7 @@
         - name: Verify role reports not changed
           fail:
             msg: The role reported changes
-          when: firewall_lib_result.changed
+          when: firewall_lib_result.changed  # noqa no-handler
 
         - name: Apply only default zone again with previous replaced
           include_role:
@@ -142,7 +142,7 @@
         - name: Verify role reports not changed
           fail:
             msg: The role reported changes
-          when: firewall_lib_result.changed
+          when: firewall_lib_result.changed  # noqa no-handler
       always:
         - name: Cleanup
           tags:
