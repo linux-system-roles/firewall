@@ -198,6 +198,23 @@ Variables
 
 The firewall role uses the variable `firewall` to specify the parameters.  This variable is a `list` of `dict` values.  Each `dict` value is comprised of one or more keys listed below. These are the variables that can be passed to the role:
 
+### set_default_zone
+
+The default zone is the zone that is used for everything that is not explicitly
+bound/assigned to another zone.
+
+That means that if there is no zone assigned to a connection, interface or
+source, only the default zone is used.  The zone should exist before setting
+it as the default zone.
+
+```yaml
+firewall:
+  - zone: mycustomzone  # ensure custom zone exists first
+    state: present
+  - set_default_zone: mycustomzone  # set custom as default
+    state: enabled
+```
+
 ### zone
 
 Name of the zone that should be modified. If it is not set, the default zone
