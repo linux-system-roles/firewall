@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[1.4.4] - 2023-04-13
+--------------------
+
+### Other Changes
+
+- fix ansible-lint issues in tests (#134)
+- add docs for set_default_zone (#135)
+
 [1.4.3] - 2023-04-06
 --------------------
 
