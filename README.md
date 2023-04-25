@@ -572,6 +572,11 @@ useful if you have existing machines that may have existing firewall
 configuration, and you want to make all of the firewall configuration the same
 across all of the machines.
 
+*WARNING*: When using this option, there's a small time window when firewall is
+being reset and all new connections to the system are rejected.  Existing
+connections will be unaffected. Applying changes with this option in production
+might cause temporary service failures with new connections during the operation.
+
 Examples of Options
 -------------------
 By default, any changes will be applied immediately, and to the permanent settings. If you want the changes to apply immediately but not permanently, use `permanent: false`. Conversely, use `runtime: false`.
