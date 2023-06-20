@@ -8,7 +8,5 @@ __firewall_required_facts:
   - python_version
 
 __firewall_packages_base: [firewalld]
-__firewall_packages_python2: [python-firewall]
-__firewall_packages_python3: [python3-firewall]
 
 __firewall_service: firewalld
