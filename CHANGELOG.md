@@ -1,6 +1,81 @@
 Changelog
 =========
 
+[1.4.5] - 2023-06-21
+--------------------
+
+### Bug Fixes
+
+- fix: Don't install python(3)-firewall it's a dependency of firewalld (#148)
+
+  Enhancement: The role now does not run tasks to install python-firewall or python3-firewall based on installed python version.
+  
+  Reason:  python-firewall or python3-firewall is pulled automatically by dnf and yum when installing firewalld.
+  The issue is that when I install python3 on EL 7, the role then fails with "No package matching 'python3-firewall' found available, installed or updated". It sees python3 present on the system and tries to install python3-firewall, which is not available on EL 7.
+  
+  Result: The role doesn't fail on EL 7 when python3 is installed on the managed node.
+
+### Other Changes
+
+- ci: Add commitlint GitHub action to ensure conventional commits (#139)
+
+  For more information, see Conventional Commits format in Contribute
+  https://linux-system-roles.github.io/contribute.html#conventional-commits-format
+  
+  Signed-off-by: Sergei Petrosian <spetrosi@redhat.com>
+
+- docs: Add note about using previous: replaced and temporary service failures (#141)
+
+  Add a note to the README about the use of `previous: replaced` and that it can
+  cause temporary service outages to the node being managed.
+  https://github.com/linux-system-roles/firewall/issues/138
+
+- docs: Consistent contributing.md for all roles - allow role specific contributing.md section (#143)
+
+  Provide a single, consistent contributing.md for all roles.  This mostly links to
+  and summarizes https://linux-system-roles.github.io/contribute.html
+  
+  Allow for a role specific section which typically has information about
+  role particulars, role debugging tips, etc.
+  
+  See https://github.com/linux-system-roles/.github/pull/19
+  
+  Signed-off-by: Rich Megginson <rmeggins@redhat.com>
+
+- ci: update tox-lsr to version 3.0.0 (#144)
+
+  The major version bump is because tox-lsr 3 drops support
+  for tox version 2.  If you are using tox 2 you will need to
+  upgrade to tox 3 or 4.
+  
+  tox-lsr 3.0.0 adds support for tox 4, commitlint, and ansible-lint-collection
+  
+  See https://github.com/linux-system-roles/tox-lsr/releases/tag/3.0.0
+  for full release notes
+  
+  Signed-off-by: Rich Megginson <rmeggins@redhat.com>
+
+- ci: fix pylintrc issues (#145)
+
+  Remove `no-space-check` and `overgeneral-exception`
+
+- ci: Add pull request template and run commitlint on PR title only (#147)
+
+  We now ensure the conventional commits format only on PR titles and not on
+  commits to let developers keep commit messages targeted for other developers
+  i.e. describe actual changes to code that users should not care about.
+  And PR titles, on the contrary, must be aimed at end users.
+  
+  For more info, see
+  https://linux-system-roles.github.io/contribute.html#write-a-good-pr-title-and-description
+  
+  Signed-off-by: Sergei Petrosian <spetrosi@redhat.com>
+
+- ci: Rename commitlint to PR title Lint, echo PR titles from env var (#149)
+
+  Signed-off-by: Sergei Petrosian <spetrosi@redhat.com>
+
+
 [1.4.4] - 2023-04-13
 --------------------
 
