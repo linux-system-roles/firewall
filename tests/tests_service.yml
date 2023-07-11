@@ -314,7 +314,7 @@
         - name: Try to add a service that does not exist in check mode
           check_mode: true
           block:
-            - name: attempt to enable http-alt, which does not exist
+            - name: Attempt to enable http-alt, which does not exist
               include_role:
                 name: linux-system-roles.firewall
               vars:
