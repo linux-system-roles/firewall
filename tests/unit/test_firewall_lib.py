@@ -40,7 +40,9 @@ TEST_DATA = {
         "input": {"service": SERVICES_PRESENT},
         "enabled": {
             "expected": {
-                "runtime": [call("default", service, 0) for service in SERVICES_PRESENT],
+                "runtime": [
+                    call("default", service, 0) for service in SERVICES_PRESENT
+                ],
                 "permanent": [call(service) for service in SERVICES_PRESENT],
             }
         },
