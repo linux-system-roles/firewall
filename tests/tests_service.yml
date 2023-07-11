@@ -328,7 +328,7 @@
           fail:
             msg: >-
               enabling/disabling non-existent service in check mode
-                resulted in changes
+              resulted in changes
           when: firewall_lib_result.changed  # noqa no-handler
 
       always:
