@@ -232,13 +232,15 @@ zone: public
 
 ### service
 
-Name of a service or service list to add or remove inbound access to. The
-service needs to be defined in firewalld.
+Name of a service or service list to add or remove inbound access to.
 
 ```yaml
 service: ftp
 service: [ftp,tftp]
 ```
+
+If a specified service does not exist in firewalld, the module will fail in diff mode, 
+and when run in check mode will always report no changes and warn the user of the potential for failure.
 
 ###### User defined services
 

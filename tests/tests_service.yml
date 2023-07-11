@@ -311,6 +311,24 @@
             msg: something changed when systemrole test removed
           when: firewall_lib_result.changed  # noqa no-handler
 
+        - name: Try to add a service that does not exist in check mode
+          check_mode: true
+          block:
+            - name: attempt to enable http-alt, which does not exist
+              include_role:
+                name: linux-system-roles.firewall
+              vars:
+                firewall:
+                  - service: http-alt
+                    state: enabled
+                    zone: public
+                    permanent: true
+
+        - name: Fail if enabling non-existent service in check mode registers changes
+          fail:
+            msg: enabling/disabling non-existent service in check mode resulted in changes
+          when: firewall_lib_result.changed
+
       always:
         - name: Cleanup
           tags:

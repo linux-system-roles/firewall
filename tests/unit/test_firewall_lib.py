@@ -34,27 +34,20 @@ TEST_METHODS = [
     "Target",
 ]
 TEST_STATES = ["enabled", "disabled"]
+SERVICES_PRESENT = ["https", "ipsec", "ldaps"]
 TEST_DATA = {
     "Service": {
-        "input": {"service": ["https", "ipsec", "ldaps"]},
+        "input": {"service": SERVICES_PRESENT},
         "enabled": {
             "expected": {
-                "runtime": [
-                    call("default", "https", 0),
-                    call("default", "ipsec", 0),
-                    call("default", "ldaps", 0),
-                ],
-                "permanent": [call("https"), call("ipsec"), call("ldaps")],
+                "runtime": [call("default", service, 0) for service in SERVICES_PRESENT],
+                "permanent": [call(service) for service in SERVICES_PRESENT],
             }
         },
         "disabled": {
             "expected": {
-                "runtime": [
-                    call("default", "https"),
-                    call("default", "ipsec"),
-                    call("default", "ldaps"),
-                ],
-                "permanent": [call("https"), call("ipsec"), call("ldaps")],
+                "runtime": [call("default", service) for service in SERVICES_PRESENT],
+                "permanent": [call(service) for service in SERVICES_PRESENT],
             }
         },
     },
@@ -692,6 +685,7 @@ def test_module_parameters(method, state, input, expected):
         fw.getDefaultZone = Mock(return_value="default")
         fw_config = Mock()
         fw.config.return_value = fw_config
+        fw_config.getServiceNames.return_value = SERVICES_PRESENT
         fw_zone = Mock()
         fw_config.getZoneByName.return_value = fw_zone
         fw_settings = Mock()
