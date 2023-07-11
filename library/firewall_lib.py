@@ -1044,7 +1044,8 @@ def main():
             need_reload = True
     else:
         for item in service:
-            if state == "enabled":
+            service_exists = item in fw.config().getServiceNames()
+            if state == "enabled" and service_exists:
                 if runtime and not fw.queryService(zone, item):
                     if not module.check_mode:
                         fw.addService(zone, item, timeout)
@@ -1053,7 +1054,7 @@ def main():
                     if not module.check_mode:
                         fw_settings.addService(item)
                     changed = True
-            elif state == "disabled":
+            elif state == "disabled" and service_exists:
                 if runtime and fw.queryService(zone, item):
                     if not module.check_mode:
                         fw.removeService(zone, item)
@@ -1061,6 +1062,15 @@ def main():
                     if not module.check_mode:
                         fw_settings.removeService(item)
                     changed = True
+            else:
+                if module.check_mode:
+                    module.warn(
+                        "Service does not exist - "
+                        + item
+                        + ". Ensure that you define the service in the playbook before running it in diff mode"
+                    )
+                else:
+                    module.fail_json(msg="INVALID SERVICE - " + item)
 
     # port
     for _port, _protocol in port:
