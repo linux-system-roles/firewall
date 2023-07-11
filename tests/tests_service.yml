@@ -327,7 +327,7 @@
         - name: Fail if enabling non-existent service in check mode registers changes
           fail:
             msg: enabling/disabling non-existent service in check mode resulted in changes
-          when: firewall_lib_result.changed
+          when: firewall_lib_result.changed  # noqa no-handler
 
       always:
         - name: Cleanup
