@@ -324,10 +324,12 @@
                     zone: public
                     permanent: true
 
-        - name: Fail if enabling non-existent service in check mode registers changes
+        - name: Fail if enabling service in check mode causes changes 
           fail:
-            msg: enabling/disabling non-existent service in check mode resulted in changes
-          when: firewall_lib_result.changed  # noqa no-handler
+            msg: >-
+              enabling/disabling non-existent service in check mode 
+                resulted in changes
+          when: firewall_lib_result.changed
 
       always:
         - name: Cleanup
