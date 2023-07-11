@@ -3,6 +3,12 @@ firewall
 ![CI Testing](https://github.com/linux-system-roles/firewall/workflows/tox/badge.svg)
 
 This role configures the firewall on machines that are using firewalld.
+If firewalld is not in use, the role will install (if not already installed),
+unmask, and enable firewalld.
+
+The role can also attempt to disable known conflicting services.
+The list of known conflicting services can be found in `vars/main.yml`,
+please sumbit an issue if there are any unaccounted-for services.
 
 For the configuration the role uses the firewalld client interface
 which is available in RHEL-7 and later.
@@ -195,6 +201,21 @@ permanent change was made to each setting:
 
 Variables
 ---------
+## firewall_disable_conflicting_services
+
+By default, the firewall role does not attempt to disable conflicting services such as `nftables.service` due to the
+overhead associated with enumerating the services when disabling services is potentially unecessary.
+To enable this feature, set the variable `firewall_disable_conflicting_services` to `true`:
+
+```yaml
+- name: Enable firewalld, disable conflicting services
+  include_role: linux-system-roles.firewall
+  vars:
+    firewall_disable_conflicting_services: true
+```
+
+
+## firewall
 
 The firewall role uses the variable `firewall` to specify the parameters.  This variable is a `list` of `dict` values.  Each `dict` value is comprised of one or more keys listed below. These are the variables that can be passed to the role:
 

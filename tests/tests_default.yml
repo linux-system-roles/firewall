@@ -2,5 +2,35 @@
 - name: Ensure that the roles runs with default parameters
   hosts: all
   gather_facts: false
-  roles:
-    - linux-system-roles.firewall
+  tasks:
+    - name: Attempt to run role with default parameters (1)
+      include_role:
+        name: linux-system-roles.firewall
+
+    - name: Mask firewalld
+      systemd:
+        name: firewalld
+        masked: true
+
+    - name: Attempt to run role with default parameters (2)
+      include_role:
+        name: linux-system-roles.firewall
+
+    - name: Enable conflicting service
+      service:
+        name: nftables
+        enabled: true
+
+    - name: Attempt to run role with default parameters (3)
+      include_role:
+        name: linux-system-roles.firewall
+      vars:
+        firewall_disable_conflicting_services: true
+
+    - name: Check that conflicting service is disabled
+      service:
+        name: nftables
+        enabled: false
+      check_mode: true
+      register: result
+      failed_when: result.changed
