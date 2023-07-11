@@ -6,7 +6,13 @@ __firewall_firewalld_conf: "{{ __firewall_firewalld_dir }}/firewalld.conf"
 __firewall_required_facts:
   - python_interpreter
   - python_version
+  - service_mgr
 
 __firewall_packages_base: [firewalld]
 
 __firewall_service: firewalld
+
+__firewall_conflicting_services:
+  - nftables
+  - iptables
+  - ufw

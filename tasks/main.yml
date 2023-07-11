@@ -2,6 +2,43 @@
 - name: Setup firewalld
   include_tasks: firewalld.yml
 
+- name: Collect service facts
+  service_facts:
+  when: firewall_disable_conflicting_services | bool
+
+- name: Attempt to stop and disable conflicting services
+  service:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+  loop: "{{ __firewall_conflicting_services }}"
+  when:
+    - firewall_disable_conflicting_services | bool
+    - (
+        ansible_facts.service_mgr == "systemd" and
+        item + ".service" | string in ansible_facts.services
+      )
+        or
+      (
+        ansible_facts.service_mgr != "systemd" and
+        item | string in ansible_facts.services
+      )
+    - (
+        ansible_facts.service_mgr == "systemd" and
+        ansible_facts.services[item + ".service"]["status"] == "enabled"
+      )
+        or
+      (
+        ansible_facts.service_mgr != "systemd" and
+        ansible_facts.services[item]["status"] == "enabled"
+      )
+
+- name: Unmask firewalld service
+  systemd:
+    name: "{{ __firewall_service }}"
+    masked: false
+  when: ansible_facts.service_mgr == "systemd"
+
 - name: Enable and start firewalld service
   service:
     name: "{{ __firewall_service }}"
