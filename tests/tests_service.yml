@@ -324,7 +324,7 @@
                     zone: public
                     permanent: true
 
-        - name: Fail if enabling service in check mode causes changes
+        - name: Fail if enabling service in check mode reports changes
           fail:
             msg: >-
               enabling/disabling non-existent service in check mode
