@@ -1,0 +1,4 @@
+plugins/modules/firewall_lib.py validate-modules:missing-gplv3-license
+plugins/modules/firewall_lib_facts.py validate-modules:missing-gplv3-license
+plugins/modules/firewall_lib.py validate-modules:missing-examples
+roles/firewall/files/get_files_checksums.sh shebang!skip
