@@ -635,6 +635,35 @@ class FirewallLibMain(unittest.TestCase):
         firewall_lib.set_the_default_zone()
         firewall_lib.set_the_default_zone.assert_called()
 
+    @patch("firewall_lib.HAS_FIREWALLD", True)
+    @patch("firewall_lib.FW_VERSION", "0.3.8", create=True)
+    @patch("firewall_lib.FirewallClient", create=True)
+    def test_main_error_enable_undefined_service(self, fw_class, am_class):
+        am = am_class.return_value
+        am.params = {
+            "service": ["http-alt"],
+            "state": "enabled",
+        }
+        with self.assertRaises(MockException):
+            firewall_lib.main()
+        am.fail_json.assert_called_with(msg="INVALID SERVICE - http-alt")
+
+    # @patch("firewall_lib.HAS_FIREWALLD", True)
+    # @patch("firewall_lib.FW_VERSION", "0.3.8", create=True)
+    # @patch("firewall_lib.FirewallClient", create=True)
+    # def test_main_warning_enable_undefined_service_in_check_mode(self, fw_class, am_class):
+    #     am_class.check_mode = True
+    #     am = am_class.return_value
+    #     am.params = {
+    #         "service": ["http-alt"],
+    #         "state": "enabled",
+    #     }
+    #     firewall_lib.main()
+    #     am.warn.assert_called_with(
+    #         "Service does not exist - http-alt."
+    #         + " Ensure that you define the service in the playbook before running it in diff mode"
+    #     )
+
 
 @pytest.mark.parametrize("method,state,input,expected", TEST_PARAMS)
 def test_module_parameters(method, state, input, expected):
