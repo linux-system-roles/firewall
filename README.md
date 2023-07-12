@@ -7,8 +7,6 @@ If firewalld is not in use, the role will install (if not already installed),
 unmask, and enable firewalld.
 
 The role can also attempt to disable known conflicting services.
-The list of known conflicting services can be found in `vars/main.yml`,
-please sumbit an issue if there are any unaccounted-for services.
 
 For the configuration the role uses the firewalld client interface
 which is available in RHEL-7 and later.
@@ -201,9 +199,10 @@ permanent change was made to each setting:
 
 Variables
 ---------
+
 ## firewall_disable_conflicting_services
 
-By default, the firewall role does not attempt to disable conflicting services such as `nftables.service` due to the
+By default, the firewall role does not attempt to disable conflicting services due to the
 overhead associated with enumerating the services when disabling services is potentially unecessary.
 To enable this feature, set the variable `firewall_disable_conflicting_services` to `true`:
 
@@ -214,6 +213,13 @@ To enable this feature, set the variable `firewall_disable_conflicting_services`
     firewall_disable_conflicting_services: true
 ```
 
+List of known conflicting services:
+- iptables
+- nftables
+- ufw
+
+Please submit a GitHub issue at the linux-system-roles/firewall there are services missing or
+add it locally to `vars/main.yml`.
 
 ## firewall
 
