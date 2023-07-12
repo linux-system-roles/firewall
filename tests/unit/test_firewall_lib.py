@@ -267,25 +267,9 @@ class MockAnsibleModule(MagicMock):
         am.supports_check_mode = kwargs["supports_check_mode"]
         am.fail_json = Mock(side_effect=MockException())
         am.exit_json = Mock()
-        am.check_mode = False
-        return am
-
-
-class MockAnsibleModuleCheckMode(MagicMock):
-    def __call__(self, **kwargs):
-        am = self.return_value
-        am.call_params = {}
-        if not isinstance(am.params, dict):
-            am.params = {}
-        for kk, vv in kwargs["argument_spec"].items():
-            am.call_params[kk] = vv.get("default")
-            if kk not in am.params:
-                am.params[kk] = am.call_params[kk]
-        am.supports_check_mode = kwargs["supports_check_mode"]
-        am.fail_json = Mock(side_effect=MockException())
-        am.exit_json = Mock()
         am.warn = Mock()
-        am.check_mode = True
+        if not isinstance(am.check_mode, bool):
+            am.check_mode = False
         return am
 
 
@@ -666,11 +650,6 @@ class FirewallLibMain(unittest.TestCase):
             firewall_lib.main()
         am.fail_json.assert_called_with(msg="INVALID SERVICE - http-alt")
 
-
-@patch("firewall_lib.AnsibleModule", new_callable=MockAnsibleModuleCheckMode)
-class FirewallLibMainCheckMode(unittest.TestCase):
-    """Test main function."""
-
     @patch("firewall_lib.HAS_FIREWALLD", True)
     @patch("firewall_lib.FW_VERSION", "0.3.8", create=True)
     @patch("firewall_lib.FirewallClient", create=True)
@@ -682,17 +661,7 @@ class FirewallLibMainCheckMode(unittest.TestCase):
             "service": ["http-alt"],
             "state": "enabled",
         }
-
-        fw = fw_class.return_value
-        fw.connected = True
-        fw.getDefaultZone = Mock(return_value="default")
-        fw_config = Mock()
-        fw.config.return_value = fw_config
-        fw_config.getServiceNames.return_value = SERVICES_PRESENT
-        fw_zone = Mock()
-        fw_config.getZoneByName.return_value = fw_zone
-        fw_settings = Mock()
-        fw_zone.getSettings.return_value = fw_settings
+        am.check_mode = True
         firewall_lib.main()
         am.warn.assert_called_with(
             "Service does not exist - http-alt."
