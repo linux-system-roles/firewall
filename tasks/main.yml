@@ -12,26 +12,13 @@
     state: stopped
     enabled: false
   loop: "{{ __firewall_conflicting_services }}"
+  vars:
+    __service_name: "{{ (ansible_facts.service_mgr == 'systemd') |
+      ternary(item ~ '.service', item) }}"
   when:
     - firewall_disable_conflicting_services | bool
-    - (
-        ansible_facts.service_mgr == "systemd" and
-        item + ".service" | string in ansible_facts.services
-      )
-        or
-      (
-        ansible_facts.service_mgr != "systemd" and
-        item | string in ansible_facts.services
-      )
-    - (
-        ansible_facts.service_mgr == "systemd" and
-        ansible_facts.services[item + ".service"]["status"] == "enabled"
-      )
-        or
-      (
-        ansible_facts.service_mgr != "systemd" and
-        ansible_facts.services[item]["status"] == "enabled"
-      )
+    - __service_name | string in ansible_facts.services
+    - ansible_facts.services[__service_name]["status"] == "enabled"
 
 - name: Unmask firewalld service
   systemd:
