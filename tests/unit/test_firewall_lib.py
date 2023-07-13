@@ -409,7 +409,8 @@ class FirewallLibMain(unittest.TestCase):
         am_class.return_value.fail_json.assert_called_with(
             msg="One of service, port, source_port, forward_port, "
             "masquerade, rich_rule, source, interface, icmp_block, "
-            "icmp_block_inversion, target, zone or set_default_zone needs to be set"
+            "icmp_block_inversion, target, zone, set_default_zone or firewalld_conf "
+            "needs to be set"
         )
 
     @patch("firewall_lib.HAS_FIREWALLD", True)
@@ -667,6 +668,28 @@ class FirewallLibMain(unittest.TestCase):
             "Service does not exist - http-alt."
             + " Ensure that you define the service in the playbook before running it in diff mode"
         )
+
+    @patch("firewall_lib.HAS_FIREWALLD", True)
+    @patch("firewall_lib.FW_VERSION", "0.9.0", create=True)
+    def test_allow_zone_drifting_runtime(self, am_class):
+        am = am_class.return_value
+        am.params = {"firewalld_conf": {"allow_zone_drifting": "no"}}
+        with self.assertRaises(MockException):
+            firewall_lib.main()
+        am.fail_json.assert_called_with(
+            msg="firewalld_conf can only be used with permanent"
+        )
+
+    @patch("firewall_lib.HAS_FIREWALLD", True)
+    @patch("firewall_lib.FW_VERSION", "0.9.0", create=True)
+    @patch("firewall_lib.FirewallClient", create=True)
+    def test_allow_zone_zone_drifting_proper_usage(self, firewall_class, am_class):
+        am = am_class.return_value
+        am.params = {"firewalld_conf": dict(), "permanent": True}
+
+        for option in ["yes", "no"]:
+            am.params["firewalld_conf"]["allow_zone_drifting"] = option
+            firewall_lib.main()
 
 
 @pytest.mark.parametrize("method,state,input,expected", TEST_PARAMS)

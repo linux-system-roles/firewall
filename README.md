@@ -225,6 +225,30 @@ add it locally to `vars/main.yml`.
 
 The firewall role uses the variable `firewall` to specify the parameters.  This variable is a `list` of `dict` values.  Each `dict` value is comprised of one or more keys listed below. These are the variables that can be passed to the role:
 
+### firewalld_conf
+`firewalld_conf` can be used to modify directives in firewalld's configuration file (`/etc/firewalld/conf` by default)
+if support for their modification has been implemented.
+
+**`permanent: true` must always be set to run this option without error**
+
+```yaml
+firewall:
+  - firewalld_conf:
+      allow_zone_drifting: "no"
+    permanent: true
+```
+
+#### Supported Directives
+##### allow_zone_drifting
+
+Changes the AllowZoneDrifting directive, if the directive exists.
+
+Accepted values:
+- "yes"
+- "no"
+
+Quotations around "yes" and "no" are necessary, because ansible attempts to convert the argument into boolean values otherwise.
+
 ### set_default_zone
 
 The default zone is the zone that is used for everything that is not explicitly

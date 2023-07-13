@@ -1,0 +1,58 @@
+---
+- name: Test firewalld_conf options
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Initial run, reset, disable zone drifting
+      include_role:
+        name: linux-system-roles.firewall
+      vars:
+        firewall:
+          previous: replaced
+          firewalld_conf:
+            allow_zone_drifting: "no"
+          permanent: true
+
+    - name: Assert AllowZoneDrifting is disabled
+      shell:
+        cmd: >-
+          set -o pipefail;
+          (grep AllowZoneDrifting /etc/firewalld/firewalld.conf
+          || echo "AllowZoneDrifting=no") | tail -1
+      register: result
+      changed_when: false
+      failed_when: result.stdout_lines[0] != "AllowZoneDrifting=no"
+
+    - name: Start with clean configuration
+      include_role:
+        name: linux-system-roles.firewall
+      vars:
+        firewall:
+          previous: replaced
+          firewalld_conf:
+            allow_zone_drifting: "yes"
+          permanent: true
+
+    - name: Get firewalld version
+      command: firewall-cmd --version
+      register: result
+      changed_when: false
+
+    - name: Check if AllowZoneDrifting deprecated (>= v1.0.0)
+      set_fact:
+        allow_zone_drifting_deprecated: >-
+          "{{ result.stdout[0] | int > 0 | bool }}"
+
+    - name: Assert AllowZoneDrifting is enabled if possible
+      vars:
+        expected_result: >-
+          "{{ allow_zone_drifting_deprecated | ternary('no', 'yes') | quote }}"
+      shell:
+        cmd: >-
+          set -o pipefail;
+          (grep AllowZoneDrifting /etc/firewalld/firewalld.conf
+          || echo "AllowZoneDrifting=no") | tail -1
+      register: result
+      changed_when: false
+      failed_when: >-
+        result.stdout_lines[0] != "AllowZoneDrifting=" + expected_result
