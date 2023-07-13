@@ -16,12 +16,17 @@
       include_role:
         name: linux-system-roles.firewall
 
+    - name: Install conflicting service
+      package:
+        name: nftables
+        state: present
+
     - name: Enable conflicting service
       service:
         name: nftables
         enabled: true
 
-    - name: Attempt to run role with default parameters (3)
+    - name: Attempt to run role, disabling conflicting services
       include_role:
         name: linux-system-roles.firewall
       vars:
