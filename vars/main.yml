@@ -4,18 +4,14 @@ __firewall_firewalld_conf: "{{ __firewall_firewalld_dir }}/firewalld.conf"
 
 # ansible_facts required by the role
 __firewall_required_facts:
-  - python_interpreter
   - python_version
   - service_mgr
-
-# these facts cannot be used as a gather_subset
-__firewall_no_subset_facts: [python_interpreter]
 
 # the subsets of ansible_facts that need to be gathered in case any of the
 # facts in required_facts is missing; see the documentation of
 # the 'gather_subset' parameter of the 'setup' module
 __firewall_required_facts_subsets: "{{ ['!all', '!min'] +
-  __firewall_required_facts | difference(__firewall_no_subset_facts) }}"
+  __firewall_required_facts }}"
 
 __firewall_packages_base: [firewalld]
 
