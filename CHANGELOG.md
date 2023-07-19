@@ -1,6 +1,20 @@
 Changelog
 =========
 
+[1.4.6] - 2023-07-19
+--------------------
+
+### Bug Fixes
+
+- fix: make enabling/disabling non-existent services not fail in check mode (#153)
+- fix: unmask firewalld on run, disable conflicting services (#154)
+- fix: facts being gathered unnecessarily (#156)
+
+### Other Changes
+
+- ci: fix python 2.7 CI tests by manually installing python2.7 package (#152)
+- ci: ansible-test ignores file for ansible-core 2.15 (#155)
+
 [1.4.5] - 2023-06-21
 --------------------
 
