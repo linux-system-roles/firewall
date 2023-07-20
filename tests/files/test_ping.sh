@@ -42,7 +42,7 @@ ping -c 500 -i 0.01 172.16.1.2 1>/tmp/ping2 2>/dev/null &
 pid="$!"
 trap "rm -f /tmp/ping2" EXIT
 podman exec test-firewalld systemctl reload firewalld.service
-wait $pid
+wait "$pid"
 
 # Print Results
 tail -2 /tmp/ping0 | head -1 | awk '{print $4}'
