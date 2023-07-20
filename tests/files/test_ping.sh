@@ -27,6 +27,7 @@ trap "rm -f /tmp/Containerfile" EXIT
   # firewall-cmd reload waits for dbus response, systemctl will not
   podman exec test-firewalld firewall-cmd --reload
 } > /dev/null 2>/dev/null
+
 # The following ping should have 100% packet loss
 ping -c 500 -i 0.01 172.16.1.2 1>/tmp/ping0 2>/dev/null
 trap "rm -f /tmp/ping0" EXIT
@@ -34,14 +35,14 @@ trap "rm -f /tmp/ping0" EXIT
 # Begin downtime comparision #
 ping -c 500 -i 0.01 172.16.1.2 1>/tmp/ping1 2>/dev/null &
 pid="$!"
-trap "rm -f /tmp/ping1" EXIT
-podman exec test-firewalld systemctl restart firewalld.service
+trap "rm -f /tmp/ping2" EXIT
+podman exec test-firewalld systemctl reload firewalld.service
 wait "$pid"
 
 ping -c 500 -i 0.01 172.16.1.2 1>/tmp/ping2 2>/dev/null &
 pid="$!"
-trap "rm -f /tmp/ping2" EXIT
-podman exec test-firewalld systemctl reload firewalld.service
+trap "rm -f /tmp/ping1" EXIT
+podman exec test-firewalld systemctl restart firewalld.service
 wait "$pid"
 
 # Print Results
