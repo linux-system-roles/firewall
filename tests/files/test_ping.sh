@@ -18,7 +18,7 @@ trap "rm -f /tmp/Containerfile" EXIT
   podman network create --subnet 172.16.1.0/24 --gateway 172.16.1.1 --interface-name podmanbr0 podmanbr0
   trap "podman network rm podmanbr0" EXIT
   imageid=$(podman build -q /tmp)
-  podman run -d --privileged --net podmanbr0 --ip 172.16.1.2 --name test-firewalld --rm $imageid /usr/lib/systemd/systemd || exit 1
+  podman run -d --privileged --net podmanbr0 --ip 172.16.1.2 --name test-firewalld --rm "$imageid" /usr/lib/systemd/systemd || exit 1
   trap "podman stop test-firewalld" EXIT
   sleep 5 # Wait reasonable amount of time for container to start services
   
@@ -45,7 +45,7 @@ podman exec test-firewalld systemctl reload firewalld.service
 wait $pid
 
 # Print Results
-cat /tmp/ping0 | tail -2 | head -1 | awk '{print $4}'
-cat /tmp/ping1 | tail -2 | head -1 | awk '{print $4}'
-cat /tmp/ping2 | tail -2 | head -1 | awk '{print $4}'
+tail -2 /tmp/ping0 | head -1 | awk '{print $4}'
+tail -2 /tmp/ping1 | head -1 | awk '{print $4}'
+tail -2 /tmp/ping2 | head -1 | awk '{print $4}'
 

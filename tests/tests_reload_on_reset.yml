@@ -1,4 +1,3 @@
-
 ---
 - name: Setup a vm with podman on it
   hosts: all
@@ -21,4 +20,6 @@
         reload_check: "{{ test_results.stdout_lines[2] }}"
       fail:
         msg: Either coherence check or benchmark failed
-      when: coherence_check | int != 0 or restart_check | int < reload_check | int
+      when: >-
+        coherence_check | int != 0
+        or restart_check | int < reload_check | int
