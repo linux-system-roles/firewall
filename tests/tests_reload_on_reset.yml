@@ -1,0 +1,24 @@
+
+---
+- name: Setup a vm with podman on it
+  hosts: all
+  tasks:
+    - name: Install podman
+      package:
+        name: podman
+        state: present
+
+    - name: Run test
+      script:
+        cmd: files/test_ping.sh
+        executable: /bin/bash
+      register: test_results
+
+    - name: Process test results
+      vars:
+        coherence_check: "{{ test_results.stdout_lines[0] }}"
+        restart_check: "{{ test_results.stdout_lines[1] }}"
+        reload_check: "{{ test_results.stdout_lines[2] }}"
+      fail:
+        msg: Either coherence check or benchmark failed
+      when: coherence_check | int != 0 or restart_check | int < reload_check | int
