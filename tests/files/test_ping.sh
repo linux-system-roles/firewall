@@ -33,7 +33,7 @@ trap "rm -f /tmp/ping0" EXIT
 
 # Begin downtime comparision #
 ping -c 500 -i 0.01 172.16.1.2 1>/tmp/ping1 2>/dev/null &
-pid=$!
+pid="$!"
 trap "rm -f /tmp/ping1" EXIT
 podman exec test-firewalld systemctl restart firewalld.service
 wait "$pid"
