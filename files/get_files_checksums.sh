@@ -33,7 +33,7 @@ if [ "${remove:-false}" = true ]; then
     find "$firewall_conf_root" -name \*.xml -exec rm -f {} \;
     rm -f "$firewall_conf_root/firewalld.conf"
     if [ -s "$listfile" ] ; then
-        systemctl reload "$firewall_service"
+        firewall-cmd --reload > /dev/null
     fi
 fi
 
