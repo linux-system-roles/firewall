@@ -4,7 +4,6 @@ set -euo pipefail
 
 python_cmd="$1"
 firewall_conf_root="${2:-/etc/firewalld}"
-firewall_service="${3:-firewalld}"
 remove="${4:-false}"
 
 listfile=$(mktemp)
