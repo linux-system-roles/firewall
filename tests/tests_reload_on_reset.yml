@@ -16,8 +16,8 @@
     - name: Process test results
       vars:
         coherence_check: "{{ test_results.stdout_lines[0] }}"
-        restart_check: "{{ test_results.stdout_lines[1] }}"
-        reload_check: "{{ test_results.stdout_lines[2] }}"
+        restart_check: "{{ test_results.stdout_lines[2] }}"
+        reload_check: "{{ test_results.stdout_lines[1] }}"
       fail:
         msg: Either coherence check or benchmark failed
       when: >-
