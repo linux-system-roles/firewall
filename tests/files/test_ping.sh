@@ -36,8 +36,8 @@ EOF
   podman exec test-firewalld firewall-cmd --reload
 } > /dev/null 2>/dev/null
 
-NUM_PINGS=20
-TIMEOUT=1
+NUM_PINGS=50
+TIMEOUT=2
 
 # The following ping should have 100% packet loss
 ping -c "$NUM_PINGS" -W "$TIMEOUT" -i 0.01 172.16.1.2 1>/tmp/ping0 || :
