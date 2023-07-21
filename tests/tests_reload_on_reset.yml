@@ -1,6 +1,6 @@
 ---
 - name: Setup a vm with podman on it
-  hosts: all  
+  hosts: all
   pre_tasks:
     - name: Test not supported on EL7
       meta: end_host
