@@ -2,6 +2,18 @@
 # Author - Brennan Paciorek <bpaciore@redhat.com>
 # Description - Benchmark firewalld downtime while reloading and while restarting
 # by measuring how many packets are dropped while firewalld is restarting/reloading
+set -euo pipefail
+
+cleanup() {
+  rm -f /tmp/ping0
+  rm -f /tmp/ping2
+  rm -f /tmp/ping1
+  rm -f /tmp/Containerfile
+  podman stop --all
+  podman rm --all
+  podman network rm podmanbr0 || :
+}
+trap "cleanup 1>/dev/null" EXIT
 
 cat > /tmp/Containerfile << EOF
 FROM quay.io/centos/centos:stream8
@@ -11,15 +23,11 @@ EXPOSE 31337
 CMD /usr/lib/systemd/systemd 
 EOF
 
-trap "rm -f /tmp/Containerfile" EXIT
-
 # Initial container setup #
 {
   podman network create --subnet 172.16.1.0/24 --gateway 172.16.1.1 --interface-name podmanbr0 podmanbr0
-  trap "podman network rm podmanbr0" EXIT
   imageid=$(podman build -q /tmp)
-  podman run -d --privileged --net podmanbr0 --ip 172.16.1.2 --name test-firewalld --rm "$imageid" /usr/lib/systemd/systemd || exit 1
-  trap "podman stop test-firewalld" EXIT
+  podman run -d --rm --rmi --privileged --net podmanbr0 --ip 172.16.1.2 --name test-firewalld "$imageid" /usr/lib/systemd/systemd
   sleep 5 # Wait reasonable amount of time for container to start services
   
   # Firewall rule setup #
@@ -28,20 +36,20 @@ trap "rm -f /tmp/Containerfile" EXIT
   podman exec test-firewalld firewall-cmd --reload
 } > /dev/null 2>/dev/null
 
+NUM_PINGS=20
+TIMEOUT=1
+
 # The following ping should have 100% packet loss
-ping -c 500 -i 0.01 172.16.1.2 1>/tmp/ping0 2>/dev/null
-trap "rm -f /tmp/ping0" EXIT
+ping -c "$NUM_PINGS" -W "$TIMEOUT" -i 0.01 172.16.1.2 1>/tmp/ping0 || :
 
 # Begin downtime comparision #
-ping -c 500 -i 0.01 172.16.1.2 1>/tmp/ping1 2>/dev/null &
+ping -c "$NUM_PINGS" -W "$TIMEOUT" -i 0.01 172.16.1.2 1>/tmp/ping1 || : &
 pid="$!"
-trap "rm -f /tmp/ping2" EXIT
 podman exec test-firewalld systemctl reload firewalld.service
 wait "$pid"
 
-ping -c 500 -i 0.01 172.16.1.2 1>/tmp/ping2 2>/dev/null &
+ping -c "$NUM_PINGS" -W "$TIMEOUT" -i 0.01 172.16.1.2 1>/tmp/ping2 || : &
 pid="$!"
-trap "rm -f /tmp/ping1" EXIT
 podman exec test-firewalld systemctl restart firewalld.service
 wait "$pid"
 
