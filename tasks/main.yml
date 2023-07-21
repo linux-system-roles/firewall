@@ -45,8 +45,7 @@
   script:
     cmd: >
       files/get_files_checksums.sh {{ __firewall_python_cmd | quote }}
-      {{ __firewall_firewalld_dir | quote }} {{ __firewall_service | quote }}
-      true
+      {{ __firewall_firewalld_dir | quote }} true
   register: __firewall_config_files_before
   changed_when: false
   when: __firewall_previous_replaced | bool
