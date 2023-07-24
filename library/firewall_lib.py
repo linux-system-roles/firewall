@@ -543,23 +543,16 @@ def parse_forward_port(module, item):
 
 def check_allow_zone_drifting(am, firewalld_conf):
     if firewalld_conf["allow_zone_drifting"] is not None:
-        if lsr_parse_version(FW_VERSION) >= lsr_parse_version("1.0.0"):
-            am.warn(
-                "AllowZoneDrifting is deprecated in this version of firewalld, unsetting parameter"
-            )
-            del firewalld_conf["allow_zone_drifting"]
+        if firewalld_conf["allow_zone_drifting"]:
+            firewalld_conf["allow_zone_drifting"] = "yes"
         else:
-            if firewalld_conf["allow_zone_drifting"]:
-                firewalld_conf["allow_zone_drifting"] = "yes"
-            else:
-                firewalld_conf["allow_zone_drifting"] = "no"
+            firewalld_conf["allow_zone_drifting"] = "no"
 
 
 # Parse all suboptions of firewalld_conf into how they will be used by the role
 # Return True if all suboptions were emptied as a result
 def check_firewalld_conf(am, firewalld_conf):
     check_allow_zone_drifting(am, firewalld_conf)
-    return len(firewalld_conf) == 0
 
 
 def set_the_default_zone(fw, set_default_zone):
@@ -650,9 +643,14 @@ def main():
     # Argument parse
     firewalld_conf = module.params["firewalld_conf"]
     if firewalld_conf:
-        firewalld_conf_emptied = check_firewalld_conf(module, firewalld_conf)
-    else:
-        firewalld_conf_emptied = False
+        check_firewalld_conf(module, firewalld_conf)
+        allow_zone_drifting_deprecated = lsr_parse_version(
+            FW_VERSION
+        ) >= lsr_parse_version("1.0.0")
+        if allow_zone_drifting_deprecated and firewalld_conf.get("allow_zone_drifting"):
+            module.warn(
+                "AllowZoneDrifting is deprecated in this version of firewalld and no longer supported"
+            )
     service = module.params["service"]
     short = module.params["short"]
     description = module.params["description"]
@@ -743,15 +741,12 @@ def main():
             )
         )
     ):
-        if firewalld_conf_emptied:
-            return module.exit_json(changed=False, __firewall_changed=False)
-        else:
-            module.fail_json(
-                msg="One of service, port, source_port, forward_port, "
-                "masquerade, rich_rule, source, interface, icmp_block, "
-                "icmp_block_inversion, target, zone, set_default_zone "
-                "or firewalld_conf needs to be set"
-            )
+        module.fail_json(
+            msg="One of service, port, source_port, forward_port, "
+            "masquerade, rich_rule, source, interface, icmp_block, "
+            "icmp_block_inversion, target, zone, set_default_zone "
+            "or firewalld_conf needs to be set"
+        )
 
     # Checking for any permanent configuration operations
     zone_operation = False
@@ -972,9 +967,9 @@ def main():
     # firewalld.conf
     if firewalld_conf:
         fw_config = fw.config()
-        if firewalld_conf.get("allow_zone_drifting") != fw_config.get_property(
-            "AllowZoneDrifting"
-        ):
+        if not allow_zone_drifting_deprecated and firewalld_conf.get(
+            "allow_zone_drifting"
+        ) != fw_config.get_property("AllowZoneDrifting"):
             if not module.check_mode:
                 fw_config.set_property(
                     "AllowZoneDrifting", firewalld_conf.get("allow_zone_drifting")
