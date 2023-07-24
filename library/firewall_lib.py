@@ -44,10 +44,10 @@ options:
       Modify firewalld.conf directives
     suboptions:
       allow_zone_drifting:
-      description:
-        Set AllowZoneDrifting directive if not deprecated
-      required: false
-      type: bool
+        description:
+          Set AllowZoneDrifting directive if not deprecated
+        required: false
+        type: bool
     required: false
     type: dict
   service:
