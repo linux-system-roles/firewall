@@ -83,5 +83,5 @@
       fail:
         msg: "AllowZoneDrifting directive not found in firewalld.conf"
       when:
-        - allow_zone_drifting_not_deprecated
+        - allow_zone_drifting_not_deprecated | bool
         - result.rc != 0
