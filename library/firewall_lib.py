@@ -552,9 +552,7 @@ def main():
                 required=False,
                 type="dict",
                 options=dict(
-                    allow_zone_drifting=dict(
-                        required=False, type="bool", default=None
-                    ),
+                    allow_zone_drifting=dict(required=False, type="bool", default=None),
                 ),
                 default=dict(),
             ),

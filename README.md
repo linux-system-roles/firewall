@@ -234,7 +234,7 @@ if support for their modification has been implemented.
 ```yaml
 firewall:
   - firewalld_conf:
-      allow_zone_drifting: no
+      allow_zone_drifting: false
     permanent: true
 ```
 
@@ -249,7 +249,7 @@ and no longer exists.
 ```yaml
 firewall:
   firewalld_conf:
-    allow_zone_drifting: yes
+    allow_zone_drifting: true
   permanent: true
 ```
 
