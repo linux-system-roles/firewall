@@ -43,7 +43,7 @@ options:
     description:
       Modify firewalld.conf directives
     suboptions:
-      name: allow_zone_drifting
+      allow_zone_drifting:
       description:
         Set AllowZoneDrifting directive if not deprecated
       required: false
