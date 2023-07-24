@@ -541,21 +541,25 @@ def parse_forward_port(module, item):
     return (_port, _protocol, _to_port, _to_addr)
 
 
-def parse_firewalld_conf(am, firewalld_conf):
-    allow_zone_drifting_removed = False
+def check_allow_zone_drifting(am, firewalld_conf):
     if firewalld_conf["allow_zone_drifting"] is not None:
         if lsr_parse_version(FW_VERSION) >= lsr_parse_version("1.0.0"):
             am.warn(
                 "AllowZoneDrifting is deprecated in this version of firewalld, unsetting parameter"
             )
             del firewalld_conf["allow_zone_drifting"]
-            allow_zone_drifting_removed = True
         else:
             if firewalld_conf["allow_zone_drifting"]:
                 firewalld_conf["allow_zone_drifting"] = "yes"
             else:
                 firewalld_conf["allow_zone_drifting"] = "no"
-    return allow_zone_drifting_removed
+
+
+# Parse all suboptions of firewalld_conf into how they will be used by the role
+# Return True if all suboptions were emptied as a result
+def check_firewalld_conf(am, firewalld_conf):
+    check_allow_zone_drifting(am, firewalld_conf)
+    return len(firewalld_conf) == 0
 
 
 def set_the_default_zone(fw, set_default_zone):
@@ -646,9 +650,9 @@ def main():
     # Argument parse
     firewalld_conf = module.params["firewalld_conf"]
     if firewalld_conf:
-        allow_zone_drifting_removed = parse_firewalld_conf(module, firewalld_conf)
+        firewalld_conf_emptied = check_firewalld_conf(module, firewalld_conf)
     else:
-        allow_zone_drifting_removed = False
+        firewalld_conf_emptied = False
     service = module.params["service"]
     short = module.params["short"]
     description = module.params["description"]
@@ -739,7 +743,7 @@ def main():
             )
         )
     ):
-        if allow_zone_drifting_removed:
+        if firewalld_conf_emptied:
             return module.exit_json(changed=False, __firewall_changed=False)
         else:
             module.fail_json(
