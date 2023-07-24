@@ -541,7 +541,7 @@ def parse_forward_port(module, item):
     return (_port, _protocol, _to_port, _to_addr)
 
 
-def check_allow_zone_drifting(am, firewalld_conf):
+def check_allow_zone_drifting(firewalld_conf):
     if firewalld_conf["allow_zone_drifting"] is not None:
         if firewalld_conf["allow_zone_drifting"]:
             firewalld_conf["allow_zone_drifting"] = "yes"
@@ -551,8 +551,8 @@ def check_allow_zone_drifting(am, firewalld_conf):
 
 # Parse all suboptions of firewalld_conf into how they will be used by the role
 # Return True if all suboptions were emptied as a result
-def check_firewalld_conf(am, firewalld_conf):
-    check_allow_zone_drifting(am, firewalld_conf)
+def check_firewalld_conf(firewalld_conf):
+    check_allow_zone_drifting(firewalld_conf)
 
 
 def set_the_default_zone(fw, set_default_zone):
@@ -568,7 +568,7 @@ def main():
                 options=dict(
                     allow_zone_drifting=dict(required=False, type="bool", default=None),
                 ),
-                default=dict(),
+                default=None,
             ),
             service=dict(required=False, type="list", elements="str", default=[]),
             port=dict(required=False, type="list", elements="str", default=[]),
@@ -643,7 +643,7 @@ def main():
     # Argument parse
     firewalld_conf = module.params["firewalld_conf"]
     if firewalld_conf:
-        check_firewalld_conf(module, firewalld_conf)
+        check_firewalld_conf(firewalld_conf)
         allow_zone_drifting_deprecated = lsr_parse_version(
             FW_VERSION
         ) >= lsr_parse_version("1.0.0")
