@@ -46,9 +46,8 @@ options:
       name: allow_zone_drifting
       description:
         Set AllowZoneDrifting directive if not deprecated
-      choices: [ "yes", "no" ]
       required: false
-      type: str
+      type: bool
     required: false
     type: dict
   service:
@@ -554,7 +553,7 @@ def main():
                 type="dict",
                 options=dict(
                     allow_zone_drifting=dict(
-                        required=False, type="str", choices=["yes", "no"], default=None
+                        required=False, type="bool", default=None
                     ),
                 ),
                 default=dict(),
@@ -631,6 +630,12 @@ def main():
 
     # Argument parse
     firewalld_conf = module.params["firewalld_conf"]
+    if firewalld_conf:
+        if firewalld_conf["allow_zone_drifting"] is not None:
+            if firewalld_conf["allow_zone_drifting"]:
+                firewalld_conf["allow_zone_drifting"] = "yes"
+            else:
+                firewalld_conf["allow_zone_drifting"] = "no"
     service = module.params["service"]
     short = module.params["short"]
     description = module.params["description"]

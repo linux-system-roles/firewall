@@ -234,20 +234,24 @@ if support for their modification has been implemented.
 ```yaml
 firewall:
   - firewalld_conf:
-      allow_zone_drifting: "no"
+      allow_zone_drifting: no
     permanent: true
 ```
 
 #### Supported Directives
 ##### allow_zone_drifting
 
-Changes the AllowZoneDrifting directive, if the directive exists.
+Changes the AllowZoneDrifting directive.
 
-Accepted values:
-- "yes"
-- "no"
+This parameter will do nothing if AllowZoneDrifting has been deprecated
+and no longer exists.
 
-Quotations around "yes" and "no" are necessary, because ansible attempts to convert the argument into boolean values otherwise.
+```yaml
+firewall:
+  firewalld_conf:
+    allow_zone_drifting: yes
+  permanent: true
+```
 
 ### set_default_zone
 

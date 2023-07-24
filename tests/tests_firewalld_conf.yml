@@ -3,56 +3,53 @@
   hosts: all
   gather_facts: false
   tasks:
-    - name: Initial run, reset, disable zone drifting
+    - name: Start with a clean configuration
       include_role:
         name: linux-system-roles.firewall
       vars:
         firewall:
           previous: replaced
-          firewalld_conf:
-            allow_zone_drifting: "no"
-          permanent: true
 
-    - name: Assert AllowZoneDrifting is disabled
-      shell:
-        cmd: >-
-          set -o pipefail;
-          (grep AllowZoneDrifting /etc/firewalld/firewalld.conf
-          || echo "AllowZoneDrifting=no") | tail -1
+    - name: Determine if AllowZoneDrifting is deprecated
+      command: grep AllowZoneDrifting /etc/firewalld/firewalld.conf
       register: result
       changed_when: false
-      failed_when: result.stdout_lines[0] != "AllowZoneDrifting=no"
+      failed_when: result.rc == 2
 
-    - name: Start with clean configuration
-      include_role:
-        name: linux-system-roles.firewall
-      vars:
-        firewall:
-          previous: replaced
-          firewalld_conf:
-            allow_zone_drifting: "yes"
-          permanent: true
-
-    - name: Get firewalld version
-      command: firewall-cmd --version
-      register: result
-      changed_when: false
-
-    - name: Check if AllowZoneDrifting deprecated (>= v1.0.0)
+    - name: Set fact allow_zone_drifting_not_deprecated
       set_fact:
-        allow_zone_drifting_deprecated: >-
-          "{{ result.stdout[0] | int > 0 | bool }}"
+        allow_zone_drifting_not_deprecated: "{{ result.rc == 0 }}"
 
-    - name: Assert AllowZoneDrifting is enabled if possible
+    - name: Try to disable zone drifting
+      include_role:
+        name: linux-system-roles.firewall
       vars:
-        expected_result: >-
-          "{{ allow_zone_drifting_deprecated | ternary('no', 'yes') | quote }}"
+        firewall:
+          previous: replaced
+          firewalld_conf:
+            allow_zone_drifting: no
+          permanent: true
+
+    - name: Check if AllowZoneDrifting is disabled if possible
       shell:
         cmd: >-
           set -o pipefail;
-          (grep AllowZoneDrifting /etc/firewalld/firewalld.conf
-          || echo "AllowZoneDrifting=no") | tail -1
+          grep AllowZoneDrifting /etc/firewalld/firewalld.conf | tail -1
       register: result
       changed_when: false
-      failed_when: >-
-        result.stdout_lines[0] != "AllowZoneDrifting=" + expected_result
+      failed_when: result.rc == 2
+
+    - name: Fail if AllowZoneDrifting disabled if not deprecated
+      fail:
+        msg: "AllowZoneDrifting is disabled when it should be enabled"
+      when:
+        - allow_zone_drifting_not_deprecated
+        - result.rc == 0
+        - result.stdout != "AllowZoneDrifting=no"
+
+    - name: Fail if AllowZoneDrifting not found and not deprecated
+      fail:
+        msg: "AllowZoneDrifting directive not found in firewalld.conf"
+      when:
+        - allow_zone_drifting_not_deprecated
+        - result.rc != 0

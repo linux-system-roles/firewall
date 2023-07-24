@@ -673,7 +673,7 @@ class FirewallLibMain(unittest.TestCase):
     @patch("firewall_lib.FW_VERSION", "0.9.0", create=True)
     def test_allow_zone_drifting_runtime(self, am_class):
         am = am_class.return_value
-        am.params = {"firewalld_conf": {"allow_zone_drifting": "no"}}
+        am.params = {"firewalld_conf": {"allow_zone_drifting": False}}
         with self.assertRaises(MockException):
             firewall_lib.main()
         am.fail_json.assert_called_with(
@@ -687,7 +687,7 @@ class FirewallLibMain(unittest.TestCase):
         am = am_class.return_value
         am.params = {"firewalld_conf": dict(), "permanent": True}
 
-        for option in ["yes", "no"]:
+        for option in [True, False]:
             am.params["firewalld_conf"]["allow_zone_drifting"] = option
             firewall_lib.main()
 
