@@ -651,6 +651,9 @@ def main():
             module.warn(
                 "AllowZoneDrifting is deprecated in this version of firewalld and no longer supported"
             )
+    else:
+        # CodeQL will produce an error without this line
+        allow_zone_drifting_deprecated = None
     service = module.params["service"]
     short = module.params["short"]
     description = module.params["description"]
