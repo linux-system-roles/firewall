@@ -681,6 +681,20 @@ class FirewallLibMain(unittest.TestCase):
         )
 
     @patch("firewall_lib.HAS_FIREWALLD", True)
+    @patch("firewall_lib.FW_VERSION", "1.0.0", create=True)
+    def test_allow_zone_drifting_deprecated(self, am_class):
+        am = am_class.return_value
+        am.params = {
+            "firewalld_conf": {"allow_zone_drifting": False},
+            "permanent": True,
+        }
+        firewall_lib.main()
+        am.warn.assert_called_with(
+            "AllowZoneDrifting is deprecated in this version of firewalld, unsetting parameter"
+        )
+        am.exit_json.assert_called_with(changed=False, __firewall_changed=False)
+
+    @patch("firewall_lib.HAS_FIREWALLD", True)
     @patch("firewall_lib.FW_VERSION", "0.9.0", create=True)
     @patch("firewall_lib.FirewallClient", create=True)
     def test_allow_zone_zone_drifting_proper_usage(self, firewall_class, am_class):

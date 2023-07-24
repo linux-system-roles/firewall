@@ -541,6 +541,23 @@ def parse_forward_port(module, item):
     return (_port, _protocol, _to_port, _to_addr)
 
 
+def parse_firewalld_conf(am, firewalld_conf):
+    allow_zone_drifting_removed = False
+    if firewalld_conf["allow_zone_drifting"] is not None:
+        if lsr_parse_version(FW_VERSION) >= lsr_parse_version("1.0.0"):
+            am.warn(
+                "AllowZoneDrifting is deprecated in this version of firewalld, unsetting parameter"
+            )
+            del firewalld_conf["allow_zone_drifting"]
+            allow_zone_drifting_removed = True
+        else:
+            if firewalld_conf["allow_zone_drifting"]:
+                firewalld_conf["allow_zone_drifting"] = "yes"
+            else:
+                firewalld_conf["allow_zone_drifting"] = "no"
+    return allow_zone_drifting_removed
+
+
 def set_the_default_zone(fw, set_default_zone):
     fw.setDefaultZone(set_default_zone)
 
@@ -629,11 +646,9 @@ def main():
     # Argument parse
     firewalld_conf = module.params["firewalld_conf"]
     if firewalld_conf:
-        if firewalld_conf["allow_zone_drifting"] is not None:
-            if firewalld_conf["allow_zone_drifting"]:
-                firewalld_conf["allow_zone_drifting"] = "yes"
-            else:
-                firewalld_conf["allow_zone_drifting"] = "no"
+        allow_zone_drifting_removed = parse_firewalld_conf(module, firewalld_conf)
+    else:
+        allow_zone_drifting_removed = False
     service = module.params["service"]
     short = module.params["short"]
     description = module.params["description"]
@@ -724,12 +739,15 @@ def main():
             )
         )
     ):
-        module.fail_json(
-            msg="One of service, port, source_port, forward_port, "
-            "masquerade, rich_rule, source, interface, icmp_block, "
-            "icmp_block_inversion, target, zone, set_default_zone "
-            "or firewalld_conf needs to be set"
-        )
+        if allow_zone_drifting_removed:
+            return module.exit_json(changed=False, __firewall_changed=False)
+        else:
+            module.fail_json(
+                msg="One of service, port, source_port, forward_port, "
+                "masquerade, rich_rule, source, interface, icmp_block, "
+                "icmp_block_inversion, target, zone, set_default_zone "
+                "or firewalld_conf needs to be set"
+            )
 
     # Checking for any permanent configuration operations
     zone_operation = False
