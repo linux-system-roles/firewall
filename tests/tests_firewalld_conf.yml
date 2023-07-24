@@ -75,7 +75,7 @@
       fail:
         msg: "AllowZoneDrifting is disabled when it should be enabled"
       when:
-        - allow_zone_drifting_not_deprecated
+        - allow_zone_drifting_not_deprecated | bool
         - result.rc == 0
         - result.stdout != "AllowZoneDrifting=yes"
 
