@@ -1,0 +1,65 @@
+---
+- name: Test firewalld_conf options
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Start with a clean configuration
+      include_role:
+        name: linux-system-roles.firewall
+      vars:
+        firewall:
+          previous: replaced
+
+    - name: Determine if AllowZoneDrifting is deprecated
+      command: grep AllowZoneDrifting /etc/firewalld/firewalld.conf
+      register: result
+      changed_when: false
+      failed_when: result.rc == 2
+
+    - name: Set fact allow_zone_drifting_not_deprecated
+      set_fact:
+        allow_zone_drifting_not_deprecated: "{{ result.rc == 0 }}"
+
+    - name: Try to disable zone drifting
+      include_role:
+        name: linux-system-roles.firewall
+      vars:
+        firewall:
+          firewalld_conf:
+            allow_zone_drifting: false
+          permanent: true
+
+    - name: Check if AllowZoneDrifting is disabled if possible
+      command: grep -Fx AllowZoneDrifting=no /etc/firewalld/firewalld.conf
+      register: result
+      changed_when: false
+      failed_when: result.rc == 2
+
+    - name: Fail if AllowZoneDrifting disabled and not deprecated
+      fail:
+        msg: "AllowZoneDrifting is enabled when it should be disabled"
+      when:
+        - allow_zone_drifting_not_deprecated | bool
+        - result.rc == 1
+
+    - name: Try to enable zone drifting
+      include_role:
+        name: linux-system-roles.firewall
+      vars:
+        firewall:
+          firewalld_conf:
+            allow_zone_drifting: true
+          permanent: true
+
+    - name: Check if AllowZoneDrifting is enabled if possible
+      command: grep -Fx AllowZoneDrifting=yes /etc/firewalld/firewalld.conf
+      register: result
+      changed_when: false
+      failed_when: result.rc == 2
+
+    - name: Fail if AllowZoneDrifting disabled if not deprecated
+      fail:
+        msg: "AllowZoneDrifting is disabled when it should be enabled"
+      when:
+        - allow_zone_drifting_not_deprecated | bool
+        - result.rc == 1

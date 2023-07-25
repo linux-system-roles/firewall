@@ -39,6 +39,17 @@ description:
   Manage firewall with firewalld on Fedora and RHEL-7+.
 author: "Thomas Woerner (@t-woerner)"
 options:
+  firewalld_conf:
+    description:
+      Modify firewalld.conf directives
+    suboptions:
+      allow_zone_drifting:
+        description:
+          Set AllowZoneDrifting directive if not deprecated
+        required: false
+        type: bool
+    required: false
+    type: dict
   service:
     description:
       List of service name strings.
@@ -530,6 +541,20 @@ def parse_forward_port(module, item):
     return (_port, _protocol, _to_port, _to_addr)
 
 
+def check_allow_zone_drifting(firewalld_conf):
+    if firewalld_conf["allow_zone_drifting"] is not None:
+        if firewalld_conf["allow_zone_drifting"]:
+            firewalld_conf["allow_zone_drifting"] = "yes"
+        else:
+            firewalld_conf["allow_zone_drifting"] = "no"
+
+
+# Parse all suboptions of firewalld_conf into how they will be used by the role
+# Return True if all suboptions were emptied as a result
+def check_firewalld_conf(firewalld_conf):
+    check_allow_zone_drifting(firewalld_conf)
+
+
 def set_the_default_zone(fw, set_default_zone):
     fw.setDefaultZone(set_default_zone)
 
@@ -537,6 +562,14 @@ def set_the_default_zone(fw, set_default_zone):
 def main():
     module = AnsibleModule(
         argument_spec=dict(
+            firewalld_conf=dict(
+                required=False,
+                type="dict",
+                options=dict(
+                    allow_zone_drifting=dict(required=False, type="bool", default=None),
+                ),
+                default=None,
+            ),
             service=dict(required=False, type="list", elements="str", default=[]),
             port=dict(required=False, type="list", elements="str", default=[]),
             source_port=dict(required=False, type="list", elements="str", default=[]),
@@ -607,6 +640,20 @@ def main():
     if not HAS_FIREWALLD:
         module.fail_json(msg="No firewall backend could be imported.")
 
+    # Argument parse
+    firewalld_conf = module.params["firewalld_conf"]
+    if firewalld_conf:
+        check_firewalld_conf(firewalld_conf)
+        allow_zone_drifting_deprecated = lsr_parse_version(
+            FW_VERSION
+        ) >= lsr_parse_version("1.0.0")
+        if allow_zone_drifting_deprecated and firewalld_conf.get("allow_zone_drifting"):
+            module.warn(
+                "AllowZoneDrifting is deprecated in this version of firewalld and no longer supported"
+            )
+    else:
+        # CodeQL will produce an error without this line
+        allow_zone_drifting_deprecated = None
     service = module.params["service"]
     short = module.params["short"]
     description = module.params["description"]
@@ -693,13 +740,15 @@ def main():
                 interface,
                 icmp_block,
                 set_default_zone,
+                firewalld_conf,
             )
         )
     ):
         module.fail_json(
             msg="One of service, port, source_port, forward_port, "
             "masquerade, rich_rule, source, interface, icmp_block, "
-            "icmp_block_inversion, target, zone or set_default_zone needs to be set"
+            "icmp_block_inversion, target, zone, set_default_zone "
+            "or firewalld_conf needs to be set"
         )
 
     # Checking for any permanent configuration operations
@@ -783,6 +832,10 @@ def main():
             )
         else:
             service = service[0]
+    # firewalld.conf checks
+
+    if firewalld_conf and not permanent:
+        module.fail_json(msg="firewalld_conf can only be used with permanent")
 
     # Parameter checks
     if state == "disabled":
@@ -913,6 +966,19 @@ def main():
 
     changed = False
     need_reload = False
+
+    # firewalld.conf
+    if firewalld_conf:
+        fw_config = fw.config()
+        if not allow_zone_drifting_deprecated and firewalld_conf.get(
+            "allow_zone_drifting"
+        ) != fw_config.get_property("AllowZoneDrifting"):
+            if not module.check_mode:
+                fw_config.set_property(
+                    "AllowZoneDrifting", firewalld_conf.get("allow_zone_drifting")
+                )
+            changed = True
+            need_reload = True
 
     # zone
     if zone_operation:
