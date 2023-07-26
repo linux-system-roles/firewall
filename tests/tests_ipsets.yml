@@ -1,0 +1,228 @@
+---
+- name: Test firewall user defined ipsets
+  hosts: all
+  become: true
+  tasks:
+    - name: Test firewall user defined ipsets
+      block:
+
+        # INIT TEST
+
+        - name: Start from clean slate
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - previous: replaced
+
+        # Verify customipset is not already defined
+        - name: Get all ipsets
+          shell:
+            cmd: |
+              set -o pipefail
+              firewall-cmd --permanent --get-ipsets | grep customipset
+          register: result
+          changed_when: false
+          failed_when: result.rc != 1
+
+        # Begin custom ipset tests
+
+        - name: Define new ipset
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - ipset: customipset
+                ipset_type: "hash:ip"
+                ipset_entries:
+                  - 127.0.0.1
+                  - 8.8.8.8
+                short: Custom
+                desciption: Custom IPSet for testing purposes
+                state: present
+                permanent: true
+
+        - name: Fail if ipset not added
+          shell:
+            cmd: |
+              set -o pipefail
+              firewall-cmd --permanent --get-ipsets | grep "customipset"
+          changed_when: false
+          register: result
+          failed_when: result.rc == 1
+
+        - name: Fail if entry not added to ipset
+          command: |
+            firewall-cmd --permanent --ipset customipset --query-entry 8.8.8.8
+          changed_when: false
+
+        - name: Redefine new ipset
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - ipset: customipset
+                short: Custom
+                desciption: Custom IPSet for testing purposes
+                state: present
+                permanent: true
+          register: result
+
+        - name: Fail if defining ipset not idempotent
+          fail:
+            msg: Defining ipsets is not idempotent
+          when: result.changed | bool  # noqa no-handler
+
+        - name: Remove entries from ipset
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - ipset: customipset
+                ipset_entries:
+                  - 8.8.8.8
+                  - 127.0.0.1
+                state: absent
+                permanent: true
+
+        - name: Check that custom ipset not removed
+          shell:
+            cmd: |
+              set -o pipefail
+              firewall-cmd --permanent --get-ipsets | grep customipset
+          changed_when: false
+          register: result
+          failed_when: result.rc != 0
+
+        - name: Check that entry has been removed
+          command: >-
+            firewall-cmd --permanent --ipset customipset --query-entry 8.8.8.8
+          changed_when: false
+          register: result
+          failed_when: result.rc != 1
+
+        - name: Test update short and description
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - ipset: customipset
+                short: CustomChanged
+                description: Custom IPSet for testing purposes (changed)
+                state: present
+                permanent: true
+
+        - name: Verify changes
+          command: "{{ item['command'] }}"
+          changed_when: false
+          register: result
+          loop:
+            - command: |
+                firewall-cmd --permanent --ipset customipset --get-description
+              expected: "Custom IPSet for testing purposes (changed)"
+            - command: |
+                firewall-cmd --permanent --ipset customipset --get-short
+              expected: "CustomChanged"
+          failed_when: result.stdout != item["expected"]
+
+        # Test that ipset can be added to zones
+        - name: Add ipset to default zone
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - source: "ipset:customipset"
+                state: enabled
+                runtime: true
+
+        - name: Add ipset to default zone again
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - source: "ipset:customipset"
+                state: enabled
+                runtime: true
+          register: result
+
+        - name: Fail if adding ipset is not idempotent (runtime)
+          fail:
+            msg: "enabling ipsets in zones is not idempotent (runtime)"
+          when: result.changed | bool  # noqa no-handler
+
+        - name: Add ipset to default zone (permanent)
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - source: "ipset:customipset"
+                state: enabled
+                runtime: true
+
+        - name: Add ipset to default zone again (permanent)
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - source: "ipset:customipset"
+                state: enabled
+                runtime: true
+          register: result
+
+        - name: Fail if adding ipset is not idempotent (permanent)
+          fail:
+            msg: "enabling ipsets in zones is not idempotent (permanent)"
+          when: result.changed | bool  # noqa no-handler
+
+        - name: Add ipset to default zone
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - source: "ipset:customipset"
+                state: disabled
+                permanent: true
+
+        - name: Remove custom ipset
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - ipset: customipset
+                state: absent
+                permanent: true
+
+        - name: Fail if ipset not removed
+          shell:
+            cmd: |
+              set -o pipefail
+              firewall-cmd --permanent --get-ipsets | grep "customipset"
+          changed_when: false
+          register: result
+          failed_when: result.rc != 1
+
+        - name: Remove custom ipset again
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - ipset: customipset
+                state: absent
+                permanent: true
+          register: result
+
+        - name: Fail if not idempotent
+          fail:
+            msg: Removing ipsets is not idempotent
+          when: result.changed | bool  # noqa no-handler
+
+
+      always:
+        - name: Cleanup
+          tags:
+            - tests::cleanup
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - previous: replaced
