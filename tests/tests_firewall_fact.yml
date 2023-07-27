@@ -12,6 +12,11 @@
             firewall:
               - previous: replaced
 
+        - name: Get default zone
+          command: firewall-cmd --get-default-zone
+          changed_when: false
+          register: __default_zone
+
         # Test base fact (no custom settings applied)
 
         - name: Get default ansible fact
@@ -36,10 +41,10 @@
           when: item | length == 0
           loop: "{{ firewall_config.default | dict2items }}"
 
-        - name: Fail if default zone is not public
+        - name: Fail if default zone is not correct
           fail:
-            msg: default zone should be public
-          when: firewall_config.default_zone != "public"
+            msg: default zone should be {{ __default_zone.stdout }}
+          when: firewall_config.default_zone != __default_zone.stdout
 
         - name: Save default ansible fact value
           set_fact:
