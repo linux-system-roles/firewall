@@ -40,15 +40,27 @@
       list | length > 0 }}"
     __firewall_python_cmd: "{{ ansible_python_interpreter |
       d(discovered_interpreter_python) }}"
+    __firewall_report_changed: true
 
-- name: Get config files, checksums before and remove
-  script:
-    cmd: >
-      files/get_files_checksums.sh {{ __firewall_python_cmd | quote }}
-      {{ __firewall_firewalld_dir | quote }} true
-  register: __firewall_config_files_before
-  changed_when: false
+- name: Handle previous replaced
   when: __firewall_previous_replaced | bool
+  block:
+    - name: Get config files, checksums before and remove
+      script:
+        cmd: >
+          files/get_files_checksums.sh {{ __firewall_python_cmd | quote }}
+          {{ __firewall_firewalld_dir | quote }}
+          {{ ansible_check_mode | ternary('false', 'true') }}
+          {{ __firewall_package_with_conf | quote }}
+          {{ __firewall_usr_lib_dir | quote }}
+      register: __firewall_config_files_before
+      changed_when: false
+      check_mode: false
+
+    - name: Tell firewall module it is able to report changed
+      set_fact:
+        __firewall_report_changed: "{{
+          __firewall_config_files_before.stdout == '' }}"
 
 # Explanation of loop - `firewall` is a list of dict.  We want
 # to remove any key: value matching previous: replaced from every
@@ -96,7 +108,7 @@
     permanent: "{{ item.permanent | default(True) }}"
     runtime: "{{ item.runtime | default(True) }}"
     state: "{{ item.state | default(omit) }}"
-    __report_changed: "{{ not __firewall_previous_replaced }}"
+    __report_changed: "{{ __firewall_report_changed }}"
   loop: "{{ firewall is mapping | ternary([firewall], firewall) |
     map('dict2items') | map('difference', __previous) |
     map('difference', __detailed) | select |
@@ -141,13 +153,17 @@
         firewall_config: "{{ __firewalld_facts.firewall_config }}"
 
 - name: Check config files after removal
-  when: __firewall_previous_replaced | bool
+  when:
+    - __firewall_previous_replaced | bool
+    - not ansible_check_mode
   block:
     - name: Get config files, checksums after
       script:
         cmd: >
           files/get_files_checksums.sh {{ __firewall_python_cmd | quote }}
-          {{ __firewall_firewalld_dir | quote }}
+          {{ __firewall_firewalld_dir | quote }} false
+          {{ __firewall_package_with_conf | quote }}
+          {{ __firewall_usr_lib_dir | quote }}
       register: __firewall_config_files_after
       changed_when: false
 
