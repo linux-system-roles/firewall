@@ -8,6 +8,11 @@
       import_role:
         name: linux-system-roles.firewall
 
+    - name: Get default zone
+      command: firewall-cmd --get-default-zone
+      register: __default_zone
+      changed_when: false
+
     - name: Test firewalld posix compatibility
       block:
 
@@ -645,6 +650,12 @@
               command: firewall-cmd --permanent --load-zone-defaults=public
               register: result
               failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
+              changed_when: false
+
+            - name: Reset default zone
+              command: >-
+                firewall-cmd
+                --set-default-zone={{ __default_zone.stdout | quote }}
               changed_when: false
 
             - name: Reload firewalld
