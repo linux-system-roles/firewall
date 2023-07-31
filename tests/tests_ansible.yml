@@ -195,6 +195,42 @@
           register: result
           failed_when: result.failed or result.changed
 
+        - name: Allow nm interface eth0 in permanent trusted zone
+          firewall_lib:
+            zone: trusted
+            interface: eth0
+            permanent: true
+            state: enabled
+          register: result
+          failed_when: result.failed or not result.changed
+
+        - name: Allow nm interface eth0 in permanent trusted zone, again
+          firewall_lib:
+            zone: trusted
+            interface: eth0
+            permanent: true
+            state: enabled
+          register: result
+          failed_when: result.failed or result.changed
+
+        - name: Disable nm interface eth0 in permanent trusted zone
+          firewall_lib:
+            zone: trusted
+            interface: eth0
+            permanent: true
+            state: disabled
+          register: result
+          failed_when: result.failed or not result.changed
+
+        - name: Disable nm interface eth0 in permanent trusted zone, again
+          firewall_lib:
+            zone: trusted
+            interface: eth0
+            permanent: true
+            state: disabled
+          register: result
+          failed_when: result.failed or result.changed
+
         - name: Allow interface eth2 in permanent trusted zone
           firewall_lib:
             zone: trusted
