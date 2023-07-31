@@ -1,6 +1,22 @@
 Changelog
 =========
 
+[1.5.0] - 2023-07-31
+--------------------
+
+### New Features
+
+- feat: add new arg firewalld_conf, subarg allow_zone_drifting (#162)
+
+### Bug Fixes
+
+- fix: error when running with check mode and previous: replaced (#163)
+- fix: firewall_lib: make try_set_zone_of_interface idempotent (#167)
+
+### Other Changes
+
+- test: tests_ansible zone cleanup; check for default zone (#165)
+
 [1.4.7] - 2023-07-21
 --------------------
 
