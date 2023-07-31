@@ -295,10 +295,12 @@ def try_set_zone_of_interface(module, _zone, interface):
                     msg="The interface is under control of NetworkManager and already bound to '%s'"
                     % zone_string
                 )
-            elif not module.check_mode:
-                nm_set_zone_of_connection(_zone, connection)
-            return True
-    return False
+                return (True, False)
+            else:
+                if not module.check_mode:
+                    nm_set_zone_of_connection(_zone, connection)
+                return (True, True)
+    return (False, False)
 
 
 # Above: adapted from firewall-cmd source code
@@ -1285,8 +1287,9 @@ def main():
                     fw.changeZoneOfInterface(zone, item)
                 changed = True
             if permanent:
-                if try_set_zone_of_interface(module, zone, item):
-                    changed = True
+                nm_used, if_changed = try_set_zone_of_interface(module, zone, item)
+                if nm_used:
+                    changed = if_changed
                 elif not fw_settings.queryInterface(item):
                     if not module.check_mode:
                         handle_interface_permanent(
@@ -1299,8 +1302,9 @@ def main():
                     fw.removeInterface(zone, item)
                 changed = True
             if permanent:
-                if try_set_zone_of_interface(module, "", item):
-                    changed = True
+                nm_used, if_changed = try_set_zone_of_interface(module, "", item)
+                if nm_used:
+                    changed = if_changed
                 elif fw_settings.queryInterface(item):
                     if not module.check_mode:
                         fw_settings.removeInterface(item)

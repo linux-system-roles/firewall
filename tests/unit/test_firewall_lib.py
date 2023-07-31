@@ -267,6 +267,7 @@ class MockAnsibleModule(MagicMock):
         am.supports_check_mode = kwargs["supports_check_mode"]
         am.fail_json = Mock(side_effect=MockException())
         am.exit_json = Mock()
+        am.log = Mock()
         am.warn = Mock()
         if not isinstance(am.check_mode, bool):
             am.check_mode = False
@@ -329,6 +330,74 @@ class FirewallInterfaceTests(unittest.TestCase):
         )
         called_mock = getattr(fw_settings, "addInterface")
         assert [call("eth2")] == called_mock.call_args_list
+
+    @patch("firewall_lib.nm_get_connection_of_interface", create=True)
+    def test_try_get_connection_of_interface(self, nm_get_connection_of_interface):
+        nm_get_connection_of_interface.return_value = Mock()
+
+        result = firewall_lib.try_get_connection_of_interface("eth0")
+
+        assert result == nm_get_connection_of_interface.return_value
+
+        nm_get_connection_of_interface.side_effect = Exception()
+
+        result = firewall_lib.try_get_connection_of_interface("any input")
+
+        assert result is None
+
+    @patch("firewall_lib.NM_IMPORTED", True)
+    @patch("firewall_lib.try_get_connection_of_interface")
+    @patch("firewall_lib.nm_get_zone_of_connection", create=True, return_value="")
+    @patch("firewall_lib.nm_set_zone_of_connection", create=True)
+    def test_try_set_zone_of_interface_nm_imported(
+        self,
+        nm_set_zone_of_interface,
+        nm_get_zone_of_connection,
+        try_get_connection_of_interface,
+    ):
+        try_get_connection_of_interface.return_value = Mock()
+
+        module = Mock()
+        module.log = Mock()
+        _zone = ""
+        interface = "eth0"
+
+        result = firewall_lib.try_set_zone_of_interface(module, _zone, interface)
+
+        assert result == (True, False)
+        module.log.assert_called_with(
+            msg="The interface is under control of NetworkManager and already bound to 'the default zone'"
+        )
+
+        _zone = "trusted"
+
+        result = firewall_lib.try_set_zone_of_interface(module, _zone, interface)
+
+        assert result == (True, True)
+
+        module.check_mode = True
+
+        result = firewall_lib.try_set_zone_of_interface(module, _zone, interface)
+
+        assert result == (True, True)
+
+        try_get_connection_of_interface.return_value = None
+
+        result = firewall_lib.try_set_zone_of_interface(module, _zone, interface)
+
+        assert result == (False, False)
+
+    @patch("firewall_lib.NM_IMPORTED", False)
+    def test_try_set_zone_of_interface_nm_not_imported(self):
+        result = firewall_lib.try_set_zone_of_interface(
+            Mock(), "any input", "any input"
+        )
+
+        assert result == (False, False)
+
+        result = firewall_lib.try_set_zone_of_interface(Mock(), "", "eth0")
+
+        assert result == (False, False)
 
 
 class FirewallLibParsers(unittest.TestCase):
@@ -705,6 +774,39 @@ class FirewallLibMain(unittest.TestCase):
         for option in [True, False]:
             am.params["firewalld_conf"]["allow_zone_drifting"] = option
             firewall_lib.main()
+
+    @patch("firewall_lib.HAS_FIREWALLD", True)
+    @patch("firewall_lib.FW_VERSION", "0.9.0", create=True)
+    @patch("firewall_lib.FirewallClient", create=True)
+    @patch("firewall_lib.try_set_zone_of_interface")
+    def test_nm_integration_interfaces(
+        self, try_set_zone_of_interface, firewall_class, am_class
+    ):
+        am = am_class.return_value
+        am.params = {
+            "interface": "eth0",
+            "zone": "public",
+            "permanent": True,
+        }
+        available_zones = ["public"]
+
+        fw = firewall_class.return_value
+        fw.zone = Mock()
+        fw.zone.get_zones.return_value = available_zones
+        fw.config = Mock()
+        fw.config.get_zone.return_value = Mock()
+
+        fw_config = Mock()
+        fw_config.getZoneNames.return_value = available_zones
+        fw.config.return_value = fw_config
+
+        return_values = [(True, True), (True, False)]
+        for state in ["enabled", "disabled"]:
+            am.params["state"] = state
+            for rv in return_values:
+                try_set_zone_of_interface.return_value = rv
+                firewall_lib.main()
+                am.exit_json.assert_called_with(changed=rv[1], __firewall_changed=rv[1])
 
 
 @pytest.mark.parametrize("method,state,input,expected", TEST_PARAMS)
