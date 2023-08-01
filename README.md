@@ -433,7 +433,7 @@ port: ['443/tcp','443/udp']
 Type of ipset being defined.
 Used with `ipset`.
 
-For a list of available ipset types, run `firewall-cmd --get-icmp-types`,
+For a list of available ipset types, run `firewall-cmd --get-ipset-types`,
 there is no method to get supported types from this role.
 
 ```yaml
