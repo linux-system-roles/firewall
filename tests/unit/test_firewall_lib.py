@@ -478,8 +478,8 @@ class FirewallLibMain(unittest.TestCase):
         am_class.return_value.fail_json.assert_called_with(
             msg="One of service, port, source_port, forward_port, "
             "masquerade, rich_rule, source, interface, icmp_block, "
-            "icmp_block_inversion, target, zone, set_default_zone or firewalld_conf "
-            "needs to be set"
+            "icmp_block_inversion, target, zone, set_default_zone, "
+            "ipset or firewalld_conf needs to be set"
         )
 
     @patch("firewall_lib.HAS_FIREWALLD", True)
@@ -528,8 +528,9 @@ class FirewallLibMain(unittest.TestCase):
         with self.assertRaises(MockException):
             firewall_lib.main()
         am.fail_json.assert_called_with(
-            msg="short, description, port, source_port, helper_module, protocol, or destination "
-            "cannot be set while zone is specified and state is set to present or absent"
+            msg="short, description, port, source_port, helper_module, protocol, "
+            "destination, ipset_type or ipset_entries cannot be set while zone is "
+            "specified and state is set to present or absent"
         )
 
     @patch("firewall_lib.HAS_FIREWALLD", True)
@@ -544,7 +545,7 @@ class FirewallLibMain(unittest.TestCase):
         with self.assertRaises(MockException):
             firewall_lib.main()
         am.fail_json.assert_called_with(
-            msg="both zone and service while state present/absent"
+            msg="2 of {zone, service, ipset} while state present/absent, expected 1"
         )
 
     @patch("firewall_lib.HAS_FIREWALLD", True)
@@ -559,7 +560,7 @@ class FirewallLibMain(unittest.TestCase):
         with self.assertRaises(MockException):
             firewall_lib.main()
         am.fail_json.assert_called_with(
-            msg="both service and target cannot be set while state is either present or absent"
+            msg="Both service and target cannot be set while state is either present or absent"
         )
 
     @patch("firewall_lib.HAS_FIREWALLD", True)
@@ -807,6 +808,351 @@ class FirewallLibMain(unittest.TestCase):
                 try_set_zone_of_interface.return_value = rv
                 firewall_lib.main()
                 am.exit_json.assert_called_with(changed=rv[1], __firewall_changed=rv[1])
+
+    @patch("firewall_lib.HAS_FIREWALLD", True)
+    @patch("firewall_lib.FW_VERSION", "0.9.0", create=True)
+    def test_ipset_operation_with_services_set(self, am_class):
+        am = am_class.return_value
+        am.params = {
+            "ipset": "test",
+            "service": "test",
+            "state": "present",
+            "permanent": True,
+        }
+
+        with self.assertRaises(MockException):
+            firewall_lib.main()
+        am.fail_json.assert_called_with(
+            msg="2 of {zone, service, ipset} while state present/absent, expected 1"
+        )
+
+    @patch("firewall_lib.HAS_FIREWALLD", True)
+    @patch("firewall_lib.FW_VERSION", "0.9.0", create=True)
+    def test_service_operation_with_ipset_settings_error(self, am_class):
+        am = am_class.return_value
+        am.params = {
+            "service": "test",
+            "ipset_entries": ["8.8.8.8"],
+            "ipset_type": "hash:ip",
+            "state": "present",
+            "permanent": True,
+        }
+
+        with self.assertRaises(MockException):
+            firewall_lib.main()
+        am.fail_json.assert_called_with(
+            msg="ipset parameters cannot be set when configuring services"
+        )
+
+    @patch("firewall_lib.HAS_FIREWALLD", True)
+    @patch("firewall_lib.FW_VERSION", "0.9.0", create=True)
+    def test_ipset_operation_with_target_set(self, am_class):
+        am = am_class.return_value
+        am.params = {
+            "ipset": "test",
+            "target": "DROP",
+            "state": "present",
+            "permanent": True,
+        }
+
+        with self.assertRaises(MockException):
+            firewall_lib.main()
+        am.fail_json.assert_called_with(msg="Only one of {ipset, target} can be set")
+
+    @patch("firewall_lib.HAS_FIREWALLD", True)
+    @patch("firewall_lib.FW_VERSION", "0.9.0", create=True)
+    def test_ipset_operation_with_permanent_false(self, am_class):
+        am = am_class.return_value
+        am.params = {
+            "ipset": "test",
+            "state": "present",
+        }
+
+        with self.assertRaises(MockException):
+            firewall_lib.main()
+        am.fail_json.assert_called_with(
+            msg="permanent must be enabled for ipset configuration"
+        )
+
+    @patch("firewall_lib.HAS_FIREWALLD", True)
+    @patch("firewall_lib.FW_VERSION", "0.9.0", create=True)
+    def test_short_with_state_absent(self, am_class):
+        am = am_class.return_value
+        am.params = {
+            "ipset": "test",
+            "state": "absent",
+            "short": "test",
+        }
+
+        with self.assertRaises(MockException):
+            firewall_lib.main()
+        am.fail_json.assert_called_with(
+            msg="short, description and ipset_type can only be used when "
+            "state is present"
+        )
+
+    @patch("firewall_lib.HAS_FIREWALLD", True)
+    @patch("firewall_lib.FW_VERSION", "0.9.0", create=True)
+    @patch("firewall_lib.FirewallClient", create=True)
+    def test_create_ipset_without_type(self, fw_class, am_class):
+        am = am_class.return_value
+        am.params = {
+            "ipset": "test",
+            "state": "present",
+            "short": "test",
+            "permanent": True,
+        }
+
+        with self.assertRaises(MockException):
+            firewall_lib.main()
+        am.fail_json.assert_called_with(
+            msg="ipset_type needed when creating a new ipset"
+        )
+
+    @patch("firewall_lib.HAS_FIREWALLD", True)
+    @patch("firewall_lib.FW_VERSION", "0.9.0", create=True)
+    @patch("firewall_lib.FirewallClient", create=True)
+    def test_create_ipset_name_conflict(self, fw_class, am_class):
+        am = am_class.return_value
+        am.params = {
+            "ipset": "test",
+            "ipset_type": "hash:mac",
+            "state": "present",
+            "short": "test",
+            "permanent": True,
+        }
+
+        fw = fw_class.return_value
+        fw_config = Mock()
+        fw.config.return_value = fw_config
+        fw_config.getIPSetNames.return_value = ["test"]
+        fw_ipset = Mock()
+        fw_config.getIPSetByName.return_value = fw_ipset
+        fw_ipset_settings = Mock()
+        fw_ipset.getSettings.return_value = fw_ipset_settings
+        ipset_type = "hash:ip"
+        fw_ipset_settings.getType.return_value = ipset_type
+
+        with self.assertRaises(MockException):
+            firewall_lib.main()
+        am.fail_json.assert_called_with(
+            msg="Name conflict when creating ipset - "
+            "ipset test of type hash:ip already exists"
+        )
+
+    @patch("firewall_lib.HAS_FIREWALLD", True)
+    @patch("firewall_lib.FW_VERSION", "0.9.0", create=True)
+    @patch("firewall_lib.FirewallClient", create=True)
+    def test_remove_ipset_while_in_use(self, fw_class, am_class):
+        am = am_class.return_value
+        am.params = {
+            "ipset": "test",
+            "state": "absent",
+            "permanent": True,
+        }
+
+        fw = fw_class.return_value
+        fw.getZoneOfSource.return_value = "public"
+        fw_config = Mock()
+        fw.config.return_value = fw_config
+        fw_config.getIPSetNames.return_value = ["test"]
+        fw_config.getZoneOfSource.return_value = "public"
+        fw_ipset = Mock()
+        fw_config.getIPSetByName.return_value = fw_ipset
+        fw_ipset_settings = Mock()
+        fw_ipset.getSettings.return_value = fw_ipset_settings
+
+        with self.assertRaises(MockException):
+            firewall_lib.main()
+        am.fail_json.assert_called_with(
+            msg="Remove ipset:test from all permanent and runtime "
+            "zones before attempting to remove it"
+        )
+
+    @patch("firewall_lib.HAS_FIREWALLD", True)
+    @patch("firewall_lib.FW_VERSION", "0.9.0", create=True)
+    @patch("firewall_lib.FirewallClient", create=True)
+    def test_remove_ipset_while_in_use_check_mode(self, fw_class, am_class):
+        am = am_class.return_value
+        am.params = {
+            "ipset": "test",
+            "state": "absent",
+            "permanent": True,
+        }
+        am.check_mode = True
+
+        fw = fw_class.return_value
+        fw.getZoneOfSource.return_value = "public"
+        fw_config = Mock()
+        fw.config.return_value = fw_config
+        fw_config.getIPSetNames.return_value = ["test"]
+        fw_config.getZoneOfSource.return_value = "public"
+        fw_ipset = Mock()
+        fw_config.getIPSetByName.return_value = fw_ipset
+        fw_ipset_settings = Mock()
+        fw_ipset.getSettings.return_value = fw_ipset_settings
+
+        firewall_lib.main()
+        am.warn.assert_called_with(
+            "Ensure ipset:test is removed from all "
+            "zones before attempting to remove it. "
+            "Enabled zones: permanent - public | runtime - public"
+        )
+
+    @patch("firewall_lib.HAS_FIREWALLD", True)
+    @patch("firewall_lib.FW_VERSION", "0.9.0", create=True)
+    @patch("firewall_lib.FirewallClient", create=True)
+    def test_add_bad_ipset_in_check_mode(self, fw_class, am_class):
+        am = am_class.return_value
+        am.params = {
+            "source": ["ipset:test"],
+            "state": "enabled",
+            "permanent": True,
+        }
+        am.check_mode = True
+
+        fw = fw_class.return_value
+        fw_config = Mock()
+        fw.config.return_value = fw_config
+        fw_config.getIPSetNames.return_value = []
+
+        firewall_lib.main()
+        am.warn.assert_called_with(
+            "%s does not exist - ensure it is defined in a previous task before "
+            "running play outside check mode" % am.params["source"][0]
+        )
+
+    @patch("firewall_lib.HAS_FIREWALLD", True)
+    @patch("firewall_lib.FW_VERSION", "0.9.0", create=True)
+    @patch("firewall_lib.FirewallClient", create=True)
+    @patch("firewall_lib.FirewallClientIPSetSettings", create=True)
+    def test_create_ipset(self, fw_ipset_settings_class, fw_class, am_class):
+        am = am_class.return_value
+        am.params = {
+            "ipset": "test",
+            "ipset_type": "hash:ip",
+            "ipset_entries": ["1.1.1.1", "2.2.2.2", "3.3.3.3"],
+            "description": "test ipset",
+            "short": "Test",
+            "state": "present",
+            "permanent": True,
+        }
+
+        fw = fw_class.return_value
+
+        fw_config = Mock()
+        fw.config.return_value = fw_config
+        fw_config.getIPSetNames.return_value = []
+        fw_config.getIPSetByName = Mock()
+
+        fw_ipset_settings = fw_ipset_settings_class.return_value
+        fw_ipset_settings.addEntry = Mock()
+        fw_ipset_settings.queryEntry = Mock(return_value=False)
+
+        fw_ipset = fw_config.getIPSetByName.return_value
+        fw_ipset.update = Mock()
+        fw_ipset.getSettings.return_value = fw_ipset_settings
+
+        firewall_lib.main()
+
+        fw_ipset_settings.setType.assert_called_with(am.params["ipset_type"])
+        fw_config.getIPSetByName.assert_called_with(am.params["ipset"])
+        fw_ipset.getSettings.assert_called_once()
+        fw_ipset_settings.addEntry.assert_called()
+        fw_ipset.update.assert_called()
+
+        am.check_mode = True
+        fw_ipset_settings.addEntry.reset_mock()
+        fw_ipset.update.reset_mock()
+
+        firewall_lib.main()
+
+        fw_ipset_settings_class.assert_called_with()
+        fw_ipset_settings.addEntry.assert_not_called()
+        fw_ipset.update.assert_not_called()
+
+    @patch("firewall_lib.HAS_FIREWALLD", True)
+    @patch("firewall_lib.FW_VERSION", "0.9.0", create=True)
+    @patch("firewall_lib.FirewallClient", create=True)
+    @patch("firewall_lib.FirewallClientIPSetSettings", create=True)
+    def test_remove_ipset_entries(self, fw_ipset_settings_class, fw_class, am_class):
+        am = am_class.return_value
+        am.params = {
+            "ipset": "test",
+            "ipset_entries": ["3.3.3.3"],
+            "state": "absent",
+            "permanent": True,
+        }
+
+        fw = fw_class.return_value
+        fw_ipset_settings = fw_ipset_settings_class.return_value
+
+        fw_config = Mock()
+        fw.config.return_value = fw_config
+        fw_config.getIPSetNames.return_value = ["test"]
+        fw_config.getIPSetByName = Mock()
+
+        fw_ipset = fw_config.getIPSetByName.return_value
+        fw_ipset.update = Mock()
+        fw_ipset.remove = Mock()
+        fw_ipset.getSettings.return_value = fw_ipset_settings
+
+        fw_ipset_settings.removeEntry = Mock()
+
+        firewall_lib.main()
+
+        fw_ipset.getSettings.assert_called_once()
+        fw_ipset_settings.removeEntry.assert_called_with(am.params["ipset_entries"][0])
+        fw_ipset.update.assert_called()
+
+        am.check_mode = True
+        fw_ipset.update.reset_mock()
+        fw_ipset_settings.removeEntry.reset_mock()
+
+        firewall_lib.main()
+
+        fw_ipset.update.assert_not_called()
+        fw_ipset_settings.removeEntry.assert_not_called()
+
+        fw_ipset.remove.assert_not_called()
+
+    @patch("firewall_lib.HAS_FIREWALLD", True)
+    @patch("firewall_lib.FW_VERSION", "0.9.0", create=True)
+    @patch("firewall_lib.FirewallClient", create=True)
+    @patch("firewall_lib.FirewallClientIPSetSettings", create=True)
+    def test_remove_ipset(self, fw_ipset_settings_class, fw_class, am_class):
+        am = am_class.return_value
+        am.params = {
+            "ipset": "test",
+            "state": "absent",
+            "permanent": True,
+        }
+
+        fw = fw_class.return_value
+        fw_ipset_settings = fw_ipset_settings_class.return_value
+
+        fw_config = Mock()
+        fw.config.return_value = fw_config
+        fw_config.getIPSetNames.return_value = ["test"]
+        fw_config.getIPSetByName = Mock()
+
+        fw_ipset = fw_config.getIPSetByName.return_value
+        fw_ipset.remove = Mock()
+        fw_ipset.getSettings.return_value = fw_ipset_settings
+
+        fw.getZoneOfSource.return_value = None
+        fw_config.getZoneOfSource.return_value = None
+
+        firewall_lib.main()
+
+        fw_ipset.remove.assert_called()
+
+        am.check_mode = True
+        fw_ipset.remove.reset_mock()
+
+        firewall_lib.main()
+
+        fw_ipset.remove.assert_not_called()
 
 
 @pytest.mark.parametrize("method,state,input,expected", TEST_PARAMS)

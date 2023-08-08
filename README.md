@@ -354,6 +354,70 @@ defining services for runtime configuration is not supported by firewalld
 
 For more information about custom services, see https://firewalld.org/documentation/man-pages/firewalld.service.html
 
+### ipset
+
+Name of the ipset being created, modified, or removed. 
+Use `source` to add and remove ipsets from a zone
+
+When creating an ipset, you must also specify `ipset_type`,
+and optionally `short`, `description`, `ipset_entries`
+
+Defining an ipset with all optional fields:
+```yaml
+firewall:
+  - ipset: customipset
+    ipset_type: "hash:ip"
+    short: Custom IPSet
+    description: set of ip addresses specified in entries
+    ipset_entries:
+      - 1.1.1.1
+      - 2.2.2.2
+      - 3.3.3.3
+      - 8.8.8.8
+      - 127.0.0.1
+    state: present
+    permanent: true
+```
+
+Adding an entry to an existing ipset
+```yaml
+firewall:
+  - ipset: customipset
+    ipset_entries:
+      - 127.0.0.2
+    state: present
+    permanent: true
+```
+
+Changing the short and description of an ipset
+```yaml
+firewall:
+  - ipset: customipset
+    short: Custom
+    description: Set of IPv4 addresses
+    state: present
+    permanent: true
+```
+
+Removing entries from an ipset
+```yaml
+firewall:
+  - ipset: customipset
+    ipset_entries:
+      - 127.0.0.1
+      - 127.0.0.2
+    state: absent
+    permanent: true
+```
+
+Removing an ipset
+```yaml
+firewall:
+  - ipset: customipset
+    state: absent
+    permanent: true
+```
+
 ### port
 
 Port or port range or a list of them to add or remove inbound access to. It
@@ -363,6 +427,36 @@ needs to be in the format ```<port>[-<port>]/<protocol>```.
 port: '443/tcp'
 port: ['443/tcp','443/udp']
 ```
+
+### ipset_type
+
+Type of ipset being defined.
+Used with `ipset`.
+
+For a list of available ipset types, run `firewall-cmd --get-ipset-types`,
+there is no method to get supported types from this role.
+
+```yaml
+ipset: customipset
+ipset_type: hash:mac
+```
+
+See `ipset` for more usage information
+
+### ipset_entries
+List of addresses to add or remove from an ipset
+Used with `ipset`
+
+Entrys must be compatible with the ipset type of the `ipset`
+being created or modified.
+
+```yaml
+ipset: customipset
+ipset_entries:
+  - 127.0.0.1
+```
+
+See `ipset` for more usage information
 
 ### source_port
 
@@ -427,13 +521,19 @@ rich_rule: rule service name="ftp" audit limit value="1/m" accept
 
 ### source
 
-List of source address or address range strings.  A source address or address
+List of source address address range strings, or ipsets.  A source address or address
 range is either an IP address or a network IP address with a mask for IPv4 or
 IPv6. For IPv4, the mask can be a network mask or a plain number. For IPv6 the
 mask is a plain number.
 
 ```
 source: 192.0.2.0/24
+```
+
+Ipsets are used with this option by prefixing "ipset:" to the name of the ipset
+
+```yaml
+source: ipset:ipsetname
 ```
 
 ### interface
@@ -525,18 +625,18 @@ target: ACCEPT
 ```
 ### short
 
-Short description, only usable when adding or modifying a service.
-See `service` for more usage information.
+Short description, only usable when defining or modifying a service or ipset.
+See `service` or `ipset` for more usage information.
 
 ```yaml
-short: WWW (HTTP)
+short: Short Description
 ```
 
 ### description
 
 Description for a service, only usable when adding a new service or
 modifying an existing service.
-See `service` for more information
+See `service` or `ipset` for more information
 
 ```yaml
 description: Your description goes here

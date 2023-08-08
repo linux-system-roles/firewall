@@ -96,10 +96,11 @@ options:
     elements: str
   source:
     description:
-      List of source address or address range strings.
+      List of source address, address range strings, or ipsets
       A source address or address range is either an IP address or a network
       IP address with a mask for IPv4 or IPv6. For IPv4, the mask can be a
       network mask or a plain number. For IPv6 the mask is a plain number.
+      An ipset is used by prefixing "ipset{{ ":" }}" to the defined ipset's name.
     required: false
     type: list
     elements: str
@@ -154,6 +155,29 @@ options:
     description: Sets the default zone.
     required: false
     type: str
+  ipset:
+    description:
+      Name of the ipset being configured.
+      Can be used to define, modify, or remove ipsets.
+      Must set state to C(present) or C(absent) to use this argument.
+      Must set permanent to C(true) to use this argument.
+    required: false
+    type: str
+  ipset_type:
+    description:
+      Type of ipset being defined
+      Will only do something when ipset argument is defined.
+      To get the list of supported ipset types, use
+      firewall-cmd --get-ipset-types.
+    required: false
+    type: str
+  ipset_entries:
+    description:
+      List of addresses to add/remove from ipset.
+      Will only do something when set with ipset.
+    required: false
+    type: list
+    elements: str
   permanent:
     description:
       The permanent bool flag.
@@ -179,16 +203,16 @@ options:
     choices: ["enabled", "disabled", "present", "absent"]
   description:
     description:
-      Creates or updates the description of a new or existing service.
-      State needs to be present for the use of this option
-      Currently only supported for permanent service operations
+      Creates or updates the description of a new or existing service or ipset.
+      State needs to be present for the use of this argument.
+      Supported for ipsets and services.
     required: false
     type: str
   short:
     description:
       Creates or updates a short description, generally just a full name of a
       new or existing service.
-      Currently supported for service-only operations while state is present
+      Supported for custom services and ipsets while state is present
     required: false
     type: str
   protocol:
@@ -235,6 +259,7 @@ try:
         Rich_Rule,
         FirewallClientZoneSettings,
         FirewallClientServiceSettings,
+        FirewallClientIPSetSettings,
     )
 
     HAS_FIREWALLD = True
@@ -315,6 +340,21 @@ def create_service(module, fw, service):
         fw_service = None
         fw_service_settings = FirewallClientServiceSettings()
     return fw_service, fw_service_settings
+
+
+def create_ipset(module, fw, ipset, ipset_type):
+    if not ipset_type:
+        module.fail_json(msg="ipset_type needed when creating a new ipset")
+
+    fw_ipset = None
+    fw_ipset_settings = FirewallClientIPSetSettings()
+    fw_ipset_settings.setType(ipset_type)
+    if not module.check_mode:
+        fw.config().addIPSet(ipset, fw_ipset_settings)
+        fw_ipset = fw.config().getIPSetByName(ipset)
+        fw_ipset_settings = fw_ipset.getSettings()
+
+    return fw_ipset, fw_ipset_settings
 
 
 def handle_interface_permanent(
@@ -606,6 +646,9 @@ def main():
             ),
             zone=dict(required=False, type="str", default=None),
             set_default_zone=dict(required=False, type="str", default=None),
+            ipset=dict(required=False, type="str", default=None),
+            ipset_type=dict(required=False, type="str", default=None),
+            ipset_entries=dict(required=False, type="list", elements="str", default=[]),
             permanent=dict(required=False, type="bool", default=None),
             runtime=dict(
                 required=False,
@@ -704,6 +747,9 @@ def main():
     target = module.params["target"]
     zone = module.params["zone"]
     set_default_zone = module.params["set_default_zone"]
+    ipset = module.params["ipset"]
+    ipset_type = module.params["ipset_type"]
+    ipset_entries = module.params["ipset_entries"]
     permanent = module.params["permanent"]
     runtime = module.params["runtime"]
     state = module.params["state"]
@@ -714,6 +760,7 @@ def main():
             interface,
             source,
             service,
+            ipset,
             source_port,
             port,
             forward_port,
@@ -743,19 +790,21 @@ def main():
                 icmp_block,
                 set_default_zone,
                 firewalld_conf,
+                ipset,
             )
         )
     ):
         module.fail_json(
             msg="One of service, port, source_port, forward_port, "
             "masquerade, rich_rule, source, interface, icmp_block, "
-            "icmp_block_inversion, target, zone, set_default_zone "
-            "or firewalld_conf needs to be set"
+            "icmp_block_inversion, target, zone, set_default_zone, "
+            "ipset or firewalld_conf needs to be set"
         )
 
     # Checking for any permanent configuration operations
     zone_operation = False
     service_operation = False
+    ipset_operation = False
     if state == "present" or state == "absent":
         if (
             masquerade is not None
@@ -777,9 +826,14 @@ def main():
                 " port, source_port, protocol, destination, or helper_module)"
             )
 
-        # Zone and service are incompatible when state is set to present or absent
-        if zone and service:
-            module.fail_json(msg="both zone and service while state present/absent")
+        # Zone, service, and ipset are incompatible with one another when state is set to present or absent
+        num_conflicting_args = len([x for x in [zone, ipset, service] if x])
+        if num_conflicting_args > 1:
+            module.fail_json(
+                msg="%s of {zone, service, ipset} while state present/absent, expected 1"
+                % num_conflicting_args
+            )
+        del num_conflicting_args
 
         # While short and description are options for new zones, they are unimplemented
         if target is None and zone is not None:
@@ -794,20 +848,34 @@ def main():
                     protocol,
                     destination_ipv4,
                     destination_ipv6,
+                    ipset_entries,
+                    ipset_type,
                 )
             ):
                 module.fail_json(
                     msg="short, description, port, source_port, helper_module, "
-                    "protocol, or destination cannot be set while zone is specified "
+                    "protocol, destination, ipset_type or ipset_entries cannot be set "
+                    "while zone is specified "
                     "and state is set to present or absent"
                 )
             else:
                 zone_operation = True
 
+        elif state == "absent" and any(
+            (
+                short,
+                description,
+                ipset_type,
+            )
+        ):
+            module.fail_json(
+                msg="short, description and ipset_type can only be used when "
+                "state is present"
+            )
         elif service:
             if target is not None:
                 module.fail_json(
-                    msg="both service and target cannot be set "
+                    msg="Both service and target cannot be set "
                     "while state is either present or absent"
                 )
             elif not permanent:
@@ -815,19 +883,23 @@ def main():
                     msg="permanent must be enabled for service configuration. "
                     "Additionally, service runtime configuration is not possible"
                 )
+            elif ipset_entries or ipset_type:
+                module.fail_json(
+                    msg="ipset parameters cannot be set when configuring services"
+                )
             else:
                 service_operation = True
+        elif ipset:
+            if target is not None:
+                module.fail_json(msg="Only one of {ipset, target} can be set")
+            elif not permanent:
+                module.fail_json(
+                    msg="permanent must be enabled for ipset configuration"
+                )
+            else:
+                ipset_operation = True
 
     if service_operation:
-        if state == "absent" and any(
-            (
-                description,
-                short,
-            )
-        ):
-            module.fail_json(
-                msg="description or short is only usable with present state"
-            )
         if len(service) != 1:
             module.fail_json(
                 msg="can only add, modify, or remove one service at a time"
@@ -1140,6 +1212,85 @@ def main():
                 else:
                     module.fail_json(msg="INVALID SERVICE - " + item)
 
+    # ipset operations
+    if ipset_operation:
+        ipset_exists = ipset in fw.config().getIPSetNames()
+        fw_ipset = None
+        fw_ipset_settings = None
+        if ipset_exists:
+            fw_ipset = fw.config().getIPSetByName(ipset)
+            fw_ipset_settings = fw_ipset.getSettings()
+            if ipset_type and ipset_type != fw_ipset_settings.getType():
+                module.fail_json(
+                    msg="Name conflict when creating ipset - "
+                    "ipset %s of type %s already exists"
+                    % (ipset, fw_ipset_settings.getType())
+                )
+        elif state == "present":
+            fw_ipset, fw_ipset_settings = create_ipset(module, fw, ipset, ipset_type)
+            changed = True
+            ipset_exists = True
+        if state == "present":
+            if (
+                description is not None
+                and description != fw_ipset_settings.getDescription()
+            ):
+                if not module.check_mode:
+                    fw_ipset_settings.setDescription(description)
+                changed = True
+            if short is not None and short != fw_ipset_settings.getShort():
+                if not module.check_mode:
+                    fw_ipset_settings.setShort(short)
+                changed = True
+            for entry in ipset_entries:
+                if not fw_ipset_settings.queryEntry(entry):
+                    if not module.check_mode:
+                        fw_ipset_settings.addEntry(entry)
+                    changed = True
+        elif ipset_exists:
+            if ipset_entries:
+                for entry in ipset_entries:
+                    if fw_ipset_settings.queryEntry(entry):
+                        if not module.check_mode:
+                            fw_ipset_settings.removeEntry(entry)
+                        changed = True
+            else:
+                ipset_source_name = "ipset:%s" % ipset
+                bound_zone_permanent = fw.config().getZoneOfSource(ipset_source_name)
+                if bound_zone_permanent:
+                    bound_zone_permanent = "permanent - %s" % bound_zone_permanent
+                bound_zone_runtime = fw.getZoneOfSource(ipset_source_name)
+                if bound_zone_runtime:
+                    bound_zone_runtime = "runtime - %s" % bound_zone_runtime
+                if bound_zone_permanent or bound_zone_runtime:
+                    bound_zones = " | ".join(
+                        [
+                            i
+                            for i in [bound_zone_permanent, bound_zone_runtime]
+                            if i != ""
+                        ]
+                    )
+                    if module.check_mode:
+                        module.warn(
+                            "Ensure %s is removed from all zones before attempting to remove it. Enabled zones: %s"
+                            % (ipset_source_name, bound_zones)
+                        )
+                    else:
+                        module.fail_json(
+                            msg="Remove %s from all permanent and runtime zones before attempting to remove it"
+                            % ipset_source_name
+                        )
+                elif ipset_exists:
+                    if not module.check_mode:
+                        fw_ipset.remove()
+                        ipset_exists = False
+                    changed = True
+
+        if changed and not module.check_mode:
+            if ipset_exists:
+                fw_ipset.update(fw_ipset_settings)
+            need_reload = True
+
     # port
     for _port, _protocol in port:
         if state == "enabled":
@@ -1260,7 +1411,18 @@ def main():
 
     # source
     for item in source:
-        if state == "enabled":
+        # Error case handling for check mode
+        if (
+            module.check_mode
+            and item.startswith("ipset:")
+            and item.split(":")[1] not in fw.config().getIPSetNames()
+        ):
+            module.warn(
+                "%s does not exist - ensure it is defined in a previous task before running play outside check mode"
+                % item
+            )
+            changed = True
+        elif state == "enabled":
             if runtime and not fw.querySource(zone, item):
                 if not module.check_mode:
                     fw.addSource(zone, item)
