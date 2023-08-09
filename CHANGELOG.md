@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.6.1] - 2023-08-09
+--------------------
+
+### Other Changes
+
+- tests: test_ping: fix compatability issues (#171)
+
 [1.6.0] - 2023-08-08
 --------------------
 
