@@ -4,6 +4,15 @@
 # by measuring how many packets are dropped while firewalld is restarting/reloading
 set -euo pipefail
 
+TEST_DEBUG="${TEST_DEBUG:-false}"
+
+if [ "$TEST_DEBUG" = true ]; then
+  exec 6>&1
+  set -x
+else
+  exec 6> /dev/null
+fi
+
 cleanup() {
   rm -f /tmp/ping0
   rm -f /tmp/ping2
@@ -12,7 +21,7 @@ cleanup() {
   podman stop --all
   podman rm --all
 }
-trap "cleanup 1>/dev/null" EXIT
+trap "cleanup 1>&6 2>&6" EXIT
 
 cat > /tmp/Containerfile << EOF
 FROM quay.io/centos/centos:stream8
@@ -30,7 +39,7 @@ EOF
   podman exec test-firewalld firewall-cmd --permanent --add-icmp-block "echo-request"
   # firewall-cmd reload waits for dbus response, systemctl will not
   podman exec test-firewalld firewall-cmd --reload
-} > /dev/null 2>/dev/null
+} 1>&6 2>&6
 
 NUM_PINGS=50
 TIMEOUT=2
