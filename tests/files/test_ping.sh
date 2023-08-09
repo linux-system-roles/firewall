@@ -11,25 +11,21 @@ cleanup() {
   rm -f /tmp/Containerfile
   podman stop --all
   podman rm --all
-  podman network rm podmanbr0 || :
 }
 trap "cleanup 1>/dev/null" EXIT
 
 cat > /tmp/Containerfile << EOF
 FROM quay.io/centos/centos:stream8
-RUN dnf -y install systemd
-RUN dnf -y install firewalld nc
-EXPOSE 31337
+RUN dnf -y install systemd firewalld
 CMD /usr/lib/systemd/systemd 
 EOF
 
 # Initial container setup #
 {
-  podman network create --subnet 172.16.1.0/24 --gateway 172.16.1.1 --interface-name podmanbr0 podmanbr0
   imageid=$(podman build -q /tmp)
-  podman run -d --rm --rmi --privileged --net podmanbr0 --ip 172.16.1.2 --name test-firewalld "$imageid" /usr/lib/systemd/systemd
+  podman run -d --rm --rmi --privileged --name test-firewalld "$imageid" /usr/lib/systemd/systemd
+  ip=$(podman inspect -f "{{.NetworkSettings.IPAddress}}" test-firewalld)
   sleep 5 # Wait reasonable amount of time for container to start services
-  
   # Firewall rule setup #
   podman exec test-firewalld firewall-cmd --permanent --add-icmp-block "echo-request"
   # firewall-cmd reload waits for dbus response, systemctl will not
@@ -40,15 +36,15 @@ NUM_PINGS=50
 TIMEOUT=2
 
 # The following ping should have 100% packet loss
-ping -c "$NUM_PINGS" -W "$TIMEOUT" -i 0.01 172.16.1.2 1>/tmp/ping0 || :
+ping -c "$NUM_PINGS" -W "$TIMEOUT" -i 0.01 "$ip" 1>/tmp/ping0 || :
 
 # Begin downtime comparision #
-ping -c "$NUM_PINGS" -W "$TIMEOUT" -i 0.01 172.16.1.2 1>/tmp/ping1 || : &
+ping -c "$NUM_PINGS" -W "$TIMEOUT" -i 0.01 "$ip" 1>/tmp/ping1 || : &
 pid="$!"
 podman exec test-firewalld systemctl reload firewalld.service
 wait "$pid"
 
-ping -c "$NUM_PINGS" -W "$TIMEOUT" -i 0.01 172.16.1.2 1>/tmp/ping2 || : &
+ping -c "$NUM_PINGS" -W "$TIMEOUT" -i 0.01 "$ip" 1>/tmp/ping2 || : &
 pid="$!"
 podman exec test-firewalld systemctl restart firewalld.service
 wait "$pid"
