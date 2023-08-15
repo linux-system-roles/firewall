@@ -1,6 +1,7 @@
 ---
 - name: Setup a vm with podman on it
   hosts: all
+  gather_facts: true
   pre_tasks:
     - name: Test not supported on EL7
       meta: end_host
