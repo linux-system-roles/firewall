@@ -143,6 +143,27 @@
           fail:
             msg: The role reported changes
           when: firewall_lib_result.changed  # noqa no-handler
+
+        # test firewalld.conf deletion
+
+        - name: Change default zone (Change firewalld.conf)
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - set_default_zone: internal
+
+        - name: Purge config
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - previous: replaced
+
+        - name: Fail if /etc/firewalld/firewalld.conf no longer exists
+          command: test -f /etc/firewalld/firewalld.conf
+          changed_when: false
+
       always:
         - name: Cleanup
           tags:
