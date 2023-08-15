@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[1.6.2] - 2023-08-15
+--------------------
+
+### Other Changes
+
+- ci: Add markdownlint, test_converting_readme, and build_docs workflows (#173)
+- test: this test requires facts, so explicitly gather (#174)
+
 [1.6.1] - 2023-08-09
 --------------------
 
