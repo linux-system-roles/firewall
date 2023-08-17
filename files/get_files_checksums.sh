@@ -30,10 +30,12 @@ find "$firewall_conf_root" -name \*.xml | while read -r file; do
     fi
 done > "$listfile"
 
+set +o pipefail
+
 orig_conf="$firewall_conf_root/firewalld.conf"
 remove_firewall_conf=true
 if [ -f "$orig_conf" ]; then
-    if [ -z "$package" ] || (rpm -V "$package" || true) | grep -q "c ${orig_conf}$"; then
+    if [ -z "$package" ] || rpm -V "$package" | grep -q "c ${orig_conf}$"; then
         cp "$orig_conf" "$firewallconf"
         "$python_cmd" -c 'import os, sys
 from firewall.core.io.firewalld_conf import firewalld_conf
@@ -47,6 +49,8 @@ fc.write()
         remove_firewall_conf=false
     fi
 fi
+
+set -o pipefail
 
 if [ "${remove:-false}" = true ]; then
     find "$firewall_conf_root" -name \*.xml -exec rm -f {} \;
