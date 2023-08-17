@@ -30,6 +30,8 @@ find "$firewall_conf_root" -name \*.xml | while read -r file; do
     fi
 done > "$listfile"
 
+set +o pipefail
+
 orig_conf="$firewall_conf_root/firewalld.conf"
 remove_firewall_conf=true
 if [ -f "$orig_conf" ]; then
@@ -48,10 +50,21 @@ fc.write()
     fi
 fi
 
+set -o pipefail
+
 if [ "${remove:-false}" = true ]; then
     find "$firewall_conf_root" -name \*.xml -exec rm -f {} \;
     if [ "$remove_firewall_conf" = true ]; then
-        rm -f "$orig_conf"
+	"$python_cmd" -c 'import sys
+from firewall.core.io.firewalld_conf import firewalld_conf
+fc = firewalld_conf(None) # open(None, "r") throws an Exception in fc.read()
+try:
+    fc.read() # should populate fallback configuration
+except Exception:
+    pass
+fc.filename=sys.argv[1] # Change target firewalld.conf write target
+fc.write() # update firewalld.conf
+' "$orig_conf" 2>/dev/null
     fi
     if [ -s "$listfile" ] ; then
         firewall-cmd --reload > /dev/null
