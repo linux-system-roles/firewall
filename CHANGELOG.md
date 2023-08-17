@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.6.3] - 2023-08-17
+--------------------
+
+### Bug Fixes
+
+- fix: files: overwrite firewalld.conf on previous replaced (#176)
+
 [1.6.2] - 2023-08-15
 --------------------
 
