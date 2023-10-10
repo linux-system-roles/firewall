@@ -16,6 +16,20 @@ which is available in RHEL-7 and later.
 * RHEL-7+, CentOS-7+
 * Fedora
 
+## Requirements
+
+See below
+
+### Collection requirements
+
+The role requires external collections only for management of `rpm-ostree`
+nodes. Please run the following command to install them if you need to manage
+`rpm-ostree` nodes:
+
+```bash
+ansible-galaxy collection install -vv -r meta/collection-requirements.yml
+```
+
 ## Limitations
 
 ### Configuration over Network
@@ -925,6 +939,10 @@ The block with several services, ports, etc. will be applied at once. If there i
     - linux-system-roles.firewall
 
 ```
+
+## rpm-ostree
+
+See README-ostree.md
 
 ## Authors
 

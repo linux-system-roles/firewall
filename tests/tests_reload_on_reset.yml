@@ -9,6 +9,26 @@
         - ansible_distribution in ['RedHat', 'CentOS']
         - ansible_distribution_major_version | int < 8
   tasks:
+    - name: Ensure correct package manager for ostree systems
+      vars:
+        ostree_pkg_mgr: ansible.posix.rhel_rpm_ostree
+        ostree_booted_file: /run/ostree-booted
+      when: ansible_facts.pkg_mgr | d("") != ostree_pkg_mgr
+      block:
+        - name: Check if system is ostree
+          stat:
+            path: "{{ ostree_booted_file }}"
+          register: __ostree_booted_stat
+
+        - name: Set package manager to use for ostree
+          set_fact:
+            ansible_facts: "{{ ansible_facts |
+              combine(new_facts, recursive=True) }}"
+          vars:
+            new_facts:
+              pkg_mgr: "{{ ostree_pkg_mgr }}"
+          when: __ostree_booted_stat.stat.exists
+
     - name: Install podman
       package:
         name: podman
