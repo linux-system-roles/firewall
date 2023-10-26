@@ -1,6 +1,20 @@
 Changelog
 =========
 
+[1.7.0] - 2023-10-26
+--------------------
+
+### New Features
+
+- feat: support for ostree systems (#191)
+
+### Other Changes
+
+- build(deps): bump actions/checkout from 3 to 4 (#183)
+- ci: ensure dependabot git commit message conforms to commitlint (#187)
+- ci: use dump_packages.py callback to get packages used by role (#189)
+- ci: tox-lsr version 3.1.1 (#192)
+
 [1.6.4] - 2023-09-08
 --------------------
 
