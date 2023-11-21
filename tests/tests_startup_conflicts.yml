@@ -16,30 +16,24 @@
       include_role:
         name: linux-system-roles.firewall
 
-    - name: Ensure correct package manager for ostree systems
-      vars:
-        ostree_pkg_mgr: ansible.posix.rhel_rpm_ostree
-        ostree_booted_file: /run/ostree-booted
-      when: ansible_facts.pkg_mgr | d("") != ostree_pkg_mgr
+    - name: Determine if system is ostree and set flag
+      when: not __firewall_is_ostree is defined
       block:
         - name: Check if system is ostree
           stat:
-            path: "{{ ostree_booted_file }}"
+            path: /run/ostree-booted
           register: __ostree_booted_stat
 
-        - name: Set package manager to use for ostree
+        - name: Set flag to indicate system is ostree
           set_fact:
-            ansible_facts: "{{ ansible_facts |
-              combine(new_facts, recursive=True) }}"
-          vars:
-            new_facts:
-              pkg_mgr: "{{ ostree_pkg_mgr }}"
-          when: __ostree_booted_stat.stat.exists
+            __firewall_is_ostree: "{{ __ostree_booted_stat.stat.exists }}"
 
     - name: Install conflicting service
       package:
         name: nftables
         state: present
+        use: "{{ (__firewall_is_ostree | d(false)) |
+                ternary('ansible.posix.rhel_rpm_ostree', omit) }}"
 
     - name: Enable conflicting service
       service:
