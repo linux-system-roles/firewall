@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Author - Brennan Paciorek <bpaciore@redhat.com>
 # Description - Benchmark firewalld downtime while reloading and while restarting
 # by measuring how many packets are dropped while firewalld is restarting/reloading
