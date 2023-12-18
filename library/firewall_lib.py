@@ -59,6 +59,7 @@ options:
     required: false
     type: list
     elements: str
+    default: []
   port:
     description:
       List of ports or port range strings.
@@ -66,6 +67,7 @@ options:
     required: false
     type: list
     elements: str
+    default: []
   source_port:
     description:
       List of source port or port range strings.
@@ -73,6 +75,7 @@ options:
     required: false
     type: list
     elements: str
+    default: []
   forward_port:
     description:
       List of forward port strings or dicts,
@@ -82,6 +85,7 @@ options:
     aliases: ["port_forward"]
     required: false
     type: raw
+    default: []
   masquerade:
     description:
       The masquerade bool setting.
@@ -94,6 +98,7 @@ options:
     required: false
     type: list
     elements: str
+    default: []
   source:
     description:
       List of source address, address range strings, or ipsets
@@ -104,12 +109,14 @@ options:
     required: false
     type: list
     elements: str
+    default: []
   interface:
     description:
       List of interface name strings.
     required: false
     type: list
     elements: str
+    default: []
   interface_pci_id:
     description:
       List of inteface PCI device ID strings.
@@ -117,6 +124,7 @@ options:
     required: false
     type: list
     elements: str
+    default: []
   icmp_block:
     description:
       List of ICMP type strings to block.
@@ -124,6 +132,7 @@ options:
     required: false
     type: list
     elements: str
+    default: []
   icmp_block_inversion:
     description:
       ICMP block inversion bool setting.
@@ -178,6 +187,7 @@ options:
     required: false
     type: list
     elements: str
+    default: []
   permanent:
     description:
       The permanent bool flag.
@@ -222,12 +232,14 @@ options:
     required: false
     type: list
     elements: str
+    default: []
   helper_module:
     description:
       List of netfiler kernel helper module names
     required: false
     type: list
     elements: str
+    default: []
   destination:
     description:
       List of IPv4/IPv6 addresses with optional mask
@@ -237,12 +249,18 @@ options:
     required: false
     type: list
     elements: str
+    default: []
   __report_changed:
     description:
       If false, do not report changed true even if changed.
     required: false
     type: bool
     default: true
+"""
+
+EXAMPLES = """
+firewall:
+  - port: ['443/tcp', '443/udp']
 """
 
 from ansible.module_utils.basic import AnsibleModule
