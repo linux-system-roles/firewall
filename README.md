@@ -915,7 +915,6 @@ It is also possible to combine several settings into blocks:
       - {service: tftp, state: enabled}
       - {port: '443/tcp', state: enabled}
       - {forward_port: 'eth0;445/tcp;;1.2.3.4', state: enabled}
-         state: enabled}
   roles:
     - linux-system-roles.firewall
 ```
