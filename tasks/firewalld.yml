@@ -28,5 +28,5 @@
 - name: Reboot transactional update systems
   reboot:
   when:
-    - firewall_package_result.changed
+    - firewall_package_result is changed
     - ansible_distribution == 'ALP-Dolomite'
