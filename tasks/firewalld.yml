@@ -29,4 +29,4 @@
   reboot:
   when:
     - firewall_package_result is changed
-    - ansible_distribution == 'ALP-Dolomite'
+    - ansible_distribution == "ALP-Dolomite"
