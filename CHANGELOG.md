@@ -1,6 +1,16 @@
 Changelog
 =========
 
+[1.7.3] - 2024-01-16
+--------------------
+
+### Other Changes
+
+- ci: Use supported ansible-lint action; run ansible-lint against the collection (#200)
+- ci: bump github/codeql-action from 2 to 3 (#201)
+- ci: Use supported ansible-lint action; run ansible-lint against the collection (#203)
+- ci: Add conditional reboot for transactional update support (#204)
+
 [1.7.2] - 2023-12-08
 --------------------
 
