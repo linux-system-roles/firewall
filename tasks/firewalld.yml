@@ -23,10 +23,3 @@
     state: present
     use: "{{ (__firewall_is_ostree | d(false)) |
       ternary('ansible.posix.rhel_rpm_ostree', omit) }}"
-  register: firewall_package_result
-
-- name: Reboot transactional update systems
-  reboot:
-  when:
-    - firewall_package_result is changed
-    - ansible_distribution == "ALP-Dolomite"
