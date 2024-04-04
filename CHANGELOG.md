@@ -1,6 +1,16 @@
 Changelog
 =========
 
+[1.7.5] - 2024-04-04
+--------------------
+
+### Other Changes
+
+- ci: bump codecov/codecov-action from 3 to 4 (#208)
+- ci: fix python unit test - copy pytest config to tests/unit (#210)
+- ci: bump ansible/ansible-lint from 6 to 24 (#211)
+- ci: bump mathieudutour/github-tag-action from 6.1 to 6.2 (#213)
+
 [1.7.4] - 2024-01-23
 --------------------
 
@@ -67,7 +77,6 @@ Changelog
   - Remove badges from README.md prior to converting to HTML
   
   Signed-off-by: Sergei Petrosian <spetrosi@redhat.com>
-
 
 [1.6.3] - 2023-08-17
 --------------------
@@ -208,7 +217,6 @@ Changelog
 - ci: Rename commitlint to PR title Lint, echo PR titles from env var (#149)
 
   Signed-off-by: Sergei Petrosian <spetrosi@redhat.com>
-
 
 [1.4.4] - 2023-04-13
 --------------------
