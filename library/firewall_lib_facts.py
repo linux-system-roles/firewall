@@ -154,9 +154,9 @@ def fetch_settings_from_dir(directory, detailed=False, fw=None):
                     element_settings["rules_str"] = element.getRichRules()
                     element_settings["protocols"] = element.getProtocols()
                     element_settings["source_ports"] = element.getSourcePorts()
-                    element_settings[
-                        "icmp_block_inversion"
-                    ] = element.getIcmpBlockInversion()
+                    element_settings["icmp_block_inversion"] = (
+                        element.getIcmpBlockInversion()
+                    )
             elif setting_name == "services":
                 element = fw.config().getServiceByName(_item).getSettings()
                 try:
