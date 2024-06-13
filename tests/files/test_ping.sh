@@ -24,9 +24,9 @@ cleanup() {
 trap "cleanup 1>&6 2>&6" EXIT
 
 cat > /tmp/Containerfile << EOF
-FROM quay.io/centos/centos:stream8
+FROM quay.io/centos/centos:stream9
 RUN dnf -y install systemd firewalld
-CMD /usr/lib/systemd/systemd 
+CMD /usr/lib/systemd/systemd
 EOF
 
 # Initial container setup #
