@@ -1,6 +1,18 @@
 Changelog
 =========
 
+[1.7.8] - 2024-07-02
+--------------------
+
+### Bug Fixes
+
+- fix: add support for EL10 (#224)
+
+### Other Changes
+
+- test: use cs9 container instead of cs8 (#222)
+- ci: ansible-lint action now requires absolute directory (#223)
+
 [1.7.7] - 2024-06-11
 --------------------
 
