@@ -23,3 +23,27 @@
     state: present
     use: "{{ (__firewall_is_ostree | d(false)) |
       ternary('ansible.posix.rhel_rpm_ostree', omit) }}"
+  register: firewall_package_result
+
+- name: Handle reboot for transactional update systems
+  when:
+    - system_is_transactional | d(false)
+    - firewall_package_result is changed
+  block:
+    - name: Notify user that reboot is needed to apply changes
+      debug:
+        msg: >
+          Reboot required to apply changes due to transactional updates.
+
+    - name: Fail if reboot is needed and not set
+      fail:
+        msg: >
+          "Reboot is required but not allowed. Please set 'transactional_update_reboot_ok' to proceed."
+      when:
+        - transactional_update_reboot_ok is undefined
+
+    - name: Reboot transactional update systems
+      reboot:
+        msg: "Rebooting the system to apply transactional update changes."
+      when:
+        - transactional_update_reboot_ok | d(false)
