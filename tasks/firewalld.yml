@@ -17,6 +17,18 @@
       set_fact:
         __firewall_is_ostree: "{{ __ostree_booted_stat.stat.exists }}"
 
+- name: Determine if system is transactional update and set flag
+  when: not __firewall_is_transactional is defined
+  block:
+    - name: Check if transactional-update exists in /sbin
+      stat:
+        path: /sbin/transactional-update
+      register: __transactional_update_stat
+
+    - name: Set flag if transactional-update exists
+      set_fact:
+        __firewall_is_transactional: "{{ __transactional_update_stat.stat.exists }}"
+
 - name: Install firewalld
   package:
     name: "{{ __firewall_packages_base }}"
@@ -27,7 +39,7 @@
 
 - name: Handle reboot for transactional update systems
   when:
-    - system_is_transactional | d(false)
+    - __firewall_is_transactional | d(false)
     - firewall_package_result is changed
   block:
     - name: Notify user that reboot is needed to apply changes
