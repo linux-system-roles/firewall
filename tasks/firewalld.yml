@@ -47,15 +47,15 @@
         msg: >
           Reboot required to apply changes due to transactional updates.
 
+    - name: Reboot transactional update systems
+      reboot:
+        msg: "Rebooting the system to apply transactional update changes."
+      when:
+        - transactional_update_reboot_ok
+
     - name: Fail if reboot is needed and not set
       fail:
         msg: >
           "Reboot is required but not allowed. Please set 'transactional_update_reboot_ok' to proceed."
       when:
-        - transactional_update_reboot_ok is undefined
-
-    - name: Reboot transactional update systems
-      reboot:
-        msg: "Rebooting the system to apply transactional update changes."
-      when:
-        - transactional_update_reboot_ok | d(false)
+        - transactional_update_reboot_ok is none
