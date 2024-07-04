@@ -49,13 +49,13 @@
 
     - name: Reboot transactional update systems
       reboot:
-        msg: "Rebooting the system to apply transactional update changes."
+        msg: Rebooting the system to apply transactional update changes.
       when:
-        - transactional_update_reboot_ok
+        - firewall_transactional_update_reboot_ok
 
     - name: Fail if reboot is needed and not set
       fail:
         msg: >
-          "Reboot is required but not allowed. Please set 'transactional_update_reboot_ok' to proceed."
+          Reboot is required but not allowed. Please set 'firewall_transactional_update_reboot_ok' to proceed.
       when:
-        - transactional_update_reboot_ok is none
+        - firewall_transactional_update_reboot_ok is none

@@ -771,12 +771,12 @@ being reset and all new connections to the system are rejected.  Existing
 connections will be unaffected. Applying changes with this option in production
 might cause temporary service failures with new connections during the operation.
 
-### transactional_update_reboot_ok
+### firewall_transactional_update_reboot_ok
 
-This variable is used to handle reboots required by transactional updates. If a transactional update requires a reboot, the role will proceed with the reboot if transactional_update_reboot_ok is set to true. If set to false, the role will notify the user that a reboot is required, allowing for custom handling of the reboot requirement. If this variable is not set, the role will fail to ensure the reboot requirement is not overlooked.
+This variable is used to handle reboots required by transactional updates. If a transactional update requires a reboot, the role will proceed with the reboot if firewall_transactional_update_reboot_ok is set to true. If set to false, the role will notify the user that a reboot is required, allowing for custom handling of the reboot requirement. If this variable is not set, the role will fail to ensure the reboot requirement is not overlooked.
 
 ```yaml
-transactional_update_reboot_ok: true
+firewall_transactional_update_reboot_ok: true
 ```
 
 ## Examples of Options
