@@ -1,3 +1,4 @@
 ---
 firewall: []
 firewall_disable_conflicting_services: false
+transactional_update_reboot_ok: null
