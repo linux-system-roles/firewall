@@ -50,7 +50,7 @@
     - name: Reboot transactional update systems
       reboot:
         msg: Rebooting the system to apply transactional update changes.
-      when:
+      when: firewall_transactional_update_reboot_ok | bool
         - firewall_transactional_update_reboot_ok
 
     - name: Fail if reboot is needed and not set
