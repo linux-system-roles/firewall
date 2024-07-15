@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.8.0] - 2024-07-15
+--------------------
+
+### New Features
+
+- feat: Handle reboot for transactional update systems (#226)
+
 [1.7.8] - 2024-07-02
 --------------------
 
