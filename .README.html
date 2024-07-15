@@ -59,7 +59,7 @@ SOFTWARE.
   <style type="text/css">code{white-space: pre;}</style>
   <style type="text/css">
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -70,7 +70,7 @@ div.sourceCode { overflow: auto; }
 }
 @media print {
 pre > code.sourceCode { white-space: pre-wrap; }
-pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
 }
 pre.numberSource code
   { counter-reset: source-line 0; }
@@ -208,6 +208,8 @@ id="toc-helper_module">helper_module</a></li>
 <li><a href="#runtime" id="toc-runtime">runtime</a></li>
 <li><a href="#permanent" id="toc-permanent">permanent</a></li>
 <li><a href="#previous" id="toc-previous">previous</a></li>
+<li><a href="#firewall_transactional_update_reboot_ok"
+id="toc-firewall_transactional_update_reboot_ok">firewall_transactional_update_reboot_ok</a></li>
 </ul></li>
 <li><a href="#examples-of-options" id="toc-examples-of-options">Examples
 of Options</a></li>
@@ -657,7 +659,7 @@ class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb28-1"><a href=
 <h2 id="rich_rule">rich_rule</h2>
 <p>String or list of rich rule strings. For the format see (Syntax for
 firewalld rich language rules)[<a
-href="https://firewalld.org/documentation/man-pages/firewalld.richlanguage.html">https://firewalld.org/documentation/man-pages/firewalld.richlanguage.html</a>]</p>
+href="https://firewalld.org/documentation/man-pages/firewalld.richlanguage.html]">https://firewalld.org/documentation/man-pages/firewalld.richlanguage.html]</a></p>
 <div class="sourceCode" id="cb29"><pre
 class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="fu">rich_rule</span><span class="kw">:</span><span class="at"> rule service name=&quot;ftp&quot; audit limit value=&quot;1/m&quot; accept</span></span></code></pre></div>
 <h2 id="source">source</h2>
@@ -823,6 +825,17 @@ when firewall is being reset and all new connections to the system are
 rejected. Existing connections will be unaffected. Applying changes with
 this option in production might cause temporary service failures with
 new connections during the operation.</p>
+<h2
+id="firewall_transactional_update_reboot_ok">firewall_transactional_update_reboot_ok</h2>
+<p>This variable is used to handle reboots required by transactional
+updates. If a transactional update requires a reboot, the role will
+proceed with the reboot if firewall_transactional_update_reboot_ok is
+set to true. If set to false, the role will notify the user that a
+reboot is required, allowing for custom handling of the reboot
+requirement. If this variable is not set, the role will fail to ensure
+the reboot requirement is not overlooked.</p>
+<div class="sourceCode" id="cb46"><pre
+class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="fu">firewall_transactional_update_reboot_ok</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span></code></pre></div>
 <h1 id="examples-of-options">Examples of Options</h1>
 <p>By default, any changes will be applied immediately, and to the
 permanent settings. If you want the changes to apply immediately but not
@@ -830,126 +843,126 @@ permanently, use <code>permanent: false</code>. Conversely, use
 <code>runtime: false</code>.</p>
 <p>Permit TCP traffic for port 80 in default zone, in addition to any
 existing configuration:</p>
-<div class="sourceCode" id="cb46"><pre
-class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="fu">firewall</span><span class="kw">:</span></span>
-<span id="cb46-2"><a href="#cb46-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">port</span><span class="kw">:</span><span class="at"> 80/tcp</span></span>
-<span id="cb46-3"><a href="#cb46-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">state</span><span class="kw">:</span><span class="at"> enabled</span></span></code></pre></div>
-<p>Remove all existing firewall configuration, and permit TCP traffic
-for port 80 in default zone:</p>
 <div class="sourceCode" id="cb47"><pre
 class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a><span class="fu">firewall</span><span class="kw">:</span></span>
-<span id="cb47-2"><a href="#cb47-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">previous</span><span class="kw">:</span><span class="at"> replaced</span></span>
-<span id="cb47-3"><a href="#cb47-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">port</span><span class="kw">:</span><span class="at"> 80/tcp</span></span>
-<span id="cb47-4"><a href="#cb47-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">state</span><span class="kw">:</span><span class="at"> enabled</span></span></code></pre></div>
-<p>Do not permit TCP traffic for port 80 in default zone:</p>
+<span id="cb47-2"><a href="#cb47-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">port</span><span class="kw">:</span><span class="at"> 80/tcp</span></span>
+<span id="cb47-3"><a href="#cb47-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">state</span><span class="kw">:</span><span class="at"> enabled</span></span></code></pre></div>
+<p>Remove all existing firewall configuration, and permit TCP traffic
+for port 80 in default zone:</p>
 <div class="sourceCode" id="cb48"><pre
 class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a><span class="fu">firewall</span><span class="kw">:</span></span>
-<span id="cb48-2"><a href="#cb48-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">port</span><span class="kw">:</span><span class="at"> 80/tcp</span></span>
-<span id="cb48-3"><a href="#cb48-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">state</span><span class="kw">:</span><span class="at"> disabled</span></span></code></pre></div>
-<p>Add masquerading to dmz zone:</p>
+<span id="cb48-2"><a href="#cb48-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">previous</span><span class="kw">:</span><span class="at"> replaced</span></span>
+<span id="cb48-3"><a href="#cb48-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">port</span><span class="kw">:</span><span class="at"> 80/tcp</span></span>
+<span id="cb48-4"><a href="#cb48-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">state</span><span class="kw">:</span><span class="at"> enabled</span></span></code></pre></div>
+<p>Do not permit TCP traffic for port 80 in default zone:</p>
 <div class="sourceCode" id="cb49"><pre
 class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a><span class="fu">firewall</span><span class="kw">:</span></span>
-<span id="cb49-2"><a href="#cb49-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">masquerade</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
-<span id="cb49-3"><a href="#cb49-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">zone</span><span class="kw">:</span><span class="at"> dmz</span></span>
-<span id="cb49-4"><a href="#cb49-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">state</span><span class="kw">:</span><span class="at"> enabled</span></span></code></pre></div>
-<p>Remove masquerading to dmz zone:</p>
+<span id="cb49-2"><a href="#cb49-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">port</span><span class="kw">:</span><span class="at"> 80/tcp</span></span>
+<span id="cb49-3"><a href="#cb49-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">state</span><span class="kw">:</span><span class="at"> disabled</span></span></code></pre></div>
+<p>Add masquerading to dmz zone:</p>
 <div class="sourceCode" id="cb50"><pre
 class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb50-1"><a href="#cb50-1" aria-hidden="true" tabindex="-1"></a><span class="fu">firewall</span><span class="kw">:</span></span>
-<span id="cb50-2"><a href="#cb50-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">masquerade</span><span class="kw">:</span><span class="at"> </span><span class="ch">false</span></span>
+<span id="cb50-2"><a href="#cb50-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">masquerade</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
 <span id="cb50-3"><a href="#cb50-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">zone</span><span class="kw">:</span><span class="at"> dmz</span></span>
 <span id="cb50-4"><a href="#cb50-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">state</span><span class="kw">:</span><span class="at"> enabled</span></span></code></pre></div>
-<p>Allow interface eth2 in trusted zone:</p>
+<p>Remove masquerading to dmz zone:</p>
 <div class="sourceCode" id="cb51"><pre
 class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a><span class="fu">firewall</span><span class="kw">:</span></span>
-<span id="cb51-2"><a href="#cb51-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">interface</span><span class="kw">:</span><span class="at"> eth2</span></span>
-<span id="cb51-3"><a href="#cb51-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">zone</span><span class="kw">:</span><span class="at"> trusted</span></span>
+<span id="cb51-2"><a href="#cb51-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">masquerade</span><span class="kw">:</span><span class="at"> </span><span class="ch">false</span></span>
+<span id="cb51-3"><a href="#cb51-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">zone</span><span class="kw">:</span><span class="at"> dmz</span></span>
 <span id="cb51-4"><a href="#cb51-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">state</span><span class="kw">:</span><span class="at"> enabled</span></span></code></pre></div>
-<p>Don't allow interface eth2 in trusted zone:</p>
+<p>Allow interface eth2 in trusted zone:</p>
 <div class="sourceCode" id="cb52"><pre
 class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a><span class="fu">firewall</span><span class="kw">:</span></span>
 <span id="cb52-2"><a href="#cb52-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">interface</span><span class="kw">:</span><span class="at"> eth2</span></span>
 <span id="cb52-3"><a href="#cb52-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">zone</span><span class="kw">:</span><span class="at"> trusted</span></span>
-<span id="cb52-4"><a href="#cb52-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">state</span><span class="kw">:</span><span class="at"> disabled</span></span></code></pre></div>
-<p>Permit traffic in default zone for https service:</p>
+<span id="cb52-4"><a href="#cb52-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">state</span><span class="kw">:</span><span class="at"> enabled</span></span></code></pre></div>
+<p>Don't allow interface eth2 in trusted zone:</p>
 <div class="sourceCode" id="cb53"><pre
 class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a><span class="fu">firewall</span><span class="kw">:</span></span>
-<span id="cb53-2"><a href="#cb53-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">service</span><span class="kw">:</span><span class="at"> https</span></span>
-<span id="cb53-3"><a href="#cb53-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">state</span><span class="kw">:</span><span class="at"> enabled</span></span></code></pre></div>
-<p>Do not permit traffic in default zone for https service:</p>
+<span id="cb53-2"><a href="#cb53-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">interface</span><span class="kw">:</span><span class="at"> eth2</span></span>
+<span id="cb53-3"><a href="#cb53-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">zone</span><span class="kw">:</span><span class="at"> trusted</span></span>
+<span id="cb53-4"><a href="#cb53-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">state</span><span class="kw">:</span><span class="at"> disabled</span></span></code></pre></div>
+<p>Permit traffic in default zone for https service:</p>
 <div class="sourceCode" id="cb54"><pre
 class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb54-1"><a href="#cb54-1" aria-hidden="true" tabindex="-1"></a><span class="fu">firewall</span><span class="kw">:</span></span>
 <span id="cb54-2"><a href="#cb54-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">service</span><span class="kw">:</span><span class="at"> https</span></span>
-<span id="cb54-3"><a href="#cb54-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">state</span><span class="kw">:</span><span class="at"> disabled</span></span></code></pre></div>
-<p>Allow interface with PCI device ID '8086:15d7' in dmz zone</p>
+<span id="cb54-3"><a href="#cb54-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">state</span><span class="kw">:</span><span class="at"> enabled</span></span></code></pre></div>
+<p>Do not permit traffic in default zone for https service:</p>
 <div class="sourceCode" id="cb55"><pre
 class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a><span class="fu">firewall</span><span class="kw">:</span></span>
-<span id="cb55-2"><a href="#cb55-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">zone</span><span class="kw">:</span><span class="at"> dmz</span></span>
-<span id="cb55-3"><a href="#cb55-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">interface_pci_id</span><span class="kw">:</span><span class="at"> 8086:15d7</span></span>
-<span id="cb55-4"><a href="#cb55-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">state</span><span class="kw">:</span><span class="at"> enabled</span></span></code></pre></div>
+<span id="cb55-2"><a href="#cb55-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">service</span><span class="kw">:</span><span class="at"> https</span></span>
+<span id="cb55-3"><a href="#cb55-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">state</span><span class="kw">:</span><span class="at"> disabled</span></span></code></pre></div>
+<p>Allow interface with PCI device ID '8086:15d7' in dmz zone</p>
+<div class="sourceCode" id="cb56"><pre
+class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb56-1"><a href="#cb56-1" aria-hidden="true" tabindex="-1"></a><span class="fu">firewall</span><span class="kw">:</span></span>
+<span id="cb56-2"><a href="#cb56-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">zone</span><span class="kw">:</span><span class="at"> dmz</span></span>
+<span id="cb56-3"><a href="#cb56-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">interface_pci_id</span><span class="kw">:</span><span class="at"> 8086:15d7</span></span>
+<span id="cb56-4"><a href="#cb56-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">state</span><span class="kw">:</span><span class="at"> enabled</span></span></code></pre></div>
 <h1 id="example-playbooks">Example Playbooks</h1>
 <p>Erase all existing configuration, and enable ssh service:</p>
-<div class="sourceCode" id="cb56"><pre
-class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb56-1"><a href="#cb56-1" aria-hidden="true" tabindex="-1"></a><span class="pp">---</span></span>
-<span id="cb56-2"><a href="#cb56-2" aria-hidden="true" tabindex="-1"></a><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> Erase existing config and enable ssh service</span></span>
-<span id="cb56-3"><a href="#cb56-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">hosts</span><span class="kw">:</span><span class="at"> myhost</span></span>
-<span id="cb56-4"><a href="#cb56-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb56-5"><a href="#cb56-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">vars</span><span class="kw">:</span></span>
-<span id="cb56-6"><a href="#cb56-6" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">firewall</span><span class="kw">:</span></span>
-<span id="cb56-7"><a href="#cb56-7" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="fu">previous</span><span class="kw">:</span><span class="at"> replaced</span></span>
-<span id="cb56-8"><a href="#cb56-8" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="fu">service</span><span class="kw">:</span><span class="at"> ssh</span></span>
-<span id="cb56-9"><a href="#cb56-9" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="fu">state</span><span class="kw">:</span><span class="at"> enabled</span></span>
-<span id="cb56-10"><a href="#cb56-10" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">roles</span><span class="kw">:</span></span>
-<span id="cb56-11"><a href="#cb56-11" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> linux-system-roles.firewall</span></span></code></pre></div>
-<p>With this playbook you can make sure that the tftp service is
-disabled in the firewall:</p>
 <div class="sourceCode" id="cb57"><pre
 class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb57-1"><a href="#cb57-1" aria-hidden="true" tabindex="-1"></a><span class="pp">---</span></span>
-<span id="cb57-2"><a href="#cb57-2" aria-hidden="true" tabindex="-1"></a><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> Make sure tftp service is disabled</span></span>
+<span id="cb57-2"><a href="#cb57-2" aria-hidden="true" tabindex="-1"></a><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> Erase existing config and enable ssh service</span></span>
 <span id="cb57-3"><a href="#cb57-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">hosts</span><span class="kw">:</span><span class="at"> myhost</span></span>
 <span id="cb57-4"><a href="#cb57-4" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb57-5"><a href="#cb57-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">vars</span><span class="kw">:</span></span>
 <span id="cb57-6"><a href="#cb57-6" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">firewall</span><span class="kw">:</span></span>
-<span id="cb57-7"><a href="#cb57-7" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="fu">service</span><span class="kw">:</span><span class="at"> tftp</span></span>
-<span id="cb57-8"><a href="#cb57-8" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="fu">state</span><span class="kw">:</span><span class="at"> disabled</span></span>
-<span id="cb57-9"><a href="#cb57-9" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">roles</span><span class="kw">:</span></span>
-<span id="cb57-10"><a href="#cb57-10" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> linux-system-roles.firewall</span></span></code></pre></div>
-<p>It is also possible to combine several settings into blocks:</p>
+<span id="cb57-7"><a href="#cb57-7" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="fu">previous</span><span class="kw">:</span><span class="at"> replaced</span></span>
+<span id="cb57-8"><a href="#cb57-8" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="fu">service</span><span class="kw">:</span><span class="at"> ssh</span></span>
+<span id="cb57-9"><a href="#cb57-9" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="fu">state</span><span class="kw">:</span><span class="at"> enabled</span></span>
+<span id="cb57-10"><a href="#cb57-10" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">roles</span><span class="kw">:</span></span>
+<span id="cb57-11"><a href="#cb57-11" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> linux-system-roles.firewall</span></span></code></pre></div>
+<p>With this playbook you can make sure that the tftp service is
+disabled in the firewall:</p>
 <div class="sourceCode" id="cb58"><pre
 class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb58-1"><a href="#cb58-1" aria-hidden="true" tabindex="-1"></a><span class="pp">---</span></span>
-<span id="cb58-2"><a href="#cb58-2" aria-hidden="true" tabindex="-1"></a><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> Configure firewall</span></span>
+<span id="cb58-2"><a href="#cb58-2" aria-hidden="true" tabindex="-1"></a><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> Make sure tftp service is disabled</span></span>
 <span id="cb58-3"><a href="#cb58-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">hosts</span><span class="kw">:</span><span class="at"> myhost</span></span>
 <span id="cb58-4"><a href="#cb58-4" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb58-5"><a href="#cb58-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">vars</span><span class="kw">:</span></span>
 <span id="cb58-6"><a href="#cb58-6" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">firewall</span><span class="kw">:</span></span>
-<span id="cb58-7"><a href="#cb58-7" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">service</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">tftp</span><span class="kw">,</span><span class="at">ftp</span><span class="kw">],</span></span>
-<span id="cb58-8"><a href="#cb58-8" aria-hidden="true" tabindex="-1"></a><span class="at">         </span><span class="fu">port</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="st">&#39;443/tcp&#39;</span><span class="kw">,</span><span class="st">&#39;443/udp&#39;</span><span class="kw">],</span></span>
-<span id="cb58-9"><a href="#cb58-9" aria-hidden="true" tabindex="-1"></a><span class="at">         </span><span class="fu">state</span><span class="kw">:</span><span class="at"> enabled</span><span class="kw">}</span></span>
-<span id="cb58-10"><a href="#cb58-10" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">forward_port</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">eth2;447/tcp;;</span><span class="fl">1.2.3.4</span><span class="kw">,</span></span>
-<span id="cb58-11"><a href="#cb58-11" aria-hidden="true" tabindex="-1"></a><span class="at">                        eth2;448/tcp;;</span><span class="fl">1.2.3.5</span><span class="kw">],</span></span>
-<span id="cb58-12"><a href="#cb58-12" aria-hidden="true" tabindex="-1"></a><span class="at">          </span><span class="fu">state</span><span class="kw">:</span><span class="at"> enabled</span><span class="kw">}</span></span>
-<span id="cb58-13"><a href="#cb58-13" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">zone</span><span class="kw">:</span><span class="at"> internal</span><span class="kw">,</span><span class="at"> </span><span class="fu">service</span><span class="kw">:</span><span class="at"> tftp</span><span class="kw">,</span><span class="at"> </span><span class="fu">state</span><span class="kw">:</span><span class="at"> enabled</span><span class="kw">}</span></span>
-<span id="cb58-14"><a href="#cb58-14" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">service</span><span class="kw">:</span><span class="at"> tftp</span><span class="kw">,</span><span class="at"> </span><span class="fu">state</span><span class="kw">:</span><span class="at"> enabled</span><span class="kw">}</span></span>
-<span id="cb58-15"><a href="#cb58-15" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">port</span><span class="kw">:</span><span class="at"> </span><span class="st">&#39;443/tcp&#39;</span><span class="kw">,</span><span class="at"> </span><span class="fu">state</span><span class="kw">:</span><span class="at"> enabled</span><span class="kw">}</span></span>
-<span id="cb58-16"><a href="#cb58-16" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">forward_port</span><span class="kw">:</span><span class="at"> </span><span class="st">&#39;eth0;445/tcp;;1.2.3.4&#39;</span><span class="kw">,</span><span class="at"> </span><span class="fu">state</span><span class="kw">:</span><span class="at"> enabled</span><span class="kw">}</span></span>
-<span id="cb58-17"><a href="#cb58-17" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">roles</span><span class="kw">:</span></span>
-<span id="cb58-18"><a href="#cb58-18" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> linux-system-roles.firewall</span></span></code></pre></div>
-<p>The block with several services, ports, etc. will be applied at once.
-If there is something wrong in the block it will fail as a whole.</p>
+<span id="cb58-7"><a href="#cb58-7" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="fu">service</span><span class="kw">:</span><span class="at"> tftp</span></span>
+<span id="cb58-8"><a href="#cb58-8" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="fu">state</span><span class="kw">:</span><span class="at"> disabled</span></span>
+<span id="cb58-9"><a href="#cb58-9" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">roles</span><span class="kw">:</span></span>
+<span id="cb58-10"><a href="#cb58-10" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> linux-system-roles.firewall</span></span></code></pre></div>
+<p>It is also possible to combine several settings into blocks:</p>
 <div class="sourceCode" id="cb59"><pre
 class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb59-1"><a href="#cb59-1" aria-hidden="true" tabindex="-1"></a><span class="pp">---</span></span>
-<span id="cb59-2"><a href="#cb59-2" aria-hidden="true" tabindex="-1"></a><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> Configure external zone in firewall</span></span>
+<span id="cb59-2"><a href="#cb59-2" aria-hidden="true" tabindex="-1"></a><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> Configure firewall</span></span>
 <span id="cb59-3"><a href="#cb59-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">hosts</span><span class="kw">:</span><span class="at"> myhost</span></span>
 <span id="cb59-4"><a href="#cb59-4" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb59-5"><a href="#cb59-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">vars</span><span class="kw">:</span></span>
 <span id="cb59-6"><a href="#cb59-6" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">firewall</span><span class="kw">:</span></span>
-<span id="cb59-7"><a href="#cb59-7" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">zone</span><span class="kw">:</span><span class="at"> external</span><span class="kw">,</span></span>
-<span id="cb59-8"><a href="#cb59-8" aria-hidden="true" tabindex="-1"></a><span class="at">         </span><span class="fu">service</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">tftp</span><span class="kw">,</span><span class="at">ftp</span><span class="kw">],</span></span>
-<span id="cb59-9"><a href="#cb59-9" aria-hidden="true" tabindex="-1"></a><span class="at">         </span><span class="fu">port</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="st">&#39;443/tcp&#39;</span><span class="kw">,</span><span class="st">&#39;443/udp&#39;</span><span class="kw">],</span></span>
-<span id="cb59-10"><a href="#cb59-10" aria-hidden="true" tabindex="-1"></a><span class="at">         </span><span class="fu">forward_port</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="st">&#39;447/tcp;;1.2.3.4&#39;</span><span class="kw">,</span></span>
-<span id="cb59-11"><a href="#cb59-11" aria-hidden="true" tabindex="-1"></a><span class="at">                        </span><span class="st">&#39;448/tcp;;1.2.3.5&#39;</span><span class="kw">],</span></span>
-<span id="cb59-12"><a href="#cb59-12" aria-hidden="true" tabindex="-1"></a><span class="at">         </span><span class="fu">state</span><span class="kw">:</span><span class="at"> enabled</span><span class="kw">}</span></span>
-<span id="cb59-13"><a href="#cb59-13" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">roles</span><span class="kw">:</span></span>
-<span id="cb59-14"><a href="#cb59-14" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> linux-system-roles.firewall</span></span></code></pre></div>
+<span id="cb59-7"><a href="#cb59-7" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">service</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">tftp</span><span class="kw">,</span><span class="at">ftp</span><span class="kw">],</span></span>
+<span id="cb59-8"><a href="#cb59-8" aria-hidden="true" tabindex="-1"></a><span class="at">         </span><span class="fu">port</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="st">&#39;443/tcp&#39;</span><span class="kw">,</span><span class="st">&#39;443/udp&#39;</span><span class="kw">],</span></span>
+<span id="cb59-9"><a href="#cb59-9" aria-hidden="true" tabindex="-1"></a><span class="at">         </span><span class="fu">state</span><span class="kw">:</span><span class="at"> enabled</span><span class="kw">}</span></span>
+<span id="cb59-10"><a href="#cb59-10" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">forward_port</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">eth2;447/tcp;;</span><span class="fl">1.2.3.4</span><span class="kw">,</span></span>
+<span id="cb59-11"><a href="#cb59-11" aria-hidden="true" tabindex="-1"></a><span class="at">                        eth2;448/tcp;;</span><span class="fl">1.2.3.5</span><span class="kw">],</span></span>
+<span id="cb59-12"><a href="#cb59-12" aria-hidden="true" tabindex="-1"></a><span class="at">          </span><span class="fu">state</span><span class="kw">:</span><span class="at"> enabled</span><span class="kw">}</span></span>
+<span id="cb59-13"><a href="#cb59-13" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">zone</span><span class="kw">:</span><span class="at"> internal</span><span class="kw">,</span><span class="at"> </span><span class="fu">service</span><span class="kw">:</span><span class="at"> tftp</span><span class="kw">,</span><span class="at"> </span><span class="fu">state</span><span class="kw">:</span><span class="at"> enabled</span><span class="kw">}</span></span>
+<span id="cb59-14"><a href="#cb59-14" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">service</span><span class="kw">:</span><span class="at"> tftp</span><span class="kw">,</span><span class="at"> </span><span class="fu">state</span><span class="kw">:</span><span class="at"> enabled</span><span class="kw">}</span></span>
+<span id="cb59-15"><a href="#cb59-15" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">port</span><span class="kw">:</span><span class="at"> </span><span class="st">&#39;443/tcp&#39;</span><span class="kw">,</span><span class="at"> </span><span class="fu">state</span><span class="kw">:</span><span class="at"> enabled</span><span class="kw">}</span></span>
+<span id="cb59-16"><a href="#cb59-16" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">forward_port</span><span class="kw">:</span><span class="at"> </span><span class="st">&#39;eth0;445/tcp;;1.2.3.4&#39;</span><span class="kw">,</span><span class="at"> </span><span class="fu">state</span><span class="kw">:</span><span class="at"> enabled</span><span class="kw">}</span></span>
+<span id="cb59-17"><a href="#cb59-17" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">roles</span><span class="kw">:</span></span>
+<span id="cb59-18"><a href="#cb59-18" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> linux-system-roles.firewall</span></span></code></pre></div>
+<p>The block with several services, ports, etc. will be applied at once.
+If there is something wrong in the block it will fail as a whole.</p>
+<div class="sourceCode" id="cb60"><pre
+class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb60-1"><a href="#cb60-1" aria-hidden="true" tabindex="-1"></a><span class="pp">---</span></span>
+<span id="cb60-2"><a href="#cb60-2" aria-hidden="true" tabindex="-1"></a><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> Configure external zone in firewall</span></span>
+<span id="cb60-3"><a href="#cb60-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">hosts</span><span class="kw">:</span><span class="at"> myhost</span></span>
+<span id="cb60-4"><a href="#cb60-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb60-5"><a href="#cb60-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">vars</span><span class="kw">:</span></span>
+<span id="cb60-6"><a href="#cb60-6" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">firewall</span><span class="kw">:</span></span>
+<span id="cb60-7"><a href="#cb60-7" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">zone</span><span class="kw">:</span><span class="at"> external</span><span class="kw">,</span></span>
+<span id="cb60-8"><a href="#cb60-8" aria-hidden="true" tabindex="-1"></a><span class="at">         </span><span class="fu">service</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">tftp</span><span class="kw">,</span><span class="at">ftp</span><span class="kw">],</span></span>
+<span id="cb60-9"><a href="#cb60-9" aria-hidden="true" tabindex="-1"></a><span class="at">         </span><span class="fu">port</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="st">&#39;443/tcp&#39;</span><span class="kw">,</span><span class="st">&#39;443/udp&#39;</span><span class="kw">],</span></span>
+<span id="cb60-10"><a href="#cb60-10" aria-hidden="true" tabindex="-1"></a><span class="at">         </span><span class="fu">forward_port</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="st">&#39;447/tcp;;1.2.3.4&#39;</span><span class="kw">,</span></span>
+<span id="cb60-11"><a href="#cb60-11" aria-hidden="true" tabindex="-1"></a><span class="at">                        </span><span class="st">&#39;448/tcp;;1.2.3.5&#39;</span><span class="kw">],</span></span>
+<span id="cb60-12"><a href="#cb60-12" aria-hidden="true" tabindex="-1"></a><span class="at">         </span><span class="fu">state</span><span class="kw">:</span><span class="at"> enabled</span><span class="kw">}</span></span>
+<span id="cb60-13"><a href="#cb60-13" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">roles</span><span class="kw">:</span></span>
+<span id="cb60-14"><a href="#cb60-14" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> linux-system-roles.firewall</span></span></code></pre></div>
 <h1 id="rpm-ostree">rpm-ostree</h1>
 <p>See README-ostree.md</p>
 <h1 id="authors">Authors</h1>
