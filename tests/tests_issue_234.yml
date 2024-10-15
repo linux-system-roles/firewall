@@ -1,0 +1,80 @@
+---
+- name: Test issue 234
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Test issue 234
+      block:
+        - name: Setup firewalld
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              # Wipe existing config and replace with the config defined below.
+              - previous: replaced
+
+              # For some reason the cockpit and dhcpv6-client are enabled by default.
+              # Explicitly disable them.
+              - service:
+                  - cockpit
+                  - dhcpv6-client
+                state: disabled
+
+              # Only allow the ports below.
+              - zone: public
+                state: enabled
+                permanent: true
+                interface: ens18
+                services:
+                  - ssh
+                port:
+                    # Web ports
+                  - '80/tcp'    # HTTP
+                  - '443/tcp'   # HTTPS
+
+                # NOTE: For some reason the forward_ports are not persistent. When making changes always make them persistent manually using:
+                #   firewall-cmd --runtime-to-permanent
+                masquerade: true
+                forward_port:
+                  - port: 1194
+                    proto: udp
+                    toaddr: 192.168.1.1
+                    toport: 1195
+
+                  - port: 16001
+                    proto: tcp
+                    toaddr: 192.168.1.21  # nas.loc (Video Station HTTPS)
+                    toport: 16001
+
+        - name: Debug1
+          command: firewall-cmd --list-all-zones
+          changed_when: false
+
+        - name: Reboot
+          reboot:
+
+        - name: Debug2
+          command: firewall-cmd --list-all-zones
+          changed_when: false
+
+      always:
+        - name: Cleanup
+          tags:
+            - tests::cleanup
+          block:
+            # CLEANUP: RESET TO ZONE DEFAULTS
+
+            - name: Remove customzone zone
+              command: firewall-cmd --permanent --delete-zone=customzone
+              register: result
+              failed_when: result.failed and "INVALID_ZONE" not in result.stderr
+              changed_when: false
+
+            - name: Reset to zone defaults
+              shell:
+                cmd: |
+                  firewall-cmd --permanent --load-zone-defaults=internal
+                  firewall-cmd --permanent --load-zone-defaults=external
+                  firewall-cmd --permanent --load-zone-defaults=trusted
+                  firewall-cmd --reload
+              changed_when: false
