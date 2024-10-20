@@ -1469,7 +1469,8 @@ def main():
             if permanent:
                 nm_used, if_changed = try_set_zone_of_interface(module, zone, item)
                 if nm_used:
-                    changed = if_changed
+                    if if_changed:
+                        changed = True
                 elif not fw_settings.queryInterface(item):
                     if not module.check_mode:
                         handle_interface_permanent(
@@ -1484,7 +1485,8 @@ def main():
             if permanent:
                 nm_used, if_changed = try_set_zone_of_interface(module, "", item)
                 if nm_used:
-                    changed = if_changed
+                    if if_changed:
+                        changed = True
                 elif fw_settings.queryInterface(item):
                     if not module.check_mode:
                         fw_settings.removeInterface(item)
