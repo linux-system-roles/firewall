@@ -785,7 +785,7 @@ class FirewallLibMain(unittest.TestCase):
     ):
         am = am_class.return_value
         am.params = {
-            "interface": "eth0",
+            "interface": ["eth0"],
             "zone": "public",
             "permanent": True,
         }
@@ -799,6 +799,13 @@ class FirewallLibMain(unittest.TestCase):
 
         fw_config = Mock()
         fw_config.getZoneNames.return_value = available_zones
+        fw_config.getServiceNames.return_value = ["ssh"]
+        fw_zone = Mock()
+        fw_config.getZoneByName.return_value = fw_zone
+        fw_settings = Mock()
+        fw_settings.queryService.return_value = False
+        fw_settings.addService = Mock()
+        fw_zone.getSettings.return_value = fw_settings
         fw.config.return_value = fw_config
 
         return_values = [(True, True), (True, False)]
@@ -806,8 +813,18 @@ class FirewallLibMain(unittest.TestCase):
             am.params["state"] = state
             for rv in return_values:
                 try_set_zone_of_interface.return_value = rv
+                fw_settings.queryService.return_value = state == "disabled"
                 firewall_lib.main()
                 am.exit_json.assert_called_with(changed=rv[1], __firewall_changed=rv[1])
+
+        for state in ["enabled", "disabled"]:
+            am.params["state"] = state
+            am.params["service"] = ["ssh"]
+            for rv in return_values:
+                try_set_zone_of_interface.return_value = rv
+                fw_settings.queryService.return_value = state == "disabled"
+                firewall_lib.main()
+                am.exit_json.assert_called_with(changed=True, __firewall_changed=True)
 
     @patch("firewall_lib.HAS_FIREWALLD", True)
     @patch("firewall_lib.FW_VERSION", "0.9.0", create=True)
