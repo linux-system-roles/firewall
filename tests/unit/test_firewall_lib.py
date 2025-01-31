@@ -3,7 +3,7 @@
 # Copyright: (c) 2020, Rich Megginson <rmeggins@redhat.com>
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
-""" Unit tests for kernel_settings module """
+"""Unit tests for kernel_settings module"""
 
 from __future__ import absolute_import, division, print_function
 
