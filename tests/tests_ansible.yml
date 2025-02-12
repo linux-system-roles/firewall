@@ -249,7 +249,7 @@
           register: result
           failed_when: result.failed or result.changed
 
-        - name: Allow masquerading in permament dmz zone
+        - name: Allow masquerading in permanent dmz zone
           firewall_lib:
             masquerade: true
             permanent: true
@@ -257,7 +257,7 @@
           register: result
           failed_when: result.failed or not result.changed
 
-        - name: Allow masquerading in permament dmz zone, again
+        - name: Allow masquerading in permanent dmz zone, again
           firewall_lib:
             masquerade: true
             permanent: true

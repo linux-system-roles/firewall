@@ -119,7 +119,7 @@ options:
     default: []
   interface_pci_id:
     description:
-      List of inteface PCI device ID strings.
+      List of interface PCI device ID strings.
       PCI device ID needs to correspond to a named network interface.
     required: false
     type: list

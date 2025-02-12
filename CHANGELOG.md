@@ -161,7 +161,7 @@ Changelog
 
 ### Other Changes
 
-- tests: test_ping: fix compatability issues (#171)
+- tests: test_ping: fix compatibility issues (#171)
 
 [1.6.0] - 2023-08-08
 --------------------
