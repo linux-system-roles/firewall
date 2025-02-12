@@ -68,7 +68,7 @@
               zone: internal
               interface_pci_id: 1af4:0001
               state: disabled
-              permament: true
+              permanent: true
       always:
         - name: Cleanup
           tags:

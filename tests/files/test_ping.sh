@@ -47,7 +47,7 @@ TIMEOUT=2
 # The following ping should have 100% packet loss
 ping -c "$NUM_PINGS" -W "$TIMEOUT" -i 0.01 "$ip" 1>/tmp/ping0 || :
 
-# Begin downtime comparision #
+# Begin downtime comparison #
 ping -c "$NUM_PINGS" -W "$TIMEOUT" -i 0.01 "$ip" 1>/tmp/ping1 || : &
 pid="$!"
 podman exec test-firewalld systemctl reload firewalld.service

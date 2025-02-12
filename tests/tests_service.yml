@@ -31,7 +31,7 @@
 
         - name: Fail if systemroletest present prior to test run
           fail:
-            msg: test service present after reseting defaults
+            msg: test service present after resetting defaults
           when: result.stdout.find("systemroletest") != -1
 
         - name: Ensure http has default configuration
@@ -233,7 +233,7 @@
                   - 1::1
                 helper_module: ftp
                 protocol: icmp
-                permament: true
+                permanent: true
                 state: absent
 
         # Verify nothing is removed in this case
@@ -256,7 +256,7 @@
                   - 1::1
                 helper_module: ftp
                 protocol: icmp
-                permament: true
+                permanent: true
                 state: absent
 
         - name: Fail if custom service elements changed
@@ -284,7 +284,7 @@
           vars:
             firewall:
               - service: systemroletest
-                permament: true
+                permanent: true
                 state: absent
 
         - name: Get all services
@@ -303,7 +303,7 @@
           vars:
             firewall:
               - service: systemroletest
-                permament: true
+                permanent: true
                 state: absent
 
         - name: Fail if second removal changes anything

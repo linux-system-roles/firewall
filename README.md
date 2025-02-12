@@ -218,7 +218,7 @@ permanent change was made to each setting:
 ### firewall_disable_conflicting_services
 
 By default, the firewall role does not attempt to disable conflicting services due to the
-overhead associated with enumerating the services when disabling services is potentially unecessary.
+overhead associated with enumerating the services when disabling services is potentially unnecessary.
 To enable this feature, set the variable `firewall_disable_conflicting_services` to `true`:
 
 ```yaml
@@ -475,7 +475,7 @@ See `ipset` for more usage information
 List of addresses to add or remove from an ipset
 Used with `ipset`
 
-Entrys must be compatible with the ipset type of the `ipset`
+Entries must be compatible with the ipset type of the `ipset`
 being created or modified.
 
 ```yaml

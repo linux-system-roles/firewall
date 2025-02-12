@@ -38,7 +38,7 @@
                   - 127.0.0.1
                   - 8.8.8.8
                 short: Custom
-                desciption: Custom IPSet for testing purposes
+                description: Custom IPSet for testing purposes
                 state: present
                 permanent: true
 
@@ -63,7 +63,7 @@
             firewall:
               - ipset: customipset
                 short: Custom
-                desciption: Custom IPSet for testing purposes
+                description: Custom IPSet for testing purposes
                 state: present
                 permanent: true
           register: result
