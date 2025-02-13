@@ -58,8 +58,9 @@ SOFTWARE.
   </style>
   <style type="text/css">code{white-space: pre;}</style>
   <style type="text/css">
+html { -webkit-text-size-adjust: 100%; }
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -70,7 +71,7 @@ div.sourceCode { overflow: auto; }
 }
 @media print {
 pre > code.sourceCode { white-space: pre-wrap; }
-pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
 }
 pre.numberSource code
   { counter-reset: source-line 0; }
@@ -394,7 +395,7 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb7-1"><a href="
 id="firewall_disable_conflicting_services">firewall_disable_conflicting_services</h2>
 <p>By default, the firewall role does not attempt to disable conflicting
 services due to the overhead associated with enumerating the services
-when disabling services is potentially unecessary. To enable this
+when disabling services is potentially unnecessary. To enable this
 feature, set the variable
 <code>firewall_disable_conflicting_services</code> to
 <code>true</code>:</p>
@@ -606,7 +607,7 @@ class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb23-1"><a href=
 <h2 id="ipset_entries">ipset_entries</h2>
 <p>List of addresses to add or remove from an ipset Used with
 <code>ipset</code></p>
-<p>Entrys must be compatible with the ipset type of the
+<p>Entries must be compatible with the ipset type of the
 <code>ipset</code> being created or modified.</p>
 <div class="sourceCode" id="cb24"><pre
 class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ipset</span><span class="kw">:</span><span class="at"> customipset</span></span>
@@ -659,7 +660,7 @@ class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb28-1"><a href=
 <h2 id="rich_rule">rich_rule</h2>
 <p>String or list of rich rule strings. For the format see (Syntax for
 firewalld rich language rules)[<a
-href="https://firewalld.org/documentation/man-pages/firewalld.richlanguage.html]">https://firewalld.org/documentation/man-pages/firewalld.richlanguage.html]</a></p>
+href="https://firewalld.org/documentation/man-pages/firewalld.richlanguage.html">https://firewalld.org/documentation/man-pages/firewalld.richlanguage.html</a>]</p>
 <div class="sourceCode" id="cb29"><pre
 class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="fu">rich_rule</span><span class="kw">:</span><span class="at"> rule service name=&quot;ftp&quot; audit limit value=&quot;1/m&quot; accept</span></span></code></pre></div>
 <h2 id="source">source</h2>
