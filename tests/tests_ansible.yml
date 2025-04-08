@@ -536,6 +536,28 @@
           register: result
           failed_when: result is failed or result is not changed
 
+        - name: Add includes
+          firewall_lib:
+            service: customservice
+            includes:
+              - https
+              - ldaps
+            state: present
+            permanent: true
+          register: result
+          failed_when: result is failed or result is not changed
+
+        - name: Add includes again to check idempotence
+          firewall_lib:
+            service: customservice
+            includes:
+              - https
+              - ldaps
+            state: present
+            permanent: true
+          register: result
+          failed_when: result is failed or result is changed
+
         - name: Delete custom service
           firewall_lib:
             service: customservice
@@ -564,6 +586,9 @@
             destination:
               - 123.45.6.78
               - "aaaa:aaaa:aaaa:aaa:aaaa:aaaa:aaaa::"
+            includes:
+              - https
+              - ldaps
             permanent: true
             state: present
           register: result
