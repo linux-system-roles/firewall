@@ -698,6 +698,19 @@ helper_module: ftp
 helper_module: nf_conntrack_ftp
 ```
 
+### includes
+
+Name of one or more services to specify in an `include` in a
+service definition.  The `include` directive is described in the
+[service manpage](https://firewalld.org/documentation/man-pages/firewalld.service.html)
+This can only be used when managing service definitions.
+
+```yaml
+includes:
+  - https
+  - ldaps
+```
+
 ### timeout
 
 The amount of time in seconds a setting is in effect. The timeout is usable if

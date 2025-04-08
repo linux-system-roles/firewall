@@ -250,6 +250,13 @@ options:
     type: list
     elements: str
     default: []
+  includes:
+    description:
+      Services to include in this one.
+    required: false
+    type: list
+    elements: str
+    default: []
   __report_changed:
     description:
       If false, do not report changed true even if changed.
@@ -691,6 +698,7 @@ def main():
             protocol=dict(required=False, type="list", elements="str", default=[]),
             helper_module=dict(required=False, type="list", elements="str", default=[]),
             destination=dict(required=False, type="list", elements="str", default=[]),
+            includes=dict(required=False, type="list", elements="str", default=[]),
             __report_changed=dict(required=False, type="bool", default=True),
         ),
         supports_check_mode=True,
@@ -771,6 +779,7 @@ def main():
     permanent = module.params["permanent"]
     runtime = module.params["runtime"]
     state = module.params["state"]
+    includes = module.params["includes"]
 
     # All options that require state to be set
     state_required = any(
@@ -1146,6 +1155,11 @@ def main():
                     if not module.check_mode:
                         fw_service_settings.setDestination("ipv6", destination_ipv6)
                     changed = True
+            for _include in includes:
+                if not fw_service_settings.queryInclude(_include):
+                    if not module.check_mode:
+                        fw_service_settings.addInclude(_include)
+                    changed = True
         if state == "absent" and service_exists:
             if port:
                 for _port, _protocol in port:
@@ -1180,6 +1194,11 @@ def main():
                 if fw_service_settings.queryDestination("ipv6", destination_ipv6):
                     if not module.check_mode:
                         fw_service_settings.removeDestination("ipv6", destination_ipv6)
+                    changed = True
+            for _include in includes:
+                if fw_service_settings.queryInclude(_include):
+                    if not module.check_mode:
+                        fw_service_settings.removeInclude(_include)
                     changed = True
             if not any(
                 (

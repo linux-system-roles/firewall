@@ -69,6 +69,9 @@
                 destination:
                   - 1.1.1.1
                   - 1::1
+                includes:
+                  - ssh
+                  - ldaps
                 permanent: true
                 state: present
 
@@ -88,6 +91,9 @@
                 destination:
                   - 1.1.1.1
                   - 1::1
+                includes:
+                  - ssh
+                  - ldaps
                 permanent: true
                 state: present
 
@@ -118,6 +124,9 @@
                   - 1::1
                 helper_module: ftp
                 protocol: icmp
+                includes:
+                  - ssh
+                  - ldaps
                 permanent: true
                 state: present
 
@@ -158,6 +167,9 @@
                   - 1::1
                 helper_module: ftp
                 protocol: icmp
+                includes:
+                  - ssh
+                  - ldaps
                 permanent: true
                 state: present
 
@@ -233,6 +245,9 @@
                   - 1::1
                 helper_module: ftp
                 protocol: icmp
+                includes:
+                  - ssh
+                  - ldaps
                 permanent: true
                 state: absent
 
@@ -256,6 +271,9 @@
                   - 1::1
                 helper_module: ftp
                 protocol: icmp
+                includes:
+                  - ssh
+                  - ldaps
                 permanent: true
                 state: absent
 

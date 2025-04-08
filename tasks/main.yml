@@ -111,6 +111,7 @@
     permanent: "{{ item.permanent | default(True) }}"
     runtime: "{{ item.runtime | default(True) }}"
     state: "{{ item.state | default(omit) }}"
+    includes: "{{ item.includes | default(omit) }}"
     __report_changed: "{{ __firewall_report_changed }}"
   loop: "{{ firewall is mapping | ternary([firewall], firewall) |
     map('dict2items') | map('difference', __previous) |
