@@ -1,6 +1,27 @@
 Changelog
 =========
 
+[1.9.0] - 2025-04-23
+--------------------
+
+### New Features
+
+- feat: support includes for services (#259)
+
+### Other Changes
+
+- ci: ansible-plugin-scan is disabled for now (#248)
+- ci: bump ansible-lint to v25; provide collection requirements for ansible-lint (#251)
+- refactor: fix python black formatting (#252)
+- ci: Check spelling with codespell (#253)
+- ci: Add test plan that runs CI tests and customize it for each role (#254)
+- ci: In test plans, prefix all relate variables with SR_ (#256)
+- ci: Fix bug with ARTIFACTS_URL after prefixing with SR_ (#257)
+- ci: several changes related to new qemu test, ansible-lint, python versions, ubuntu versions (#258)
+- ci: Avoid too large inline test logs in QEMU/KVM integration test (#260)
+- ci: use tox-lsr 3.6.0; improve qemu test logging (#261)
+- ci: skip storage scsi, nvme tests in github qemu ci (#262)
+
 [1.8.2] - 2025-01-09
 --------------------
 
