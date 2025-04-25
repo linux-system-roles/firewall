@@ -1,6 +1,9 @@
 ---
 - name: Setup a vm with podman on it
   hosts: all
+  tags:
+    # this test does not work in container builds
+    - tests::booted
   gather_facts: true
   pre_tasks:
     - name: Test not supported on EL7

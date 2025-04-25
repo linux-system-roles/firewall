@@ -134,6 +134,7 @@
               - source: "ipset:customipset"
                 state: enabled
                 runtime: true
+          when: __firewall_is_booted
 
         - name: Add ipset to default zone again (runtime)
           include_role:
@@ -144,11 +145,14 @@
                 state: enabled
                 runtime: true
           register: result
+          when: __firewall_is_booted
 
         - name: Fail if adding ipset is not idempotent (runtime)
           fail:
             msg: "enabling ipsets in zones is not idempotent (runtime)"
-          when: result.changed | bool  # noqa no-handler
+          when:
+            - result.changed | bool  # noqa no-handler
+            - __firewall_is_booted
 
         - name: Add ipset to default zone (permanent)
           include_role:

@@ -1503,6 +1503,9 @@ def get_interface_pci():
 
 
 def parse_pci_id(module, item):
+    if not module.params["online"]:
+        module.fail_json(msg="interface_pci_id is not supported in offline mode.")
+
     if PCI_REGEX.search(item):
         global pci_ids
         if not pci_ids:

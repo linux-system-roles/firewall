@@ -628,6 +628,9 @@ A list of PCI devices with their IDs can be retrieved using `lcpci -nn`.
 For more information on PCI device IDs, see the linux man page at:
 <https://man7.org/linux/man-pages/man5/pci.ids.5.html>
 
+This option requires running the role on the actual target machine, i.e. it is
+not supported during container builds.
+
 ### icmp_block
 
 String or list of ICMP type strings to block.  The ICMP type names needs to be
