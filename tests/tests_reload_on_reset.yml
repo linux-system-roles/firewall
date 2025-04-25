@@ -21,9 +21,12 @@
           set_fact:
             __firewall_is_ostree: "{{ __ostree_booted_stat.stat.exists }}"
 
-    - name: Install podman
+    - name: Install test dependencies
       package:
-        name: podman
+        name:
+          - podman
+          # for ping
+          - iputils
         state: present
         use: "{{ (__firewall_is_ostree | d(false)) |
                 ternary('ansible.posix.rhel_rpm_ostree', omit) }}"
