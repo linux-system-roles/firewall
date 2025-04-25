@@ -7,6 +7,7 @@ firewall_conf_root="${2:-/etc/firewalld}"
 remove="${3:-false}"
 package="${4:-}"
 firewall_usr_lib="${5:-}"
+booted="${6:-}"
 
 listfile=$(mktemp)
 firewallconf=$(mktemp)
@@ -66,7 +67,7 @@ fc.filename=sys.argv[1] # Change target firewalld.conf write target
 fc.write() # update firewalld.conf
 ' "$orig_conf" 2>/dev/null
     fi
-    if [ -s "$listfile" ] ; then
+    if [ -s "$listfile" ] && [ -n "$booted" ] ; then
         firewall-cmd --reload > /dev/null
     fi
 fi

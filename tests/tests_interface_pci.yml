@@ -2,6 +2,10 @@
 # Tests interface_pci field, test must be used in VM
 - name: Test interfaces with PCI ids
   hosts: all
+  tags:
+    # container builds have no PCI devices, so ethernet interface detection
+    # won't find anything; so save ourselves the extra initial role invocation
+    - tests::booted
   become: true
   roles:
     - linux-system-roles.firewall

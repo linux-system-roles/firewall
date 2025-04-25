@@ -14,7 +14,7 @@
 - name: Attempt to stop and disable conflicting services
   service:
     name: "{{ item.item }}"
-    state: stopped
+    state: "{{ 'stopped' if __firewall_is_booted else omit }}"
     enabled: false
   loop: "{{ __firewall_conflicting_services_status.results }}"
   when:
@@ -30,8 +30,8 @@
 - name: Enable and start firewalld service
   service:
     name: "{{ __firewall_service }}"
-    state: started
     enabled: true
+    state: "{{ 'started' if __firewall_is_booted else omit }}"
 
 - name: Check if previous replaced is defined
   set_fact:
@@ -54,6 +54,7 @@
           {{ ansible_check_mode | ternary('false', 'true') }}
           {{ __firewall_package_with_conf | quote }}
           {{ __firewall_usr_lib_dir | quote }}
+          {{ "booted" if __firewall_is_booted else "" }}
       register: __firewall_config_files_before
       changed_when: false
       check_mode: false
@@ -111,10 +112,11 @@
     protocol: "{{ item.protocol | default(omit) }}"
     helper_module: "{{ item.helper_module | default(omit) }}"
     permanent: "{{ item.permanent | default(True) }}"
-    runtime: "{{ item.runtime | default(True) }}"
+    runtime: "{{ item.runtime | default(__firewall_is_booted) }}"
     state: "{{ item.state | default(omit) }}"
     includes: "{{ item.includes | default(omit) }}"
     __report_changed: "{{ __firewall_report_changed }}"
+    online: "{{ __firewall_is_booted }}"
   loop: "{{ firewall is mapping | ternary([firewall], firewall) |
     map('dict2items') | map('difference', __previous) |
     map('difference', __detailed) | select |
@@ -136,6 +138,7 @@
             value: replaced
       firewall_lib_facts:
         detailed: "{{ item.detailed | default(False) }}"
+        online: "{{ __firewall_is_booted }}"
       loop: "{{ fw | map('dict2items') | map('difference', __previous) |
         select | map('items2dict') | list }}"
       register: __firewalld_facts
@@ -151,6 +154,7 @@
   block:
     - name: Gather firewall config if no arguments
       firewall_lib_facts:
+        online: "{{ __firewall_is_booted }}"
         detailed: false
       register: __firewalld_facts
 
@@ -170,6 +174,7 @@
           {{ __firewall_firewalld_dir | quote }} false
           {{ __firewall_package_with_conf | quote }}
           {{ __firewall_usr_lib_dir | quote }}
+          {{ __firewall_is_booted | quote }}
       register: __firewall_config_files_after
       changed_when: false
 

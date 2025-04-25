@@ -173,5 +173,6 @@
               changed_when: false
 
             - name: Reload firewall
+              when: __firewall_is_booted
               command: firewall-cmd --reload
               changed_when: false
