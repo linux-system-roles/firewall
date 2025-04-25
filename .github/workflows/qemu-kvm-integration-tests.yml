@@ -74,7 +74,7 @@ jobs:
           python3 -m pip install --upgrade pip
           sudo apt update
           sudo apt install -y --no-install-recommends git ansible-core genisoimage qemu-system-x86
-          pip3 install "git+https://github.com/linux-system-roles/tox-lsr@3.6.0"
+          pip3 install "git+https://github.com/linux-system-roles/tox-lsr@3.7.1"
 
       - name: Configure tox-lsr
         if: steps.check_platform.outputs.supported
