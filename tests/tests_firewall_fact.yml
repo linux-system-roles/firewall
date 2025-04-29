@@ -46,6 +46,14 @@
             msg: default zone should be {{ __default_zone.stdout }}
           when: firewall_config.default_zone != __default_zone.stdout
 
+        - name: Spot-check default entries and structure
+          assert:
+            that:
+              - '"snmp" in firewall_config.default.helpers'
+              - '"echo-request" in firewall_config.default.icmptypes'
+              - '"http" in firewall_config.default.services'
+              - '"public" in firewall_config.default.zones'
+
         - name: Save default ansible fact value
           set_fact:
             __previous_firewall_config: "{{ firewall_config }}"
@@ -86,6 +94,14 @@
             'zones' not in firewall_config.custom or
             'services' not in firewall_config.custom
 
+        - name: Check the customized services
+          assert:
+            that:
+              - '"https" in firewall_config.default.services'
+              - '"https" not in firewall_config.custom.services'
+              - '"custom" not in firewall_config.default.services'
+              - '"custom" in firewall_config.custom.services'
+
         - name: Store previous firewall_config
           set_fact:
             __previous_firewall_config: "{{ firewall_config }}"
@@ -118,6 +134,14 @@
             msg: default zone should not have changed
           when: firewall_config.default_zone !=
             __previous_firewall_config.default_zone
+
+        - name: Spot-check default entry details and structure
+          assert:
+            that:
+              - firewall_config.default.helpers.snmp.description is string
+              - '"reachable" in firewall_config.default.icmptypes["echo-request"].description'
+              - '"HTTP" in firewall_config.default.services.http.description'
+              - '"public areas" in firewall_config.default.zones.public.description'
 
       always:
         - name: Cleanup
