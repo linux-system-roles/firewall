@@ -13,7 +13,7 @@
               - previous: replaced
 
         - name: Get default zone
-          command: firewall-cmd --get-default-zone
+          command: firewall-offline-cmd --get-default-zone
           changed_when: false
           register: __default_zone
 
@@ -64,8 +64,12 @@
         - name: Modify firewalld configuration
           shell:
             cmd: |
-              firewall-cmd --permanent --add-service https
-              firewall-cmd --permanent --new-service custom
+              firewall-offline-cmd --add-service https
+              firewall-offline-cmd --new-service custom
+          changed_when: false
+
+        - name: Reload firewalld in booted systems
+          command: firewall-cmd --reload
           changed_when: false
 
         - name: Refetch firewall_config

@@ -18,7 +18,7 @@
         # Verify service states are as intended
 
         - name: Get all services
-          command: firewall-cmd --permanent --get-services
+          command: firewall-offline-cmd --get-services
           register: result
           changed_when: false
 
@@ -136,7 +136,7 @@
         # Verify that custom service is added to permanent configuration
 
         - name: Get all services
-          command: firewall-cmd --permanent --get-services
+          command: firewall-offline-cmd --get-services
           register: result
           changed_when: false
 
@@ -185,7 +185,7 @@
         # Verify that custom service not a part of default zone for some reason
 
         - name: Query if default zone has custom service added
-          command: firewall-cmd --query-service systemroletest
+          command: firewall-offline-cmd --query-service systemroletest
           ignore_errors: true  # noqa ignore-errors
           register: result
           changed_when: false
@@ -215,7 +215,7 @@
         # Verify that custom service in zone permanent configuration
 
         - name: Query if service has been added to default zone
-          command: firewall-cmd --query-service systemroletest
+          command: firewall-offline-cmd --query-service systemroletest
           register: result
           changed_when: false
 
@@ -289,7 +289,7 @@
           when: firewall_lib_result.changed  # noqa no-handler
 
         - name: Get all services
-          command: firewall-cmd --permanent --get-services
+          command: firewall-offline-cmd --get-services
           register: result
           changed_when: false
 
@@ -312,7 +312,7 @@
                 state: absent
 
         - name: Get all services
-          command: firewall-cmd --permanent --get-services
+          command: firewall-offline-cmd --get-services
           register: result
           changed_when: false
 
