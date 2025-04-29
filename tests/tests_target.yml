@@ -16,7 +16,7 @@
                 permanent: true
 
         - name: Get target setting
-          command: firewall-cmd --info-zone=public
+          command: firewall-offline-cmd --info-zone=public
           changed_when: false
           register: __result
 
@@ -36,7 +36,7 @@
               permanent: true
 
         - name: Get target setting
-          command: firewall-cmd --info-zone=public
+          command: firewall-offline-cmd --info-zone=public
           changed_when: false
           register: __result
 

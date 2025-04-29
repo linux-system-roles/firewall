@@ -20,7 +20,7 @@
           shell:
             cmd: |
               set -o pipefail
-              firewall-cmd --permanent --get-ipsets | grep customipset
+              firewall-offline-cmd --get-ipsets | grep customipset
           register: result
           changed_when: false
           failed_when: result.rc != 1
@@ -46,14 +46,14 @@
           shell:
             cmd: |
               set -o pipefail
-              firewall-cmd --permanent --get-ipsets | grep "customipset"
+              firewall-offline-cmd --get-ipsets | grep "customipset"
           changed_when: false
           register: result
           failed_when: result.rc == 1
 
         - name: Fail if entry not added to ipset
           command: |
-            firewall-cmd --permanent --ipset customipset --query-entry 8.8.8.8
+            firewall-offline-cmd --ipset customipset --query-entry 8.8.8.8
           changed_when: false
 
         - name: Redefine new ipset
@@ -89,14 +89,14 @@
           shell:
             cmd: |
               set -o pipefail
-              firewall-cmd --permanent --get-ipsets | grep customipset
+              firewall-offline-cmd --get-ipsets | grep customipset
           changed_when: false
           register: result
           failed_when: result.rc != 0
 
         - name: Check that entry has been removed
           command: >-
-            firewall-cmd --permanent --ipset customipset --query-entry 8.8.8.8
+            firewall-offline-cmd --ipset customipset --query-entry 8.8.8.8
           changed_when: false
           register: result
           failed_when: result.rc != 1
@@ -118,10 +118,10 @@
           register: result
           loop:
             - command: |
-                firewall-cmd --permanent --ipset customipset --get-description
+                firewall-offline-cmd --ipset customipset --get-description
               expected: "Custom IPSet for testing purposes (changed)"
             - command: |
-                firewall-cmd --permanent --ipset customipset --get-short
+                firewall-offline-cmd --ipset customipset --get-short
               expected: "CustomChanged"
           failed_when: result.stdout != item["expected"]
 
@@ -196,7 +196,7 @@
           shell:
             cmd: |
               set -o pipefail
-              firewall-cmd --permanent --get-ipsets | grep "customipset"
+              firewall-offline-cmd --get-ipsets | grep "customipset"
           changed_when: false
           register: result
           failed_when: result.rc != 1

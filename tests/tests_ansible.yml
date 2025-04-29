@@ -9,7 +9,7 @@
         name: linux-system-roles.firewall
 
     - name: Get default zone
-      command: firewall-cmd --get-default-zone
+      command: firewall-offline-cmd --get-default-zone
       register: __default_zone
       changed_when: false
 
@@ -19,37 +19,37 @@
         # INIT TEST
 
         - name: Remove custom zone
-          command: firewall-cmd --permanent --delete-zone=custom
+          command: firewall-offline-cmd --delete-zone=custom
           register: result
           failed_when: result.failed and "INVALID_ZONE" not in result.stderr
           changed_when: false
 
         - name: Reset internal zone to defaults
-          command: firewall-cmd --permanent --load-zone-defaults=internal
+          command: firewall-offline-cmd --load-zone-defaults=internal
           register: result
           failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
           changed_when: false
 
         - name: Reset trusted zone to defaults
-          command: firewall-cmd --permanent --load-zone-defaults=trusted
+          command: firewall-offline-cmd --load-zone-defaults=trusted
           register: result
           failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
           changed_when: false
 
         - name: Reset dmz zone to defaults
-          command: firewall-cmd --permanent --load-zone-defaults=dmz
+          command: firewall-offline-cmd --load-zone-defaults=dmz
           register: result
           failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
           changed_when: false
 
         - name: Reset drop zone to defaults
-          command: firewall-cmd --permanent --load-zone-defaults=drop
+          command: firewall-offline-cmd --load-zone-defaults=drop
           register: result
           failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
           changed_when: false
 
         - name: Reset public zone to defaults
-          command: firewall-cmd --permanent --load-zone-defaults=public
+          command: firewall-offline-cmd --load-zone-defaults=public
           register: result
           failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
           changed_when: false
@@ -57,15 +57,15 @@
         - name: Reset default zone to defaults
           shell:
             cmd: |
-              zone=$(firewall-cmd --get-default-zone)
-              firewall-cmd --permanent --load-zone-defaults=$zone
+              zone=$(firewall-offline-cmd --get-default-zone)
+              firewall-offline-cmd --load-zone-defaults=$zone
           register: result
           failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
           changed_when: false
 
         - name: Create custom zone
           # noqa no-changed-when
-          command: firewall-cmd --permanent --new-zone=custom
+          command: firewall-offline-cmd --new-zone=custom
           register: result
           failed_when: result.failed or not result.changed
 
@@ -410,7 +410,12 @@
           failed_when: result is failed or result is changed
 
         - name: Set the default zone to something other than dmz
-          command: firewall-cmd --set-default-zone public
+          # --set-default-zone not idempotent: https://bugzilla.redhat.com/show_bug.cgi?id=2363037
+          shell: |
+            cur_zone=$(firewall-offline-cmd --get-default-zone)
+            if [ "$cur_zone" != public ]; then
+              firewall-offline-cmd --set-default-zone public
+            fi
           changed_when: false
 
         - name: Set default zone
@@ -673,57 +678,60 @@
             # CLEANUP: RESET TO ZONE DEFAULTS
 
             - name: Remove custom zone
-              command: firewall-cmd --permanent --delete-zone=custom
+              command: firewall-offline-cmd --delete-zone=custom
               register: result
               failed_when: result.failed and "INVALID_ZONE" not in result.stderr
               changed_when: false
 
             - name: Remove customzone zone
-              command: firewall-cmd --permanent --delete-zone=customzone
+              command: firewall-offline-cmd --delete-zone=customzone
               register: result
               failed_when: result.failed and "INVALID_ZONE" not in result.stderr
               changed_when: false
 
             - name: Reset internal zone to defaults
-              command: firewall-cmd --permanent --load-zone-defaults=internal
+              command: firewall-offline-cmd --load-zone-defaults=internal
               register: result
               failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
               changed_when: false
 
             - name: Reset trusted zone to defaults
-              command: firewall-cmd --permanent --load-zone-defaults=trusted
+              command: firewall-offline-cmd --load-zone-defaults=trusted
               register: result
               failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
               changed_when: false
 
             - name: Reset dmz zone to defaults
-              command: firewall-cmd --permanent --load-zone-defaults=dmz
+              command: firewall-offline-cmd --load-zone-defaults=dmz
               register: result
               failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
               changed_when: false
 
             - name: Reset drop zone to defaults
-              command: firewall-cmd --permanent --load-zone-defaults=drop
+              command: firewall-offline-cmd --load-zone-defaults=drop
               register: result
               failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
               changed_when: false
 
             - name: Reset public zone to defaults
-              command: firewall-cmd --permanent --load-zone-defaults=public
+              command: firewall-offline-cmd --load-zone-defaults=public
               register: result
               failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
               changed_when: false
 
             - name: Reset default zone to defaults
-              command: firewall-cmd --permanent --load-zone-defaults=public
+              command: firewall-offline-cmd --load-zone-defaults=public
               register: result
               failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
               changed_when: false
 
             - name: Reset default zone
-              command: >-
-                firewall-cmd
-                --set-default-zone={{ __default_zone.stdout | quote }}
+              # --set-default-zone not idempotent: https://bugzilla.redhat.com/show_bug.cgi?id=2363037
+              shell: |
+                cur_zone=$(firewall-offline-cmd --get-default-zone)
+                if [ "$cur_zone" != {{ __default_zone.stdout | quote }} ]; then
+                  firewall-offline-cmd --set-default-zone={{ __default_zone.stdout | quote }}
+                fi
               changed_when: false
 
             - name: Reload firewalld
