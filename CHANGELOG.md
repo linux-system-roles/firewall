@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[1.9.1] - 2025-04-29
+--------------------
+
+### Other Changes
+
+- ci: Add container integration test for rpm and bootc (#264)
+- test: skip include tests on el7, document el7 support (#266)
+
 [1.9.0] - 2025-04-23
 --------------------
 

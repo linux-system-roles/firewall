@@ -768,11 +768,13 @@ class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb40-1"><a href=
 <span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a><span class="fu">helper_module</span><span class="kw">:</span><span class="at"> ftp</span></span>
 <span id="cb40-3"><a href="#cb40-3" aria-hidden="true" tabindex="-1"></a><span class="fu">helper_module</span><span class="kw">:</span><span class="at"> nf_conntrack_ftp</span></span></code></pre></div>
 <h2 id="includes">includes</h2>
-<p>Name of one or more services to specify in an <code>include</code> in
-a service definition. The <code>include</code> directive is described in
-the <a
+<p>Name of one or more services to specify in an <code>includes</code>
+in a service definition. The <code>includes</code> directive is
+described in the <a
 href="https://firewalld.org/documentation/man-pages/firewalld.service.html">service
-manpage</a> This can only be used when managing service definitions.</p>
+manpage</a> This can only be used when managing service definitions.
+NOTE: <code>includes</code> support is only available in EL8 and
+higher.</p>
 <div class="sourceCode" id="cb41"><pre
 class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a><span class="fu">includes</span><span class="kw">:</span></span>
 <span id="cb41-2"><a href="#cb41-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> https</span></span>
