@@ -700,10 +700,11 @@ helper_module: nf_conntrack_ftp
 
 ### includes
 
-Name of one or more services to specify in an `include` in a
-service definition.  The `include` directive is described in the
+Name of one or more services to specify in an `includes` in a
+service definition.  The `includes` directive is described in the
 [service manpage](https://firewalld.org/documentation/man-pages/firewalld.service.html)
 This can only be used when managing service definitions.
+NOTE: `includes` support is only available in EL8 and higher.
 
 ```yaml
 includes:

@@ -546,6 +546,9 @@
             permanent: true
           register: result
           failed_when: result is failed or result is not changed
+          when:
+            - ansible_distribution in ["RedHat", "CentOS", "Fedora"]
+            - ansible_distribution_major_version is version("8", ">=")
 
         - name: Add includes again to check idempotence
           firewall_lib:
@@ -557,6 +560,9 @@
             permanent: true
           register: result
           failed_when: result is failed or result is changed
+          when:
+            - ansible_distribution in ["RedHat", "CentOS", "Fedora"]
+            - ansible_distribution_major_version is version("8", ">=")
 
         - name: Delete custom service
           firewall_lib:
@@ -586,9 +592,10 @@
             destination:
               - 123.45.6.78
               - "aaaa:aaaa:aaaa:aaa:aaaa:aaaa:aaaa::"
-            includes:
-              - https
-              - ldaps
+            includes: "{{ ['https', 'ldaps']
+              if ansible_distribution in ['RedHat', 'CentOS', 'Fedora']
+              and ansible_distribution_major_version is version('8', '>=')
+              else omit }}"
             permanent: true
             state: present
           register: result
