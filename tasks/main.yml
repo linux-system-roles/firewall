@@ -2,23 +2,24 @@
 - name: Setup firewalld
   include_tasks: firewalld.yml
 
-- name: Collect service facts
-  service_facts:
+- name: Check which conflicting services are enabled
+  # noqa command-instead-of-module
+  command: systemctl is-enabled "{{ item }}"
+  register: __firewall_conflicting_services_status
+  changed_when: false
+  failed_when: false
+  loop: "{{ __firewall_conflicting_services }}"
   when: firewall_disable_conflicting_services | bool
 
 - name: Attempt to stop and disable conflicting services
   service:
-    name: "{{ item }}"
+    name: "{{ item.item }}"
     state: stopped
     enabled: false
-  loop: "{{ __firewall_conflicting_services }}"
-  vars:
-    __service_name: "{{ (ansible_facts.service_mgr == 'systemd') |
-      ternary(item ~ '.service', item) }}"
+  loop: "{{ __firewall_conflicting_services_status.results }}"
   when:
     - firewall_disable_conflicting_services | bool
-    - __service_name | string in ansible_facts.services
-    - ansible_facts.services[__service_name]["status"] == "enabled"
+    - item.rc == 0
 
 - name: Unmask firewalld service
   systemd:
