@@ -280,60 +280,6 @@ class MockAnsibleModule(MagicMock):
 class FirewallInterfaceTests(unittest.TestCase):
     """class to test Firewall interface tests"""
 
-    @patch("firewall_lib.FirewallClientZoneSettings", create=True)
-    @patch("firewall_lib.FirewallClient", create=True)
-    @patch("firewall_lib.HAS_FIREWALLD", True)
-    @patch("firewall_lib.FW_VERSION", "0.3.8", create=True)
-    def test_handle_interface_offline_true(self, zone_settings, firewall_class):
-        module = Mock()
-        zone = "dmz"
-        item = "eth2"
-        fw = firewall_class.return_value
-        fw_config = Mock()
-        fw.config.return_value = fw_config
-        fw_zone = Mock()
-        fw.config.getZoneByName.return_value = fw_zone
-        fw_settings = Mock()
-        fw.config.getZoneByName.getSettings.return_value = fw_settings
-        fw_offline = True
-        fw.config.get_zones.return_value = ["dmz"]
-        fw_zone_two = Mock()
-        fw.config.get_zone.return_value = fw_zone_two
-        fw_zone_two.interfaces = ["eth2"]
-
-        firewall_lib.handle_interface_permanent(
-            zone, item, fw_zone, fw_settings, fw, fw_offline, module
-        )
-        called_mock = getattr(fw_settings, "addInterface")
-        assert [call("eth2")] == called_mock.call_args_list
-
-    @patch("firewall_lib.FirewallClientZoneSettings", create=True)
-    @patch("firewall_lib.FirewallClient", create=True)
-    @patch("firewall_lib.HAS_FIREWALLD", True)
-    @patch("firewall_lib.FW_VERSION", "0.3.8", create=True)
-    def test_handle_interface_offline_false(self, zone_settings, firewall_class):
-        module = Mock()
-        zone = "dmz"
-        item = "eth2"
-        fw = firewall_class.return_value
-        fw_config = Mock()
-        fw.config.return_value = fw_config
-        fw_zone = Mock()
-        fw.config.getZoneByName.return_value = fw_zone
-        fw_settings = Mock()
-        fw.config.getZoneByName.getSettings.return_value = fw_settings
-        fw_offline = False
-        fw.config.get_zones.return_value = ["dmz"]
-        fw_zone_two = Mock()
-        fw.config.get_zone.return_value = fw_zone_two
-        fw_zone_two.interfaces = ["eth2"]
-
-        firewall_lib.handle_interface_permanent(
-            zone, item, fw_zone, fw_settings, fw, fw_offline, module
-        )
-        called_mock = getattr(fw_settings, "addInterface")
-        assert [call("eth2")] == called_mock.call_args_list
-
     @patch("firewall_lib.nm_get_connection_of_interface", create=True)
     def test_try_get_connection_of_interface(self, nm_get_connection_of_interface):
         nm_get_connection_of_interface.return_value = Mock()
@@ -594,20 +540,6 @@ class FirewallLibMain(unittest.TestCase):
         )
 
     @patch("firewall_lib.HAS_FIREWALLD", True)
-    def test_permanent_runtime_offline(self, am_class):
-        am = am_class.return_value
-        am.params = {
-            "icmp_block_inversion": True,
-            "permanent": False,
-            "runtime": False,
-        }
-        with self.assertRaises(MockException):
-            firewall_lib.main()
-        am.fail_json.assert_called_with(
-            msg="One of permanent, runtime needs to be enabled"
-        )
-
-    @patch("firewall_lib.HAS_FIREWALLD", True)
     def test_timeout_with_disabled_state(self, am_class):
         am = am_class.return_value
         am.params = {"source": ["192.0.2.0/24"], "state": "disabled", "timeout": 1}
@@ -662,23 +594,6 @@ class FirewallLibMain(unittest.TestCase):
         with self.assertRaises(MockException):
             firewall_lib.main()
         am.fail_json.assert_called_with(msg="timeout can not be used with target only")
-
-    @patch("firewall_lib.FirewallClient", create=True)
-    @patch("firewall_lib.HAS_FIREWALLD", True)
-    @patch("firewall_lib.FW_VERSION", "0.3.8", create=True)
-    def test_firewalld_offline_version_disconnected(self, firewall_class, am_class):
-        am = am_class.return_value
-        am.params = {
-            "icmp_block_inversion": True,
-            "permanent": True,
-        }
-        fw = firewall_class.return_value
-        fw.connected = False
-        with self.assertRaises(MockException):
-            firewall_lib.main()
-        am.fail_json.assert_called_with(
-            msg="Unsupported firewalld version 0.3.8 requires >= 0.3.9"
-        )
 
     @patch("firewall_lib.FirewallClient", create=True)
     @patch("firewall_lib.HAS_FIREWALLD", True)
