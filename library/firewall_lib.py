@@ -383,38 +383,16 @@ def create_ipset(module, fw, ipset, ipset_type):
 
 
 def handle_interface_permanent(
-    zone, item, fw_zone, fw_settings, fw, fw_offline, module
+    zone, item, fw_zone, fw_settings, fw, module
 ):
-    if fw_offline:
-        iface_zone_objs = []
-        for zone in fw.config.get_zones():
-            old_zone_obj = fw.config.get_zone(zone)
-            if item in old_zone_obj.interfaces:
-                old_zone_settings = FirewallClientZoneSettings(
-                    fw.config.get_zone_config(old_zone_obj)
-                )
-                old_zone_settings.removeInterface(item)
-                fw.config.set_zone_config(old_zone_obj, old_zone_settings.settings)
-                iface_zone_objs.append(old_zone_obj)
-
-        old_zone_obj = iface_zone_objs[0]
-        if old_zone_obj.name != zone:
-            old_zone_settings = FirewallClientZoneSettings(
-                fw.config.get_zone_config(old_zone_obj)
-            )
+    old_zone_name = fw.config().getZoneOfInterface(item)
+    if old_zone_name != zone:
+        if old_zone_name:
+            old_zone_obj = fw.config().getZoneByName(old_zone_name)
+            old_zone_settings = old_zone_obj.getSettings()
             old_zone_settings.removeInterface(item)
-            fw.config.set_zone_config(old_zone_obj, old_zone_settings.settings)
-            fw_settings.addInterface(item)
-            fw.config.set_zone_config(fw_zone, fw_settings.settings)
-    else:
-        old_zone_name = fw.config().getZoneOfInterface(item)
-        if old_zone_name != zone:
-            if old_zone_name:
-                old_zone_obj = fw.config().getZoneByName(old_zone_name)
-                old_zone_settings = old_zone_obj.getSettings()
-                old_zone_settings.removeInterface(item)
-                old_zone_obj.update(old_zone_settings)
-            fw_settings.addInterface(item)
+            old_zone_obj.update(old_zone_settings)
+        fw_settings.addInterface(item)
 
 
 pci_ids = None
@@ -993,75 +971,37 @@ def main():
 
     fw = FirewallClient()
 
-    fw_offline = False
-    if not fw.connected:
-        # Firewalld is not currently running, permanent-only operations
-        fw_offline = True
-        runtime = False
-        permanent = True
+    # Pre-run version checking
+    if lsr_parse_version(FW_VERSION) < lsr_parse_version("0.2.11"):
+        module.fail_json(
+            msg="Unsupported firewalld version %s, requires >= 0.2.11" % FW_VERSION
+        )
 
-        # Pre-run version checking
-        if lsr_parse_version(FW_VERSION) < lsr_parse_version("0.3.9"):
-            module.fail_json(
-                msg="Unsupported firewalld version %s" " requires >= 0.3.9" % FW_VERSION
-            )
+    # Set exception handler
+    def exception_handler(exception_message):
+        module.fail_json(msg=exception_message)
 
-        try:
-            from firewall.core.fw_test import Firewall_test
-
-            fw = Firewall_test()
-
-        except ImportError:
-            # In firewalld version 0.7.0 this behavior changed
-            from firewall.core.fw import Firewall
-
-            fw = Firewall(offline=True)
-
-        fw.start()
-    else:
-        # Pre-run version checking
-        if lsr_parse_version(FW_VERSION) < lsr_parse_version("0.2.11"):
-            module.fail_json(
-                msg="Unsupported firewalld version %s, requires >= 0.2.11" % FW_VERSION
-            )
-
-        # Set exception handler
-        def exception_handler(exception_message):
-            module.fail_json(msg=exception_message)
-
-        fw.setExceptionHandler(exception_handler)
+    fw.setExceptionHandler(exception_handler)
 
     # Get default zone, the permanent zone and settings
     fw_zone = None
     fw_settings = None
-    if fw_offline:
-        # if zone is None, we will use default zone which always exists
-        zone_exists = zone is None or zone in fw.zone.get_zones()
-        if not zone_exists and not zone_operation:
-            module.fail_json(msg="Permanent zone '%s' does not exist." % zone)
-        elif zone_exists:
-            zone = zone or fw.get_default_zone()
-            fw_zone = fw.config.get_zone(zone)
-            fw_settings = FirewallClientZoneSettings(
-                list(fw.config.get_zone_config(fw_zone))
-            )
-    else:
-        zone_exists = False
-        if runtime:
-            zone_exists = zone_exists or zone is None or zone in fw.getZones()
-            err_str = "Runtime"
-        if permanent:
-            zone_exists = (
-                zone_exists or zone is None or zone in fw.config().getZoneNames()
-            )
-            err_str = "Permanent"
+    zone_exists = False
+    if runtime:
+        zone_exists = zone_exists or zone is None or zone in fw.getZones()
+        err_str = "Runtime"
+    if permanent:
+        zone_exists = (
+            zone_exists or zone is None or zone in fw.config().getZoneNames()
+        )
+        err_str = "Permanent"
 
-        if not zone_exists and not zone_operation:
-            module.fail_json(msg="%s zone '%s' does not exist." % (err_str, zone))
-        elif zone_exists:
-            zone = zone or fw.getDefaultZone()
-            fw_zone = fw.config().getZoneByName(zone)
-            fw_settings = fw_zone.getSettings()
+    if not zone_exists and not zone_operation:
+        module.fail_json(msg="%s zone '%s' does not exist." % (err_str, zone))
+    elif zone_exists:
+        zone = zone or fw.getDefaultZone()
+        fw_zone = fw.config().getZoneByName(zone)
+        fw_settings = fw_zone.getSettings()
 
     # Firewall modification starts here
 
@@ -1493,7 +1433,7 @@ def main():
                 elif not fw_settings.queryInterface(item):
                     if not module.check_mode:
                         handle_interface_permanent(
-                            zone, item, fw_zone, fw_settings, fw, fw_offline, module
+                            zone, item, fw_zone, fw_settings, fw, module
                         )
                     changed = True
         elif state == "disabled":
@@ -1572,10 +1512,7 @@ def main():
     # apply permanent changes
     if changed and (zone_operation or permanent):
         if fw_zone and fw_settings:
-            if fw_offline:
-                fw.config.set_zone_config(fw_zone, fw_settings.settings)
-            else:
-                fw_zone.update(fw_settings)
+            fw_zone.update(fw_settings)
         if need_reload:
             fw.reload()
 
