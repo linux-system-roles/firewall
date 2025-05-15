@@ -23,3 +23,4 @@ galaxy_info:
     - firewall
     - system
     - container
+    - containerbuild
