@@ -40,6 +40,14 @@ options:
     type: bool
     required: false
     default: false
+  online:
+    description:
+      When true, use the D-Bus API to query the status from the running system.
+      Otherwise, use firewall-offline-cmd(1). Offline mode is (currently)
+      incompatible with "detailed" mode.
+    type: bool
+    required: false
+    default: true
 author: Brennan Paciorek (@BrennanPaciorek)
 """
 
@@ -92,35 +100,84 @@ except AttributeError:
     HAS_POLICIES = False
 
 
+def offline_cmd(module, args, defaults=False):
+    # get the defaults by disabling the --system-config dir (ETC_FIREWALLD)
+    conf_args = ["--system-config=/nonexisting"] if defaults else []
+    return module.run_command(
+        ["firewall-offline-cmd"] + conf_args + args,
+        check_rc=True,
+    )[1].strip()
+
+
 def config_to_dict(module):
     detailed = module.params.get("detailed", False)
+    online = module.params.get("online", True)
     config = {}
     defaults = {}
     custom = {}
     setting_list = ["zones", "services", "icmptypes", "helpers", "ipsets"]
 
+    if detailed and not online:
+        module.fail_json(msg="detailed information not available in offline mode")
+
     if HAS_POLICIES:
         setting_list.append("policies")
 
-    fw = FirewallClient()
+    if online:
+        fw = FirewallClient()
 
-    for setting in setting_list:
-        default_setting_dir = os.path.join(firewall.config.USR_LIB_FIREWALLD, setting)
-        custom_setting_dir = os.path.join(firewall.config.ETC_FIREWALLD, setting)
+        for setting in setting_list:
+            default_setting_dir = os.path.join(
+                firewall.config.USR_LIB_FIREWALLD, setting
+            )
+            custom_setting_dir = os.path.join(firewall.config.ETC_FIREWALLD, setting)
 
-        settings = fetch_settings_from_dir(default_setting_dir, detailed, fw)
-        if settings:
-            defaults[setting] = settings
-        settings = fetch_settings_from_dir(custom_setting_dir, True, fw)
-        if settings:
-            custom[setting] = settings
+            settings = fetch_settings_from_dir(default_setting_dir, detailed, fw)
+            if settings:
+                defaults[setting] = settings
+            settings = fetch_settings_from_dir(custom_setting_dir, True, fw)
+            if settings:
+                custom[setting] = settings
+
+        config["default_zone"] = fw.getDefaultZone()
+    else:
+        # get the default settings
+        for setting in setting_list:
+            values = offline_cmd(module, ["--get-" + setting], defaults=True).split()
+            # zone services are important, so make them a dict, not a plain list (same as with online mode)
+            if setting == "zones":
+                for zone in values:
+                    services = offline_cmd(
+                        module, ["--zone", zone, "--list-services"], defaults=True
+                    ).split()
+                    defaults.setdefault("zones", {})[zone] = {"services": services}
+            else:
+                defaults[setting] = values
+
+        # compute the custom settings by diffing with defaults
+        for setting in setting_list:
+            values = offline_cmd(module, ["--get-" + setting]).split()
+            if setting == "zones":
+                for zone in values:
+                    services = offline_cmd(
+                        module, ["--zone", zone, "--list-services"]
+                    ).split()
+                    # add zone to custom if the whole zone is new or its services changed
+                    if zone not in defaults["zones"] or (
+                        set(services) - set(defaults["zones"][zone]["services"])
+                    ):
+                        custom.setdefault("zones", {})[zone] = {"services": services}
+            else:
+                diff = set(values) - set(defaults[setting])
+                if diff:
+                    custom[setting] = sorted(diff)
+
+        config["default_zone"] = offline_cmd(module, ["--get-default-zone"])
 
     if defaults:
         config["default"] = defaults
     if custom:
         config["custom"] = custom
-    config["default_zone"] = fw.getDefaultZone()
-
     return config
 
 
@@ -198,7 +255,10 @@ def fetch_settings_from_dir(directory, detailed=False, fw=None):
 
 def main():
 
-    module_args = dict(detailed=dict(type="bool", default=False, required=False))
+    module_args = dict(
+        detailed=dict(type="bool", default=False, required=False),
+        online=dict(type="bool", default=True, required=False),
+    )
 
     results = dict(changed=False, firewall_config=dict())
 
