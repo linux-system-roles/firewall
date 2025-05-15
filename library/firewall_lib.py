@@ -1,10 +1,11 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 #
-# Copyright (C) 2016,2017,2020,2021 Red Hat, Inc.
+# Copyright (C) 2016 - 2025 Red Hat, Inc.
 # Reusing some firewalld code
 # Authors:
 # Thomas Woerner <twoerner@redhat.com>
+# Martin Pitt <mpitt@redhat.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -37,7 +38,7 @@ requirements:
   - python3-firewall or python-firewall
 description:
   Manage firewall with firewalld on Fedora and RHEL-7+.
-author: "Thomas Woerner (@t-woerner)"
+author: "Thomas Woerner (@t-woerner), Martin Pitt (@martinpitt)"
 options:
   firewalld_conf:
     description:
@@ -262,6 +263,14 @@ options:
       If false, do not report changed true even if changed.
     required: false
     type: bool
+    default: true
+  online:
+    description:
+      When true, use the D-Bus API to query the status from the running system.
+      Otherwise, use firewall-offline-cmd(1). Offline mode is
+      incompatible with "runtime" mode.
+    type: bool
+    required: false
     default: true
 """
 
@@ -964,6 +973,495 @@ class OnlineAPIBackend:
                 self.changed = True
 
 
+class OfflineCLIBackend:
+    """Implement operations with firewall-offline-cmd.
+
+    This works during container builds and similar environments.
+    """
+
+    def __init__(
+        self, module, permanent, runtime, zone_operation, zone, state, timeout
+    ):
+        self.module = module
+        self.state = state
+        self.timeout = timeout
+
+        self.changed = False
+
+        if not permanent or runtime:
+            module.fail_json(
+                msg="runtime mode is not supported in offline environments"
+            )
+
+        # Get zone to operate on
+        if zone is None:
+            self.zone = self.cmd("--get-default-zone")
+            self.zone_exists = True
+        else:
+            self.zone = zone
+            zones = self.cmd("--get-zones").split()
+            self.zone_exists = zone in zones
+
+        if not self.zone_exists and not zone_operation:
+            module.fail_json(msg="Zone '%s' does not exist." % zone)
+
+    def _call_offline_cmd(self, args, check_rc=True):
+        argv = ["firewall-offline-cmd"] + list(args)
+        (rc, out, err) = self.module.run_command(argv, check_rc=check_rc)
+        out = out.strip()
+        self.module.debug("OfflineCLIBackend: %r -> exit %i, out: %s" % (argv, rc, out))
+        return (rc, out)
+
+    def cmd(self, *args):
+        """Call firewall-offline-cmd with given arguments, expecting success."""
+
+        return self._call_offline_cmd(args)[1]
+
+    def change(self, *args):
+        """Like cmd(), but skipped in check_mode.
+
+        Also set self.changed.
+        """
+        if not self.module.check_mode:
+            self.cmd(*args)
+        self.changed = True
+
+    def query(self, *args):
+        """Call firewall-offline-cmd query command, convert exit code to bool."""
+
+        rc = self._call_offline_cmd(args, check_rc=False)[0]
+        return True if rc == 0 else False
+
+    def finalize(self):
+        # nothing to do here, all changes are written immediately in offline mode
+        pass
+
+    def check_state(self, allowed, option):
+        """Check and interpret self.state
+
+        allowed is a list of allowed values. E.g. most operations only accept
+        enabled/disabled, while others only accept present/absent, some accept
+        either. This keeps the behaviour bug-for-bug compatible with
+        OnlineAPIBackend.
+
+        Return True for enabled/present or False for disabled/absent.
+        """
+        if self.state not in allowed:
+            self.module.fail_json(
+                msg="state '%s' not accepted for option '%s'" % (self.state, option)
+            )
+
+        return self.state in ["enabled", "present"]
+
+    def set_firewalld_conf(self, firewalld_conf, allow_zone_drifting_deprecated):
+        if allow_zone_drifting_deprecated:
+            # compatibility with OnlineAPIBackend: allow_zone_drifting gets
+            # ignored when deprecated, without failing the role
+            other_keys = set(firewalld_conf.keys()) - set(["allow_zone_drifting"])
+            if len(other_keys) == 0:
+                # parser in main() already wrote a warning
+                return
+
+        # there are currently no other supported options in firewalld_conf, so
+        # this should not happen; if it ever does, implement it
+        self.module.fail_json(
+            msg="firewalld_conf is not currently supported in offline mode; please file a bug"
+        )
+
+    def set_zone(self):
+        create = self.check_state(["present", "absent"], "zone")
+        if create != self.zone_exists:
+            self.change(
+                "--%s-zone=%s" % ("new" if create else "delete", self.zone),
+            )
+        if not create and self.zone_exists:
+            self.zone = None
+            self.zone_exists = False
+
+    def set_default_zone(self, zone):
+        if self.cmd("--get-default-zone") != zone:
+            self.change("--set-default-zone", zone)
+
+    def set_service(
+        self,
+        service_operation,
+        service,
+        description,
+        short,
+        port,
+        protocol,
+        source_port,
+        helper_module,
+        destination_ipv4,
+        destination_ipv6,
+        includes,
+    ):
+        if service_operation:
+            present = self.check_state(["present", "absent"], "service")
+            known_services = self.cmd("--get-services").split()
+            service_exists = service in known_services
+
+            if present:
+                if not service_exists:
+                    self.change("--new-service", service)
+
+                existing_description = self.cmd(
+                    "--service", service, "--get-description"
+                )
+                if description is not None and description != existing_description:
+                    self.change("--service", service, "--set-description", description)
+
+                existing_short = self.cmd("--service", service, "--get-short")
+                if short is not None and short != existing_short:
+                    self.change("--service", service, "--set-short", short)
+
+                for _port, _protocol in port:
+                    spec = "%s/%s" % (_port, _protocol)
+                    if not self.query("--service", service, "--query-port=" + spec):
+                        self.change("--service", service, "--add-port=" + spec)
+
+                for _protocol in protocol:
+                    if not self.query(
+                        "--service", service, "--query-protocol=" + _protocol
+                    ):
+                        self.change("--service", service, "--add-protocol=" + _protocol)
+
+                for _port, _protocol in source_port:
+                    spec = "%s/%s" % (_port, _protocol)
+                    if not self.query(
+                        "--service", service, "--query-source-port=" + spec
+                    ):
+                        self.change("--service", service, "--add-source-port=" + spec)
+
+                for _module in helper_module:
+                    if not self.query(
+                        "--service", service, "--query-helper=" + _module
+                    ):
+                        self.change("--service", service, "--add-helper=" + _module)
+
+                if destination_ipv4 and not self.query(
+                    "--service",
+                    service,
+                    "--query-destination=ipv4:" + destination_ipv4,
+                ):
+                    self.change(
+                        "--service",
+                        service,
+                        "--set-destination=ipv4:" + destination_ipv4,
+                    )
+
+                if destination_ipv6 and not self.query(
+                    "--service",
+                    service,
+                    "--query-destination=ipv6:" + destination_ipv6,
+                ):
+                    self.change(
+                        "--service",
+                        service,
+                        "--set-destination=ipv6:" + destination_ipv6,
+                    )
+
+                for _include in includes:
+                    if not self.query(
+                        "--service", service, "--query-include=" + _include
+                    ):
+                        self.change("--service", service, "--add-include=" + _include)
+
+            if not present and service_exists:
+                if port:
+                    for _port, _protocol in port:
+                        spec = "%s/%s" % (_port, _protocol)
+                        if self.query("--service", service, "--query-port=" + spec):
+                            self.change("--service", service, "--remove-port=" + spec)
+                if source_port:
+                    for _port, _protocol in source_port:
+                        spec = "%s/%s" % (_port, _protocol)
+                        if self.query(
+                            "--service", service, "--query-source-port=" + spec
+                        ):
+                            self.change(
+                                "--service", service, "--remove-source-port=" + spec
+                            )
+                if protocol:
+                    for _protocol in protocol:
+                        if self.query(
+                            "--service", service, "--query-protocol=" + _protocol
+                        ):
+                            self.change(
+                                "--service", service, "--remove-protocol=" + _protocol
+                            )
+
+                if helper_module:
+                    for _module in helper_module:
+                        if self.query(
+                            "--service", service, "--query-helper=" + _module
+                        ):
+                            self.change(
+                                "--service", service, "--remove-helper=" + _module
+                            )
+
+                if destination_ipv4 and self.query(
+                    "--service",
+                    service,
+                    "--query-destination=ipv4:" + destination_ipv4,
+                ):
+                    # asymmetric, but correct: no IP value here, just the protocol version
+                    self.change("--service", service, "--remove-destination=ipv4")
+
+                if destination_ipv6 and self.query(
+                    "--service",
+                    service,
+                    "--query-destination=ipv6:" + destination_ipv6,
+                ):
+                    self.change("--service", service, "--remove-destination=ipv6")
+
+                for _include in includes:
+                    if self.query("--service", service, "--query-include=" + _include):
+                        self.change(
+                            "--service", service, "--remove-include=" + _include
+                        )
+
+                if not any(
+                    (
+                        port,
+                        source_port,
+                        protocol,
+                        helper_module,
+                        destination_ipv4,
+                        destination_ipv6,
+                    )
+                ):
+                    self.change("--delete-service", service)
+
+        # not service_operation: add/remove service from zone
+        else:
+            known_services = self.cmd("--get-services").split()
+            enable = self.check_state(["enabled", "disabled"], "service")
+            for item in service:
+                if item not in known_services:
+                    if self.module.check_mode:
+                        self.module.warn(
+                            "Service does not exist - "
+                            + item
+                            + ". Ensure that you define the service in the playbook before running it in diff mode"
+                        )
+                        continue
+                    else:
+                        self.module.fail_json(msg="INVALID SERVICE - " + item)
+
+                cur = self.query("--zone", self.zone, "--query-service=" + item)
+
+                if cur != enable:
+                    op = "--add-service=" if enable else "--remove-service-from-zone="
+                    self.change("--zone", self.zone, op + item)
+
+    def set_ipset(self, ipset, description, short, ipset_type, ipset_entries):
+        present = self.check_state(["present", "absent"], "ipset")
+        known_ipsets = self.cmd("--get-ipsets").split()
+        ipset_exists = ipset in known_ipsets
+
+        if ipset_exists and ipset_type:
+            m = re.search(r"\stype: (.*)$", self.cmd("--info-ipset", ipset), re.M)
+            if not m:
+                self.module.fail_json(
+                    "'firewall-offline-cmd --info-ipset %s' did not print 'type:'"
+                    % ipset
+                )
+            existing_type = m.group(1)
+            if ipset_type != existing_type:
+                self.module.fail_json(
+                    msg="Name conflict when creating ipset - "
+                    "ipset %s of type %s already exists" % (ipset, existing_type)
+                )
+
+        if present:
+            if not ipset_exists:
+                if not ipset_type:
+                    self.module.fail_json(
+                        msg="ipset_type needed when creating a new ipset"
+                    )
+                self.change("--new-ipset", ipset, "--type=%s" % ipset_type)
+
+            existing_description = self.cmd("--ipset", ipset, "--get-description")
+            if description is not None and description != existing_description:
+                self.change("--ipset", ipset, "--set-description", description)
+
+            existing_short = self.cmd("--ipset", ipset, "--get-short")
+            if short is not None and short != existing_short:
+                self.change("--ipset", ipset, "--set-short", short)
+            for entry in ipset_entries:
+                if not self.query("--ipset", ipset, "--query-entry", entry):
+                    self.change("--ipset", ipset, "--add-entry", entry)
+
+        # remove
+        elif ipset_exists:
+            if ipset_entries:
+                for entry in ipset_entries:
+                    if self.query("--ipset", ipset, "--query-entry", entry):
+                        self.change("--ipset", ipset, "--remove-entry", entry)
+            else:
+                rc, bound_zone = self._call_offline_cmd(
+                    ["--get-zone-of-source=ipset:" + ipset], check_rc=False
+                )
+                if rc == 0:
+                    if self.module.check_mode:
+                        self.module.warn(
+                            "Ensure ipset:%s is removed from zone %s before attempting to remove it"
+                            % (ipset, bound_zone)
+                        )
+                    else:
+                        self.module.fail_json(
+                            msg="Remove ipset:%s from all zones before attempting to remove it"
+                            % ipset
+                        )
+
+                self.change("--delete-ipset", ipset)
+
+    def set_port(self, port):
+        enable = self.check_state(["enabled", "disabled"], "port")
+        for _port, _protocol in port:
+            spec = "%s/%s" % (_port, _protocol)
+            cur = self.query("--zone", self.zone, "--query-port=" + spec)
+
+            if cur != enable:
+                self.change(
+                    "--zone",
+                    self.zone,
+                    "--%s-port=%s" % ("add" if enable else "remove", spec),
+                )
+
+    def set_source_port(self, source_port):
+        enable = self.check_state(["enabled", "disabled"], "source_port")
+        for _port, _protocol in source_port:
+            spec = "%s/%s" % (_port, _protocol)
+            cur = self.query("--zone", self.zone, "--query-source-port=" + spec)
+
+            if cur != enable:
+                self.change(
+                    "--zone",
+                    self.zone,
+                    "--%s-source-port=%s" % ("add" if enable else "remove", spec),
+                )
+
+    def set_forward_port(self, forward_port):
+        enable = self.check_state(["enabled", "disabled"], "forward_port")
+        for _port, _protocol, _to_port, _to_addr in forward_port:
+            spec = "port=%s:proto=%s" % (_port, _protocol)
+            if _to_port is not None:
+                spec += ":toport=%s" % _to_port
+            if _to_addr is not None:
+                spec += ":toaddr=%s" % _to_addr
+
+            cur = self.query("--zone", self.zone, "--query-forward-port=" + spec)
+
+            if cur != enable:
+                self.change(
+                    "--zone",
+                    self.zone,
+                    "--%s-forward-port=%s" % ("add" if enable else "remove", spec),
+                )
+
+    def set_masquerade(self, masquerade):
+        cur = self.query("--zone", self.zone, "--query-masquerade")
+
+        if cur != masquerade:
+            self.change(
+                "--zone",
+                self.zone,
+                "--%s-masquerade" % ("add" if masquerade else "remove"),
+            )
+
+    def set_rich_rule(self, rich_rule):
+        enable = self.check_state(["enabled", "disabled"], "rich_rule")
+
+        for item in rich_rule:
+            # note: item is a Rich_Rule object, but its __str__() does the right thing
+            cur = self.query("--zone", self.zone, "--query-rich-rule=" + item)
+
+            if cur != enable:
+                self.change(
+                    "--zone",
+                    self.zone,
+                    "--%s-rich-rule=%s" % ("add" if enable else "remove", item),
+                )
+
+    def set_source(self, source):
+        if self.module.check_mode:
+            ipset_names = self.cmd("--get-ipsets").split()
+
+        enable = self.check_state(["enabled", "disabled"], "source")
+
+        for item in source:
+            # Error case handling for check mode
+            if (
+                self.module.check_mode
+                and item.startswith("ipset:")
+                and item.split(":")[1] not in ipset_names
+            ):
+                self.module.warn(
+                    "%s does not exist - ensure it is defined in a previous task before running play outside check mode"
+                    % item
+                )
+                self.changed = True
+            else:
+                cur = self.query("--zone", self.zone, "--query-source=" + item)
+
+                if cur != enable:
+                    self.change(
+                        "--zone",
+                        self.zone,
+                        "--%s-source=%s" % ("add" if enable else "remove", item),
+                    )
+
+    def set_interface(self, interface):
+        # we can't do this via NM like in OnlineAPIBackend, always go via firewalld config
+        enable = self.check_state(["enabled", "disabled"], "interface")
+
+        for item in interface:
+            cur = self.query("--zone", self.zone, "--query-interface=" + item)
+            if cur != enable:
+                self.change(
+                    "--zone",
+                    self.zone,
+                    # note: --change-interface first removes it from the old zone
+                    "--%s-interface=%s" % ("change" if enable else "remove", item),
+                )
+
+    def set_icmp_block(self, icmp_block):
+        enable = self.check_state(["enabled", "disabled"], "icmp_block")
+
+        for item in icmp_block:
+            cur = self.query("--zone", self.zone, "--query-icmp-block=" + item)
+
+            if cur != enable:
+                self.change(
+                    "--zone",
+                    self.zone,
+                    "--%s-icmp-block=%s" % ("add" if enable else "remove", item),
+                )
+
+    def set_icmp_block_inversion(self, icmp_block_inversion):
+        cur = self.query("--zone", self.zone, "--query-icmp-block-inversion")
+
+        if cur != icmp_block_inversion:
+            self.change(
+                "--zone",
+                self.zone,
+                "--%s-icmp-block-inversion"
+                % ("add" if icmp_block_inversion else "remove"),
+            )
+
+    def set_target(self, target):
+        enable = self.check_state(
+            ["enabled", "present", "disabled", "absent"], "target"
+        )
+        cur_target = self.cmd("--zone", self.zone, "--get-target")
+        new_target = target if enable else "default"
+
+        if new_target != cur_target:
+            self.change("--zone", self.zone, "--set-target", new_target)
+
+
 PCI_REGEX = re.compile("[0-9a-fA-F]{4}:[0-9a-fA-F]{4}")
 
 
@@ -1262,6 +1760,7 @@ def main():
             destination=dict(required=False, type="list", elements="str", default=[]),
             includes=dict(required=False, type="list", elements="str", default=[]),
             __report_changed=dict(required=False, type="bool", default=True),
+            online=dict(required=False, type="bool", default=True),
         ),
         supports_check_mode=True,
         required_if=(
@@ -1342,6 +1841,7 @@ def main():
     runtime = module.params["runtime"]
     state = module.params["state"]
     includes = module.params["includes"]
+    online = module.params["online"]
 
     # All options that require state to be set
     state_required = any(
@@ -1559,7 +2059,8 @@ def main():
             msg="Unsupported firewalld version %s, requires >= 0.2.11" % FW_VERSION
         )
 
-    backend = OnlineAPIBackend(
+    backendClass = OnlineAPIBackend if online else OfflineCLIBackend
+    backend = backendClass(
         module, permanent, runtime, zone_operation, zone, state, timeout
     )
 
