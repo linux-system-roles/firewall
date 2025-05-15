@@ -19,6 +19,8 @@ except ImportError:
 
 import firewall_lib
 
+# offline API does not support everything, marker for these
+NOT_SUPPORTED = "not-supported"
 
 TEST_METHODS = [
     "Service",
@@ -45,13 +47,34 @@ TEST_DATA = {
                     call("default", service, 0) for service in SERVICES_PRESENT
                 ],
                 "permanent": [call(service) for service in SERVICES_PRESENT],
-            }
+                "offline": [
+                    ("--zone", "public", "--add-service=https"),
+                    ("--zone", "public", "--add-service=ipsec"),
+                    ("--zone", "public", "--add-service=ldaps"),
+                ],
+            },
+            "offline_cmd": {
+                ("--get-services",): " ".join(SERVICES_PRESENT),
+                ("--zone", "public", "--query-service=https"): 1,
+                ("--zone", "public", "--query-service=ipsec"): 1,
+                ("--zone", "public", "--query-service=ldaps"): 1,
+            },
         },
         "disabled": {
             "expected": {
                 "runtime": [call("default", service) for service in SERVICES_PRESENT],
                 "permanent": [call(service) for service in SERVICES_PRESENT],
-            }
+                "offline": [
+                    ("--zone", "public", "--remove-service-from-zone=https"),
+                    ("--zone", "public", "--remove-service-from-zone=ipsec"),
+                    ("--zone", "public", "--remove-service-from-zone=ldaps"),
+                ],
+            },
+            "offline_cmd": {
+                ("--zone", "public", "--query-service=https"): 0,
+                ("--zone", "public", "--query-service=ipsec"): 0,
+                ("--zone", "public", "--query-service=ldaps"): 0,
+            },
         },
     },
     "Port": {
@@ -63,7 +86,23 @@ TEST_DATA = {
                     call("default", "161-162", "udp", 0),
                 ],
                 "permanent": [call("8081", "tcp"), call("161-162", "udp")],
-            }
+                "offline": [
+                    (
+                        "--zone",
+                        "public",
+                        "--add-port=8081/tcp",
+                    ),
+                    (
+                        "--zone",
+                        "public",
+                        "--add-port=161-162/udp",
+                    ),
+                ],
+            },
+            "offline_cmd": {
+                ("--zone", "public", "--query-port=8081/tcp"): 1,
+                ("--zone", "public", "--query-port=161-162/udp"): 1,
+            },
         },
         "disabled": {
             "expected": {
@@ -72,7 +111,23 @@ TEST_DATA = {
                     call("default", "161-162", "udp"),
                 ],
                 "permanent": [call("8081", "tcp"), call("161-162", "udp")],
-            }
+                "offline": [
+                    (
+                        "--zone",
+                        "public",
+                        "--remove-port=8081/tcp",
+                    ),
+                    (
+                        "--zone",
+                        "public",
+                        "--remove-port=161-162/udp",
+                    ),
+                ],
+            },
+            "offline_cmd": {
+                ("--zone", "public", "--query-port=8081/tcp"): 0,
+                ("--zone", "public", "--query-port=161-162/udp"): 0,
+            },
         },
     },
     "SourcePort": {
@@ -84,7 +139,23 @@ TEST_DATA = {
                     call("default", "161-162", "udp", 0),
                 ],
                 "permanent": [call("8081", "tcp"), call("161-162", "udp")],
-            }
+                "offline": [
+                    (
+                        "--zone",
+                        "public",
+                        "--add-source-port=8081/tcp",
+                    ),
+                    (
+                        "--zone",
+                        "public",
+                        "--add-source-port=161-162/udp",
+                    ),
+                ],
+            },
+            "offline_cmd": {
+                ("--zone", "public", "--query-source-port=8081/tcp"): 1,
+                ("--zone", "public", "--query-source-port=161-162/udp"): 1,
+            },
         },
         "disabled": {
             "expected": {
@@ -93,7 +164,23 @@ TEST_DATA = {
                     call("default", "161-162", "udp"),
                 ],
                 "permanent": [call("8081", "tcp"), call("161-162", "udp")],
-            }
+                "offline": [
+                    (
+                        "--zone",
+                        "public",
+                        "--remove-source-port=8081/tcp",
+                    ),
+                    (
+                        "--zone",
+                        "public",
+                        "--remove-source-port=161-162/udp",
+                    ),
+                ],
+            },
+            "offline_cmd": {
+                ("--zone", "public", "--query-source-port=8081/tcp"): 0,
+                ("--zone", "public", "--query-source-port=161-162/udp"): 0,
+            },
         },
     },
     "ForwardPort": {
@@ -108,7 +195,31 @@ TEST_DATA = {
                     call("8081", "tcp", "port", "addr"),
                     call("161-162", "udp", "port", "addr"),
                 ],
-            }
+                "offline": [
+                    (
+                        "--zone",
+                        "public",
+                        "--add-forward-port=port=8081:proto=tcp:toport=port:toaddr=addr",
+                    ),
+                    (
+                        "--zone",
+                        "public",
+                        "--add-forward-port=port=161-162:proto=udp:toport=port:toaddr=addr",
+                    ),
+                ],
+            },
+            "offline_cmd": {
+                (
+                    "--zone",
+                    "public",
+                    "--query-forward-port=port=8081:proto=tcp:toport=port:toaddr=addr",
+                ): 1,
+                (
+                    "--zone",
+                    "public",
+                    "--query-forward-port=port=161-162:proto=udp:toport=port:toaddr=addr",
+                ): 1,
+            },
         },
         "disabled": {
             "expected": {
@@ -120,15 +231,55 @@ TEST_DATA = {
                     call("8081", "tcp", "port", "addr"),
                     call("161-162", "udp", "port", "addr"),
                 ],
-            }
+                "offline": [
+                    (
+                        "--zone",
+                        "public",
+                        "--remove-forward-port=port=8081:proto=tcp:toport=port:toaddr=addr",
+                    ),
+                    (
+                        "--zone",
+                        "public",
+                        "--remove-forward-port=port=161-162:proto=udp:toport=port:toaddr=addr",
+                    ),
+                ],
+            },
+            "offline_cmd": {
+                (
+                    "--zone",
+                    "public",
+                    "--query-forward-port=port=8081:proto=tcp:toport=port:toaddr=addr",
+                ): 0,
+                (
+                    "--zone",
+                    "public",
+                    "--query-forward-port=port=161-162:proto=udp:toport=port:toaddr=addr",
+                ): 0,
+            },
         },
     },
     "Masquerade": {
         "input": {"enabled": {"masquerade": True}, "disabled": {"masquerade": False}},
         "enabled": {
-            "expected": {"runtime": [call("default", 0)], "permanent": [call()]}
+            "expected": {
+                "runtime": [call("default", 0)],
+                "permanent": [call()],
+                "offline": [("--zone", "public", "--add-masquerade")],
+            },
+            "offline_cmd": {
+                ("--zone", "public", "--query-masquerade"): 1,
+            },
         },
-        "disabled": {"expected": {"runtime": [call("default")], "permanent": [call()]}},
+        "disabled": {
+            "expected": {
+                "runtime": [call("default")],
+                "permanent": [call()],
+                "offline": [("--zone", "public", "--remove-masquerade")],
+            },
+            "offline_cmd": {
+                ("--zone", "public", "--query-masquerade"): 0,
+            },
+        },
     },
     "RichRule": {
         "input": {"rich_rule": ['rule protocol value="30" reject']},
@@ -139,7 +290,21 @@ TEST_DATA = {
                 "rich_rule_mock": {
                     "return_value.__str__.return_value": 'rule protocol value="30" accept'
                 },
-            }
+                "offline": [
+                    (
+                        "--zone",
+                        "public",
+                        '--add-rich-rule=rule protocol value="30" accept',
+                    ),
+                ],
+            },
+            "offline_cmd": {
+                (
+                    "--zone",
+                    "public",
+                    '--query-rich-rule=rule protocol value="30" accept',
+                ): 1,
+            },
         },
         "disabled": {
             "expected": {
@@ -148,7 +313,21 @@ TEST_DATA = {
                 "rich_rule_mock": {
                     "return_value.__str__.return_value": 'rule protocol value="30" accept'
                 },
-            }
+                "offline": [
+                    (
+                        "--zone",
+                        "public",
+                        '--remove-rich-rule=rule protocol value="30" accept',
+                    ),
+                ],
+            },
+            "offline_cmd": {
+                (
+                    "--zone",
+                    "public",
+                    '--query-rich-rule=rule protocol value="30" accept',
+                ): 0,
+            },
         },
     },
     "Source": {
@@ -159,13 +338,33 @@ TEST_DATA = {
             "expected": {
                 "runtime": [call("default", "192.0.2.0/24")],
                 "permanent": [call("192.0.2.0/24")],
-            }
+                "offline": [
+                    (
+                        "--zone",
+                        "public",
+                        "--add-source=192.0.2.0/24",
+                    ),
+                ],
+            },
+            "offline_cmd": {
+                ("--zone", "public", "--query-source=192.0.2.0/24"): 1,
+            },
         },
         "disabled": {
             "expected": {
                 "runtime": [call("default", "192.0.2.0/24")],
                 "permanent": [call("192.0.2.0/24")],
-            }
+                "offline": [
+                    (
+                        "--zone",
+                        "public",
+                        "--remove-source=192.0.2.0/24",
+                    ),
+                ],
+            },
+            "offline_cmd": {
+                ("--zone", "public", "--query-source=192.0.2.0/24"): 0,
+            },
         },
     },
     "Interface": {
@@ -176,13 +375,33 @@ TEST_DATA = {
             "expected": {
                 "runtime": [call("default", "eth2")],
                 "permanent": [call("eth2")],
-            }
+                "offline": [
+                    (
+                        "--zone",
+                        "public",
+                        "--change-interface=eth2",
+                    ),
+                ],
+            },
+            "offline_cmd": {
+                ("--zone", "public", "--query-interface=eth2"): 1,
+            },
         },
         "disabled": {
             "expected": {
                 "runtime": [call("default", "eth2")],
                 "permanent": [call("eth2")],
-            }
+                "offline": [
+                    (
+                        "--zone",
+                        "public",
+                        "--remove-interface=eth2",
+                    ),
+                ],
+            },
+            "offline_cmd": {
+                ("--zone", "public", "--query-interface=eth2"): 0,
+            },
         },
     },
     "InterfacePciId": {
@@ -191,12 +410,14 @@ TEST_DATA = {
             "expected": {
                 "runtime": [call("default", "eth42")],
                 "permanent": [call("eth42")],
+                "offline": NOT_SUPPORTED,
             },
         },
         "disabled": {
             "expected": {
                 "runtime": [call("default", "eth42")],
                 "permanent": [call("eth42")],
+                "offline": NOT_SUPPORTED,
             },
         },
     },
@@ -208,13 +429,25 @@ TEST_DATA = {
             "expected": {
                 "runtime": [call("default", "echo-request", 0)],
                 "permanent": [call("echo-request")],
-            }
+                "offline": [
+                    ("--zone", "public", "--add-icmp-block=echo-request"),
+                ],
+            },
+            "offline_cmd": {
+                ("--zone", "public", "--query-icmp-block=echo-request"): 1,
+            },
         },
         "disabled": {
             "expected": {
                 "runtime": [call("default", "echo-request")],
                 "permanent": [call("echo-request")],
-            }
+                "offline": [
+                    ("--zone", "public", "--remove-icmp-block=echo-request"),
+                ],
+            },
+            "offline_cmd": {
+                ("--zone", "public", "--query-icmp-block=echo-request"): 0,
+            },
         },
     },
     "IcmpBlockInversion": {
@@ -222,8 +455,26 @@ TEST_DATA = {
             "enabled": {"icmp_block_inversion": True},
             "disabled": {"icmp_block_inversion": False},
         },
-        "enabled": {"expected": {"runtime": [call("default")], "permanent": [call()]}},
-        "disabled": {"expected": {"runtime": [call("default")], "permanent": [call()]}},
+        "enabled": {
+            "expected": {
+                "runtime": [call("default")],
+                "permanent": [call()],
+                "offline": [("--zone", "public", "--add-icmp-block-inversion")],
+            },
+            "offline_cmd": {
+                ("--zone", "public", "--query-icmp-block-inversion"): 1,
+            },
+        },
+        "disabled": {
+            "expected": {
+                "runtime": [call("default")],
+                "permanent": [call()],
+                "offline": [("--zone", "public", "--remove-icmp-block-inversion")],
+            },
+            "offline_cmd": {
+                ("--zone", "public", "--query-icmp-block-inversion"): 0,
+            },
+        },
     },
     "Target": {
         "input": {
@@ -234,20 +485,38 @@ TEST_DATA = {
                 "permanent": [call("ACCEPT")],
                 "query_mock": {"getTarget.return_value": "default"},
                 "called_mock_name": "setTarget",
-            }
+                "offline": [
+                    ("--zone", "public", "--set-target", "ACCEPT"),
+                ],
+            },
+            "offline_cmd": {
+                ("--zone", "public", "--get-target"): "default",
+            },
         },
         "disabled": {
             "expected": {
                 "permanent": [call("default")],
                 "query_mock": {"getTarget.return_value": "DROP"},
                 "called_mock_name": "setTarget",
-            }
+                "offline": [
+                    ("--zone", "public", "--set-target", "default"),
+                ],
+            },
+            "offline_cmd": {
+                ("--zone", "public", "--get-target"): "DROP",
+            },
         },
     },
 }
 
 TEST_PARAMS = [
-    (method, state, TEST_DATA[method]["input"], TEST_DATA[method][state]["expected"])
+    (
+        method,
+        state,
+        TEST_DATA[method]["input"],
+        TEST_DATA[method][state]["expected"],
+        TEST_DATA[method][state].get("offline_cmd", {}),
+    )
     for method in TEST_METHODS
     for state in TEST_STATES
 ]
@@ -271,6 +540,7 @@ class MockAnsibleModule(MagicMock):
         am.fail_json = Mock(side_effect=MockException())
         am.exit_json = Mock()
         am.log = Mock()
+        am.debug = Mock(side_effect=(lambda *args: print("DBG:", *args)))
         am.warn = Mock()
         if not isinstance(am.check_mode, bool):
             am.check_mode = False
@@ -1090,8 +1360,8 @@ class FirewallLibMain(unittest.TestCase):
         fw_ipset.remove.assert_not_called()
 
 
-@pytest.mark.parametrize("method,state,input,expected", TEST_PARAMS)
-def test_module_parameters(method, state, input, expected):
+@pytest.mark.parametrize("method,state,input,expected,_offline_cmd", TEST_PARAMS)
+def test_module_parameters(method, state, input, expected, _offline_cmd):
     am_class_patcher = patch(
         "firewall_lib.AnsibleModule", new_callable=MockAnsibleModule
     )
@@ -1178,6 +1448,109 @@ def test_module_parameters(method, state, input, expected):
         fw_ver_patcher.stop()
         rich_rule_patcher.stop()
         fw_get_pci_patcher.stop()
+
+
+@pytest.mark.parametrize("method,state,input,expected,offline_cmd", TEST_PARAMS)
+def test_module_parameters_offline(method, state, input, expected, offline_cmd):
+    am_class_patcher = patch(
+        "firewall_lib.AnsibleModule", new_callable=MockAnsibleModule
+    )
+    am_class = am_class_patcher.start()
+    has_fw_patcher = patch("firewall_lib.HAS_FIREWALLD", True)
+    has_fw_patcher.start()
+    fw_ver_patcher = patch("firewall_lib.FW_VERSION", "0.3.8", create=True)
+    fw_ver_patcher.start()
+    rich_rule_patcher = patch("firewall_lib.Rich_Rule", create=True)
+    rich_rule = rich_rule_patcher.start()
+
+    try:
+        params_state = state
+        if state in input:  # e.g. parameter does not support state disabled
+            input = input[state]
+        am = am_class.return_value
+        permanent = "permanent" in expected
+        am.params = {
+            "permanent": permanent,
+            "state": params_state,
+            "online": False,
+            "timeout": 0,
+        }
+        am.params.update(input)
+
+        called_cmds = []
+
+        def mock_run_command(args, check_rc=False):
+            assert args[0] == "firewall-offline-cmd"
+            args = tuple(args[1:])
+            # test-specific query calls from TEST_DATA
+            try:
+                res = offline_cmd[args]
+                if isinstance(res, int):
+                    # --query-* return result as exit code
+                    rc = res
+                    out = ""
+                else:
+                    rc = 0
+                    out = res
+            except KeyError:
+                # common query calls
+                if args[0] == "--get-default-zone":
+                    out = "public"
+                    rc = 0
+                elif args[0] == "--get-services":
+                    out = " ".join(SERVICES_PRESENT)
+                    rc = 0
+                else:
+                    # unhandled call (usually setters), record it as mocked
+                    called_cmds.append(args)
+                    out = ""
+                    rc = 0
+            if rc != 0 and check_rc:
+                am.fail_json("%r exited with %i" % (args, rc))
+
+            return (rc, out, "")
+
+        am.run_command = Mock(side_effect=mock_run_command)
+        if "rich_rule_mock" in expected:
+            rich_rule.configure_mock(**expected["rich_rule_mock"])
+        if expected["offline"] == NOT_SUPPORTED:
+            with pytest.raises(MockException):
+                firewall_lib.main()
+            am.fail_json.assert_called_once()
+        else:
+            firewall_lib.main()
+            assert called_cmds == expected["offline"]
+            am.exit_json.assert_called_once_with(changed=True, __firewall_changed=True)
+    finally:
+        am_class_patcher.stop()
+        has_fw_patcher.stop()
+        fw_ver_patcher.stop()
+        rich_rule_patcher.stop()
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {},  # role defaults to runtime
+        {"runtime": True},
+        {"runtime": True, "permanent": True},
+    ],
+)
+@patch("firewall_lib.HAS_FIREWALLD", True)
+@patch("firewall_lib.FW_VERSION", "0.9.0", create=True)
+@patch("firewall_lib.AnsibleModule", new_callable=MockAnsibleModule)
+def test_offline_no_runtime(am_class, options):
+    am = am_class.return_value
+    am.params = {
+        "online": False,
+        "set_default_zone": "public",
+    }
+    am.params.update(options)
+    with pytest.raises(MockException):
+        firewall_lib.main()
+    am.fail_json.assert_called_with(
+        msg="runtime mode is not supported in offline environments"
+    )
 
 
 class FirewallVersionTest(unittest.TestCase):
