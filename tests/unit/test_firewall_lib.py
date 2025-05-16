@@ -29,6 +29,7 @@ TEST_METHODS = [
     "RichRule",
     "Source",
     "Interface",
+    "InterfacePciId",
     "IcmpBlock",
     "IcmpBlockInversion",
     "Target",
@@ -188,13 +189,14 @@ TEST_DATA = {
         "input": {"interface_pci_id": ["600D:7C1D"]},
         "enabled": {
             "expected": {
-                "runtime": [call("default", "600D:7C1D")],
+                "runtime": [call("default", "eth42")],
+                "permanent": [call("eth42")],
             },
         },
         "disabled": {
             "expected": {
-                "runtime": [call("default", "600D:7C1D")],
-                "permanent": [call("600D:7C1D")],
+                "runtime": [call("default", "eth42")],
+                "permanent": [call("eth42")],
             },
         },
     },
@@ -1187,6 +1189,10 @@ def test_module_parameters(method, state, input, expected):
     fw_ver_patcher.start()
     rich_rule_patcher = patch("firewall_lib.Rich_Rule", create=True)
     rich_rule = rich_rule_patcher.start()
+    fw_get_pci_patcher = patch(
+        "firewall_lib.get_interface_pci", return_value={"600D:7C1D": ["eth42"]}
+    )
+    fw_get_pci_patcher.start()
 
     try:
         params_state = state
@@ -1203,6 +1209,11 @@ def test_module_parameters(method, state, input, expected):
             "timeout": 0,
         }
         am.params.update(input)
+
+        # InterfacePciId uses set_interface() as well, same backend API
+        if method == "InterfacePciId":
+            method = "Interface"
+
         if "called_mock_name" in expected:
             called_mock_name = expected["called_mock_name"]
         elif state == "enabled":
@@ -1252,6 +1263,7 @@ def test_module_parameters(method, state, input, expected):
         has_fw_patcher.stop()
         fw_ver_patcher.stop()
         rich_rule_patcher.stop()
+        fw_get_pci_patcher.stop()
 
 
 class FirewallVersionTest(unittest.TestCase):
