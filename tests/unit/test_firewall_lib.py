@@ -174,6 +174,7 @@ TEST_DATA = {
         "enabled": {
             "expected": {
                 "runtime": [call("default", "eth2")],
+                "permanent": [call("eth2")],
             }
         },
         "disabled": {
@@ -1205,10 +1206,7 @@ def test_module_parameters(method, state, input, expected):
         if "called_mock_name" in expected:
             called_mock_name = expected["called_mock_name"]
         elif state == "enabled":
-            if method == "Interface" and runtime:
-                called_mock_name = "changeZoneOfInterface"
-            else:
-                called_mock_name = "add" + method
+            called_mock_name = "add" + method
         else:
             called_mock_name = "remove" + method
         if "query_mock" in expected:
@@ -1237,7 +1235,12 @@ def test_module_parameters(method, state, input, expected):
         firewall_lib.main()
         fw.setExceptionHandler.assert_called_once()
         if runtime:
-            called_mock = getattr(fw, called_mock_name)
+            # special case: set_interface uses unique API for runtime
+            if method == "Interface" and state == "enabled":
+                runtime_called_mock_name = "changeZoneOfInterface"
+            else:
+                runtime_called_mock_name = called_mock_name
+            called_mock = getattr(fw, runtime_called_mock_name)
             assert expected["runtime"] == called_mock.call_args_list
         if permanent:
             called_mock = getattr(fw_settings, called_mock_name)
