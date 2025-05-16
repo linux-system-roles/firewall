@@ -448,7 +448,7 @@ firewall:
 ### port
 
 Port or port range or a list of them to add or remove inbound access to. It
-needs to be in the format ```<port>[-<port>]/<protocol>```.
+needs to be in the format `<port>[-<port>]/<protocol>`.
 
 ```yaml
 port: '443/tcp'
@@ -489,7 +489,7 @@ See `ipset` for more usage information
 ### source_port
 
 Port or port range or a list of them to add or remove source port access to. It
-needs to be in the format ```<port>[-<port>]/<protocol>```.
+needs to be in the format `<port>[-<port>]/<protocol>`.
 
 ```yaml
 source_port: '443/tcp'
