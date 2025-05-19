@@ -669,6 +669,22 @@
           register: result
           failed_when: result is failed or result is not changed
 
+        - name: Forward port 40 to 0.0.0.0:8080 (permanent)
+          firewall_lib:
+            forward_port: 40/tcp;8080;0.0.0.0
+            permanent: true
+            state: enabled
+          register: result
+          failed_when: result is failed or result is not changed
+
+        - name: Forward same port again (permanent)
+          firewall_lib:
+            forward_port: 40/tcp;8080;0.0.0.0
+            permanent: true
+            state: enabled
+          register: result
+          failed_when: result is failed or result is changed
+
       always:
 
         - name: Cleanup
