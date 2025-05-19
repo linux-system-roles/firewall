@@ -126,7 +126,7 @@
           failed_when: result.stdout != item["expected"]
 
         # Test that ipset can be added to zones
-        - name: Add ipset to default zone
+        - name: Add ipset to default zone (runtime)
           include_role:
             name: linux-system-roles.firewall
           vars:
@@ -135,7 +135,7 @@
                 state: enabled
                 runtime: true
 
-        - name: Add ipset to default zone again
+        - name: Add ipset to default zone again (runtime)
           include_role:
             name: linux-system-roles.firewall
           vars:
@@ -157,7 +157,7 @@
             firewall:
               - source: "ipset:customipset"
                 state: enabled
-                runtime: true
+                permanent: true
 
         - name: Add ipset to default zone again (permanent)
           include_role:
@@ -166,7 +166,7 @@
             firewall:
               - source: "ipset:customipset"
                 state: enabled
-                runtime: true
+                permanent: true
           register: result
 
         - name: Fail if adding ipset is not idempotent (permanent)
@@ -174,7 +174,7 @@
             msg: "enabling ipsets in zones is not idempotent (permanent)"
           when: result.changed | bool  # noqa no-handler
 
-        - name: Add ipset to default zone
+        - name: Remove ipset from default zone
           include_role:
             name: linux-system-roles.firewall
           vars:
