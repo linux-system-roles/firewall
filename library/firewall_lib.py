@@ -488,9 +488,9 @@ class OnlineAPIBackend:
                             fw_service_settings.addSourcePort(_port, _protocol)
                         self.changed = True
                 for _module in helper_module:
-                    if fw_service_settings.queryModule(_module):
+                    if not fw_service_settings.queryHelper(_module):
                         if not self.module.check_mode:
-                            fw_service_settings.addModule(_module)
+                            fw_service_settings.addHelper(_module)
                         self.changed = True
                 if destination_ipv4:
                     if not fw_service_settings.queryDestination(
