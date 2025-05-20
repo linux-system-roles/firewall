@@ -1113,7 +1113,6 @@ def test_module_parameters(method, state, input, expected):
         params_state = state
         if state in input:  # e.g. parameter does not support state disabled
             input = input[state]
-            params_state = "enabled"
         am = am_class.return_value
         permanent = "permanent" in expected
         runtime = "runtime" in expected
