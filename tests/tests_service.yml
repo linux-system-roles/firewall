@@ -124,8 +124,12 @@
                 destination:
                   - 1.1.1.1
                   - 1::1
-                helper_module: ftp
                 protocol: icmp
+                # these two don't exist yet in RHEL 7
+                helper_module: "{{ 'ftp'
+                  if ansible_distribution in ['RedHat', 'CentOS', 'Fedora']
+                  and ansible_distribution_major_version is version('8', '>=')
+                  else omit }}"
                 includes: "{{ ['ssh', 'ldaps']
                   if ansible_distribution in ['RedHat', 'CentOS', 'Fedora']
                   and ansible_distribution_major_version is version('8', '>=')
@@ -168,8 +172,12 @@
                 destination:
                   - 1.1.1.1
                   - 1::1
-                helper_module: ftp
                 protocol: icmp
+                # these two don't exist yet in RHEL 7
+                helper_module: "{{ 'ftp'
+                  if ansible_distribution in ['RedHat', 'CentOS', 'Fedora']
+                  and ansible_distribution_major_version is version('8', '>=')
+                  else omit }}"
                 includes: "{{ ['ssh', 'ldaps']
                   if ansible_distribution in ['RedHat', 'CentOS', 'Fedora']
                   and ansible_distribution_major_version is version('8', '>=')
@@ -247,8 +255,11 @@
                 destination:
                   - 1.1.1.1
                   - 1::1
-                helper_module: ftp
                 protocol: icmp
+                helper_module: "{{ 'ftp'
+                  if ansible_distribution in ['RedHat', 'CentOS', 'Fedora']
+                  and ansible_distribution_major_version is version('8', '>=')
+                  else omit }}"
                 includes: "{{ ['ssh', 'ldaps']
                   if ansible_distribution in ['RedHat', 'CentOS', 'Fedora']
                   and ansible_distribution_major_version is version('8', '>=')
@@ -274,8 +285,11 @@
                 destination:
                   - 1.1.1.1
                   - 1::1
-                helper_module: ftp
                 protocol: icmp
+                helper_module: "{{ 'ftp'
+                  if ansible_distribution in ['RedHat', 'CentOS', 'Fedora']
+                  and ansible_distribution_major_version is version('8', '>=')
+                  else omit }}"
                 includes: "{{ ['ssh', 'ldaps']
                   if ansible_distribution in ['RedHat', 'CentOS', 'Fedora']
                   and ansible_distribution_major_version is version('8', '>=')

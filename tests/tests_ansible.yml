@@ -587,24 +587,48 @@
 
         - name: Add custom service with all the elements at once
           firewall_lib:
+            permanent: true
+            state: present
             service: customservice
             short: Custom service
             port: 333/tcp
             source_port: 333/tcp
             protocol: ipv6
-            helper_module: nf_conntrack_ftp
             description: Custom Service that does not do a single thing
             destination:
               - 123.45.6.78
               - "aaaa:aaaa:aaaa:aaa:aaaa:aaaa:aaaa::"
+            # these two don't exist yet in RHEL 7
+            helper_module: "{{ 'nf_conntrack_ftp'
+              if ansible_distribution in ['RedHat', 'CentOS', 'Fedora']
+              and ansible_distribution_major_version is version('8', '>=')
+              else omit }}"
             includes: "{{ ['https', 'ldaps']
               if ansible_distribution in ['RedHat', 'CentOS', 'Fedora']
               and ansible_distribution_major_version is version('8', '>=')
               else omit }}"
-            permanent: true
-            state: present
           register: result
           failed_when: result is failed or result is not changed
+
+        - name: Verify service settings
+          command: firewall-offline-cmd --info-service customservice
+          register: info
+          changed_when: false
+          failed_when: >
+              info.failed
+              or "ports: 333/tcp" not in info.stdout
+              or "source-ports: 333/tcp" not in info.stdout
+              or "protocols: ipv6" not in info.stdout
+              or "destination: ipv4:123.45.6.78 ipv6:aaaa:aaaa:aaaa:aaa:aaaa:aaaa:aaaa::"
+                 not in info.stdout
+
+        - name: Verify includes and helper service settings
+          assert:
+            that:
+              - '"includes: https ldaps" in info.stdout'
+              - '"helpers: nf_conntrack_ftp" in info.stdout'
+          when: ansible_distribution in ['RedHat', 'CentOS', 'Fedora']
+                and ansible_distribution_major_version is version('8', '>=')
 
         - name: Add helper module that already is on customservice
           firewall_lib:
@@ -614,6 +638,8 @@
             state: present
           register: result
           failed_when: result is failed or result is changed
+          when: ansible_distribution in ['RedHat', 'CentOS', 'Fedora']
+                and ansible_distribution_major_version is version('8', '>=')
 
         - name: Forward port 40 to 0.0.0.0:8080 (string)
           firewall_lib:
