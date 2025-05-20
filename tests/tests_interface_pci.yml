@@ -7,32 +7,46 @@
     - linux-system-roles.firewall
 
   tasks:
-    - name: Get backend from dbus
-      command: >-
-        dbus-send --system --print-reply --type=method_call
-        --dest=org.fedoraproject.FirewallD1
-        /org/fedoraproject/FirewallD1/config
-        org.freedesktop.DBus.Properties.Get
-        string:"org.fedoraproject.FirewallD1.config"
-        string:"FirewallBackend"
-      ignore_errors: true  # noqa ignore-errors
-      register: result
-      changed_when: false
-
-    - name: Get backend from result
+    - name: Set expected backend
       set_fact:
         nftables_backend:
-          "{{ result is not failed and 'nftables' in result.stdout }}"
+          "{{ true
+            if ansible_distribution in ['RedHat', 'CentOS', 'Fedora']
+            and ansible_distribution_major_version is version('8', '>=')
+            else false }}"
+
+    - name: Find ethernet interface
+      shell: |
+        set -euo pipefail
+        I=$(find /sys/class/net -name 'e*' | head -n1)
+        # containers only have virtual devices; for PCI we need a real one
+        if [ -n "$I" ] && [ -e "$I/device/vendor" ]; then
+          echo "$I"
+        fi
+      register: find_iface
+      changed_when: false
 
     - name: Test interfaces with PCI ids
+      # this can't be tested in containers or similar envs without any real
+      # ethernet devices
+      when: find_iface.stdout != ""
       block:
+        - name: Determine interface vendor/product ID
+          shell: |
+            set -euo pipefail
+            VID="$(sed 's/^0x//' < {{ find_iface.stdout | quote }}/device/vendor)"
+            PID="$(sed 's/^0x//' < {{ find_iface.stdout | quote }}/device/device)"
+            echo "$VID:$PID"
+          register: pci_id
+          changed_when: false
+
         - name: Add pci device ethernet controller
           include_role:
             name: linux-system-roles.firewall
           vars:
             firewall:
               zone: internal
-              interface_pci_id: 1af4:0001
+              interface_pci_id: "{{ pci_id.stdout }}"
               state: enabled
               permanent: true
 
@@ -42,23 +56,35 @@
           vars:
             firewall:
               zone: internal
-              interface_pci_id: 1af4:0001
+              interface_pci_id: "{{ pci_id.stdout }}"
               state: enabled
               permanent: true
 
-        - name: Assert pcid not in nftable ruleset
+        - name: Get nftable ruleset
           command: nft list ruleset
-          register: result
-          failed_when: result is failed or '1af4:0001' in result.stdout
+          register: nft_list
+          changed_when: false
           when: nftables_backend | bool
-          changed_when: false
 
-        - name: Assert pcid not in iptables rules
+        - name: Assert that interface is in nftable ruleset
+          assert:
+            that:
+              - find_iface.stdout | basename in nft_list.stdout
+              - pci_id.stdout | trim not in nft_list.stdout
+          when: nftables_backend | bool
+
+        - name: Get iptables ruleset
           command: iptables -S
-          register: result
-          failed_when: result is failed or '1af4:0001' in result.stdout
-          when: not nftables_backend | bool
+          register: ipt_list
           changed_when: false
+          when: not nftables_backend | bool
+
+        - name: Assert that interface is in iptables ruleset
+          assert:
+            that:
+              - find_iface.stdout | basename in ipt_list.stdout
+              - pci_id.stdout | trim not in ipt_list.stdout
+          when: not nftables_backend | bool
 
         - name: Remove interface from internal
           include_role:
@@ -66,7 +92,7 @@
           vars:
             firewall:
               zone: internal
-              interface_pci_id: 1af4:0001
+              interface_pci_id: "{{ pci_id.stdout }}"
               state: disabled
               permanent: true
       always:
