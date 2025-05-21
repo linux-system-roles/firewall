@@ -719,6 +719,8 @@ interfaces with the PCI id specified will have the play applied.</p>
 <code>lcpci -nn</code>. For more information on PCI device IDs, see the
 linux man page at: <a
 href="https://man7.org/linux/man-pages/man5/pci.ids.5.html">https://man7.org/linux/man-pages/man5/pci.ids.5.html</a></p>
+<p>This option requires running the role on the actual target machine,
+i.e. it is not supported during container builds.</p>
 <h2 id="icmp_block">icmp_block</h2>
 <p>String or list of ICMP type strings to block. The ICMP type names
 needs to be defined in firewalld configuration.</p>
