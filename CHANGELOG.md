@@ -1,6 +1,28 @@
 Changelog
 =========
 
+[1.10.0] - 2025-05-21
+--------------------
+
+### New Features
+
+- feat: Support this role in container builds (#274)
+
+### Bug Fixes
+
+- fix: Fix "helpers" service option (#277)
+- fix: Fix "interface_pci_id" role option (#278)
+
+### Other Changes
+
+- ci: Assert fact structure and some well-known entries (#265)
+- ci: Bump sclorg/testing-farm-as-github-action from 3 to 4 (#268)
+- ci: bump tox-lsr to 3.8.0; rename qemu/kvm tests (#269)
+- ci: Two prerequisites for bootc support (#270)
+- refactor: Add backend abstraction to firewall_lib, remove obsolete firewall_lib offline code (#271)
+- tests: Various fixes and additions (#273)
+- ci: Add Fedora 42; use tox-lsr 3.9.0; use lsr-report-errors for qemu tests (#275)
+
 [1.9.1] - 2025-04-29
 --------------------
 
