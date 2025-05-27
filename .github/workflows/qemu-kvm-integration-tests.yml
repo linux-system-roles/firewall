@@ -117,7 +117,7 @@ jobs:
         if: steps.check_platform.outputs.supported && startsWith(matrix.scenario.env, 'qemu')
         run: >-
           tox -e ${{ matrix.scenario.env }} -- --image-name ${{ matrix.scenario.image }} --make-batch
-          --log-level debug --skip-tags tests::infiniband,tests::nvme,tests::scsi
+          --log-level debug $TOX_ARGS
           --lsr-report-errors-url DEFAULT --
 
       - name: Qemu result summary
