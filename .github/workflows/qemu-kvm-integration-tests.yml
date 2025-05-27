@@ -107,6 +107,28 @@ jobs:
           sudo apt install -y --no-install-recommends git ansible-core genisoimage qemu-system-x86
           pip3 install "git+https://github.com/linux-system-roles/tox-lsr@3.10.0"
 
+      # HACK: Drop this when moving this workflow to 26.04 LTS
+      - name: Update podman to 5.x for compatibility with bootc-image-builder's podman 5
+        if: steps.check_platform.outputs.supported && endsWith(matrix.scenario.image, '-bootc')
+        run: |
+          sed 's/noble/plucky/g' /etc/apt/sources.list.d/ubuntu.sources | sudo tee /etc/apt/sources.list.d/plucky.sources >/dev/null
+          cat <<EOF | sudo tee /etc/apt/preferences.d/podman.pref >/dev/null
+          Package: podman buildah golang-github-containers-common crun libgpgme11t64 libgpg-error0 golang-github-containers-image catatonit conmon containers-storage
+          Pin: release n=plucky
+          Pin-Priority: 991
+
+          Package: libsubid4 netavark passt aardvark-dns containernetworking-plugins libslirp0 slirp4netns
+          Pin: release n=plucky
+          Pin-Priority: 991
+
+          Package: *
+          Pin: release n=plucky
+          Pin-Priority: 400
+          EOF
+
+          sudo apt update
+          sudo apt install -y podman crun conmon containers-storage
+
       - name: Configure tox-lsr
         if: steps.check_platform.outputs.supported
         run: >-
