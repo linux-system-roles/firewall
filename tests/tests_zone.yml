@@ -60,11 +60,14 @@
                 state: enabled
               - service: http
                 state: enabled
+          when: not __bootc_validation | d(false)
 
         - name: Fail if no changes are done
           fail:
             msg: "FAILED"
-          when: not firewall_lib_result.changed
+          when:
+            - not __bootc_validation | d(false)
+            - not firewall_lib_result.changed
 
         # ENSURE STATE AGAIN
 
@@ -97,11 +100,21 @@
                 state: enabled
               - service: http
                 state: enabled
+          when: not __bootc_validation | d(false)
 
         - name: Fail on newly changes
           fail:
             msg: "FAILED"
-          when: firewall_lib_result.changed  # noqa no-handler
+          when:
+            - not __bootc_validation | d(false)
+            - firewall_lib_result.changed  # noqa no-handler
+
+        - name: Create QEMU deployment during bootc end-to-end test
+          delegate_to: localhost
+          become: false
+          command: "{{ lsr_scriptdir }}/bootc-buildah-qcow.sh {{ ansible_host }}"
+          changed_when: true
+          when: ansible_connection == "buildah"
 
         # VERIFY
 
@@ -153,6 +166,7 @@
                       or "yes" not in result.stdout
       always:
         - name: Cleanup
+          when: not __bootc_validation | d(false)
           tags:
             - tests::cleanup
           block:
