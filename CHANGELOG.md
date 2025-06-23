@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[1.10.1] - 2025-06-23
+--------------------
+
+### Other Changes
+
+- tests: Update tests_zone to do bootc end-to-end validation (#280)
+- ci: Use ansible 2.19 for fedora 42 testing; support python 3.13 (#281)
+
 [1.10.0] - 2025-05-21
 --------------------
 
