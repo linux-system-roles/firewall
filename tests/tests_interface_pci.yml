@@ -30,11 +30,34 @@
       register: find_iface
       changed_when: false
 
+    - name: Debug
+      shell: |
+        set -euxo pipefail
+        exec 1>&2
+        ip addr
+        ls -alrtF /sys/class/net
+        ls -alrtF /sys/class/net/*/device/vendor || :
+        ls -alrtF /sys/class/net/*/device/device || :
+      changed_when: false
+
     - name: Test interfaces with PCI ids
       # this can't be tested in containers or similar envs without any real
       # ethernet devices
       when: find_iface.stdout != ""
       block:
+        - name: Get temp directory
+          tempfile:
+            prefix: lsr_
+            suffix: _firewall_pci
+            state: directory
+          register: temp_dir
+
+        - name: Debug - get nftables ruleset before
+          shell: |
+            set -euo pipefail
+            nft list ruleset > {{ temp_dir.path }}/nft_before.txt || :
+          changed_when: false
+
         - name: Determine interface vendor/product ID
           shell: |
             set -euo pipefail
@@ -63,6 +86,14 @@
               interface_pci_id: "{{ pci_id.stdout }}"
               state: enabled
               permanent: true
+
+        - name: Debug - get nftables ruleset after and show diff
+          shell: |
+            set -euo pipefail
+            nft list ruleset > {{ temp_dir.path }}/nft_after.txt || :
+            diff -u {{ temp_dir.path }}/nft_before.txt {{ temp_dir.path }}/nft_after.txt || :
+            rm -rf {{ temp_dir.path }}
+          changed_when: false
 
         - name: Get nftable ruleset
           command: nft list ruleset
