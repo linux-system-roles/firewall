@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.10.2] - 2025-08-01
+--------------------
+
+### Other Changes
+
+- test: debug finding ethernet with pci (#285)
+
 [1.10.1] - 2025-06-23
 --------------------
 
