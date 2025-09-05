@@ -40,7 +40,7 @@ jobs:
           sudo apt install -y git
 
       - name: checkout PR
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python 2.7
         if: ${{ matrix.pyver_os.ver == '2.7' }}
@@ -67,7 +67,7 @@ jobs:
             tox=tox
             virtualenv=virtualenv
           fi
-          pip install "$tox" "$virtualenv" "git+https://github.com/linux-system-roles/tox-lsr@3.11.0"
+          pip install "$tox" "$virtualenv" "git+https://github.com/linux-system-roles/tox-lsr@3.11.1"
           # If you have additional OS dependency packages e.g. libcairo2-dev
           # then put them in .github/config/ubuntu-requirements.txt, one
           # package per line.
