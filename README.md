@@ -381,8 +381,12 @@ For more information about custom services, see <https://firewalld.org/documenta
 Name of the ipset being created, modified, or removed.
 Use `source` to add and remove ipsets from a zone
 
-When creating an ipset, you must also specify `ipset_type`,
-and optionally `short`, `description`, `ipset_entries`
+When creating an ipset, you must also specify `ipset_type`, and optionally
+`short`, `description`, `ipset_entries` and `ipset_options`.
+
+**NOTE**: You cannot mix IPv4, IPv6, and MAC addresses in the same
+`ipset_entries` list. All addresses must be the same IP type.  This is a
+limitation of the underlying firewalld implementation.
 
 Defining an ipset with all optional fields:
 
@@ -398,6 +402,24 @@ firewall:
       - 3.3.3.3
       - 8.8.8.8
       - 127.0.0.1
+    ipset_options:
+      maxelem: 1000
+    state: present
+    permanent: true
+```
+
+Defining an ipset with IPv6 addresses:
+
+```yaml
+firewall:
+  - ipset: customipset
+    ipset_type: "hash:ip"
+    short: Custom IPSet
+    description: set of ip addresses specified in entries
+    ipset_entries:
+      - 2001:db8::/32
+    ipset_options:
+      maxelem: 1000
     state: present
     permanent: true
 ```
@@ -478,6 +500,10 @@ Used with `ipset`
 Entries must be compatible with the ipset type of the `ipset`
 being created or modified.
 
+**NOTE**: You cannot mix IPv4, IPv6, and MAC addresses in the same
+`ipset_entries` list. All addresses must be the same IP type.  This is a
+limitation of the underlying firewalld implementation.
+
 ```yaml
 ipset: customipset
 ipset_entries:
@@ -485,6 +511,41 @@ ipset_entries:
 ```
 
 See `ipset` for more usage information
+
+### ipset_options
+
+A `dict` of key/value pairs of ipset options for the given ipset.
+See [firewalld ipset options](https://firewalld.org/documentation/ipset/options.html)
+for more information.
+
+You usually do not have to specify the family.  The role will default to
+`family: inet` if `ipset_entries` contains IPv4 addresses, and will default to
+`family: inet6` if `ipset_entries` contains IPv6 addresses
+
+```yaml
+ipset_options:
+  maxelem: 1000
+  hashsize: 512
+```
+
+#### Removing options
+
+**NOTE**: Options cannot be modified or removed if running the role during
+a container or image build (e.g. in a `bootc` Containerfile).
+
+If you want to remove an option, set `state: absent`, and set the option value
+to `null`:
+
+```yaml
+state: absent
+ipset_options:
+  maxelem: null
+```
+
+This will remove the `maxelem` option.  If you specify a value, then the role
+will only remove that option *if it matches the value*.  This is useful if you
+want to ensure that the value you are removing is the expected value, and has
+not be changed outside of the role.
 
 ### source_port
 
