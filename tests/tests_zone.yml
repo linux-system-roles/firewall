@@ -60,6 +60,23 @@
                 state: enabled
               - service: http
                 state: enabled
+              - ipset: customipset-ipv4
+                ipset_type: "hash:ip"
+                ipset_entries:
+                  - 127.0.0.1
+                  - 8.8.8.8
+                short: Custom
+                description: Custom IPSet for testing purposes
+                state: present
+                permanent: true
+              - ipset: customipset-ipv6
+                ipset_type: "hash:ip"
+                ipset_entries:
+                  - 2001:4860:4860::8844
+                short: Custom
+                description: Custom IPSet for testing purposes
+                state: present
+                permanent: true
           when: not __bootc_validation | d(false)
 
         - name: Fail if no changes are done
@@ -100,6 +117,23 @@
                 state: enabled
               - service: http
                 state: enabled
+              - ipset: customipset-ipv4
+                ipset_type: "hash:ip"
+                ipset_entries:
+                  - 127.0.0.1
+                  - 8.8.8.8
+                short: Custom
+                description: Custom IPSet for testing purposes
+                state: present
+                permanent: true
+              - ipset: customipset-ipv6
+                ipset_type: "hash:ip"
+                ipset_entries:
+                  - 2001:4860:4860::8844
+                short: Custom
+                description: Custom IPSet for testing purposes
+                state: present
+                permanent: true
           when: not __bootc_validation | d(false)
 
         - name: Fail on newly changes
@@ -164,6 +198,27 @@
           changed_when: false
           failed_when: result is failed
                       or "yes" not in result.stdout
+
+        - name: Fail if ipsets not added
+          shell:
+            executable: /bin/bash
+            cmd: |
+              set -euo pipefail
+              firewall-offline-cmd --get-ipsets | grep {{ item | quote }}
+          loop:
+            - customipset-ipv4
+            - customipset-ipv6
+          changed_when: false
+
+        - name: Fail if entry not added to ipset
+          command: firewall-offline-cmd --ipset {{ item.name | quote }} --query-entry {{ item.entry | quote }}
+          loop:
+            - name: customipset-ipv4
+              entry: 8.8.8.8
+            - name: customipset-ipv6
+              entry: 2001:4860:4860::8844
+          changed_when: false
+
       always:
         - name: Cleanup
           when: not __bootc_validation | d(false)

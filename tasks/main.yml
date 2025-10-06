@@ -107,6 +107,7 @@
     ipset: "{{ item.ipset | default(omit) }}"
     ipset_type: "{{ item.ipset_type | default(omit) }}"
     ipset_entries: "{{ item.ipset_entries | default(omit) }}"
+    ipset_options: "{{ item.ipset_options | default(omit) }}"
     short: "{{ item.short | default(omit) }}"
     description: "{{ item.description | default(omit) }}"
     protocol: "{{ item.protocol | default(omit) }}"

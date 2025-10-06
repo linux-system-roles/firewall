@@ -16,6 +16,10 @@ __firewall_required_facts_subsets: "{{ ['!all', '!min'] +
 
 __firewall_packages_base: [firewalld]
 
+__firewall_packages_extra: "{{ ['python-ipaddress']
+  if __firewall_is_rh_distro and ansible_facts['distribution_major_version'] | int < 8
+  else [] }}"
+
 # This is the package providing the default /etc/firewall/firewalld.conf
 __firewall_package_with_conf: firewalld
 

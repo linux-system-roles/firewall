@@ -5,7 +5,7 @@
 #
 """Unit tests for kernel_settings module"""
 
-from __future__ import absolute_import, division, print_function
+from __future__ import absolute_import, division, print_function, unicode_literals
 
 __metaclass__ = type
 
@@ -748,7 +748,7 @@ class FirewallLibMain(unittest.TestCase):
             firewall_lib.main()
         am.fail_json.assert_called_with(
             msg="short, description, port, source_port, helper_module, protocol, "
-            "destination, ipset_type or ipset_entries cannot be set while zone is "
+            "destination, ipset_type, ipset_entries, or ipset_options cannot be set while zone is "
             "specified and state is set to present or absent"
         )
 
@@ -1358,6 +1358,100 @@ class FirewallLibMain(unittest.TestCase):
         firewall_lib.main()
 
         fw_ipset.remove.assert_not_called()
+
+    @patch("firewall_lib.HAS_FIREWALLD", True)
+    @patch("firewall_lib.FW_VERSION", "0.9.0", create=True)
+    @patch("firewall_lib.FirewallClient", create=True)
+    @patch("firewall_lib.FirewallClientIPSetSettings", create=True)
+    def test_create_ipset_ipv6(self, fw_ipset_settings_class, fw_class, am_class):
+        am = am_class.return_value
+        am.params = {
+            "ipset": "test",
+            "ipset_type": "hash:ip",
+            "ipset_entries": ["2001:db8::1", "2001:db8::2", "2001:db8::3"],
+            "description": "test ipset ipv6",
+            "short": "Test",
+            "state": "present",
+            "permanent": True,
+        }
+
+        fw = fw_class.return_value
+
+        fw_config = Mock()
+        fw.config.return_value = fw_config
+        fw_config.getIPSetNames.return_value = []
+        fw_config.getIPSetByName = Mock()
+
+        fw_ipset_settings = fw_ipset_settings_class.return_value
+        fw_ipset_settings.addEntry = Mock()
+        fw_ipset_settings.queryEntry = Mock(return_value=False)
+
+        fw_ipset = fw_config.getIPSetByName.return_value
+        fw_ipset.update = Mock()
+        fw_ipset.getSettings.return_value = fw_ipset_settings
+
+        firewall_lib.main()
+
+        fw_ipset_settings.setType.assert_called_with(am.params["ipset_type"])
+        fw_config.getIPSetByName.assert_called_with(am.params["ipset"])
+        fw_ipset.getSettings.assert_called_once()
+        fw_ipset_settings.addEntry.assert_called()
+        fw_ipset.update.assert_called()
+
+        am.check_mode = True
+        fw_ipset_settings.addEntry.reset_mock()
+        fw_ipset.update.reset_mock()
+
+        firewall_lib.main()
+
+        fw_ipset_settings_class.assert_called_with()
+        fw_ipset_settings.addEntry.assert_not_called()
+        fw_ipset.update.assert_not_called()
+
+    @patch("firewall_lib.HAS_FIREWALLD", True)
+    @patch("firewall_lib.FW_VERSION", "0.9.0", create=True)
+    @patch("firewall_lib.FirewallClient", create=True)
+    @patch("firewall_lib.FirewallClientIPSetSettings", create=True)
+    def test_create_ipset_mixed(self, fw_ipset_settings_class, fw_class, am_class):
+        am = am_class.return_value
+        am.params = {
+            "ipset": "test",
+            "ipset_type": "hash:ip",
+            "ipset_entries": [
+                "2001:db8::1",
+                "2001:db8::2",
+                "2001:db8::3",
+                "1.1.1.1",
+                "2.2.2.2",
+                "3.3.3.3",
+            ],
+            "description": "test ipset mixed",
+            "short": "Test",
+            "state": "present",
+            "permanent": True,
+        }
+
+        fw = fw_class.return_value
+
+        fw_config = Mock()
+        fw.config.return_value = fw_config
+        fw_config.getIPSetNames.return_value = []
+        fw_config.getIPSetByName = Mock()
+
+        fw_ipset_settings = fw_ipset_settings_class.return_value
+        fw_ipset_settings.addEntry = Mock()
+        fw_ipset_settings.queryEntry = Mock(return_value=False)
+
+        fw_ipset = fw_config.getIPSetByName.return_value
+        fw_ipset.update = Mock()
+        fw_ipset.getSettings.return_value = fw_ipset_settings
+
+        with self.assertRaises(MockException):
+            firewall_lib.main()
+        am.fail_json.assert_called_with(
+            msg="Address types cannot be mixed in ipset entries - "
+            + str(am.params["ipset_entries"])
+        )
 
 
 @pytest.mark.parametrize("method,state,input,expected,_offline_cmd", TEST_PARAMS)

@@ -51,7 +51,7 @@
 
 - name: Install firewalld
   package:
-    name: "{{ __firewall_packages_base }}"
+    name: "{{ __firewall_packages_base + __firewall_packages_extra }}"
     state: present
     use: "{{ (__firewall_is_ostree | d(false)) |
       ternary('ansible.posix.rhel_rpm_ostree', omit) }}"
