@@ -11,16 +11,18 @@
         - name: Start from clean slate
           include_role:
             name: linux-system-roles.firewall
+            public: true
           vars:
             firewall:
               - previous: replaced
 
-        # Verify customipset is not already defined
+        # Verify customipset-ipv4 is not already defined
         - name: Get all ipsets
           shell:
+            executable: /bin/bash
             cmd: |
-              set -o pipefail
-              firewall-offline-cmd --get-ipsets | grep customipset
+              set -euo pipefail
+              firewall-offline-cmd --get-ipsets | grep customipset-ipv4
           register: result
           changed_when: false
           failed_when: result.rc != 1
@@ -32,81 +34,214 @@
             name: linux-system-roles.firewall
           vars:
             firewall:
-              - ipset: customipset
+              - ipset: customipset-ipv4
                 ipset_type: "hash:ip"
                 ipset_entries:
                   - 127.0.0.1
                   - 8.8.8.8
+                ipset_options:
+                  hashsize: 120
+                  maxelem: 1000
+                short: Custom
+                description: Custom IPSet for testing purposes
+                state: present
+                permanent: true
+              - ipset: customipset-ipv6
+                ipset_type: "hash:ip"
+                ipset_entries:
+                  - 2001:4860:4860::8844
+                  - 2001:4860:4860::8888
+                ipset_options:
+                  hashsize: 120
+                  maxelem: 1000
                 short: Custom
                 description: Custom IPSet for testing purposes
                 state: present
                 permanent: true
 
-        - name: Fail if ipset not added
+        - name: Fail if ipsets not added
           shell:
+            executable: /bin/bash
             cmd: |
-              set -o pipefail
-              firewall-offline-cmd --get-ipsets | grep "customipset"
+              set -euo pipefail
+              firewall-offline-cmd --get-ipsets | grep {{ item | quote }}
+          loop:
+            - customipset-ipv4
+            - customipset-ipv6
           changed_when: false
-          register: result
-          failed_when: result.rc == 1
 
         - name: Fail if entry not added to ipset
-          command: |
-            firewall-offline-cmd --ipset customipset --query-entry 8.8.8.8
+          command: firewall-offline-cmd --ipset {{ item.name | quote }} --query-entry {{ item.entry | quote }}
+          loop:
+            - name: customipset-ipv4
+              entry: 8.8.8.8
+            - name: customipset-ipv6
+              entry: 2001:4860:4860::8844
+            - name: customipset-ipv6
+              entry: 2001:4860:4860::8888
           changed_when: false
 
-        - name: Redefine new ipset
+        - name: Fail if options not added to ipset
+          command: firewall-offline-cmd --info-ipset {{ item.name | quote }}
+          loop:
+            - name: customipset-ipv4
+              option1: hashsize=120
+              option2: maxelem=1000
+            - name: customipset-ipv6
+              option1: hashsize=120
+              option2: maxelem=1000
+          changed_when: false
+          register: result
+          failed_when: result.stdout is not search(item.option1) or result.stdout is not search(item.option2)
+
+        - name: Redefine new ipsets
           include_role:
             name: linux-system-roles.firewall
           vars:
             firewall:
-              - ipset: customipset
+              - ipset: customipset-ipv4
                 short: Custom
                 description: Custom IPSet for testing purposes
                 state: present
                 permanent: true
-          register: result
+                ipset_options:
+                  hashsize: 120
+                  maxelem: 1000
+              - ipset: customipset-ipv6
+                short: Custom
+                description: Custom IPSet for testing purposes
+                state: present
+                permanent: true
+                ipset_options:
+                  hashsize: 120
+                  maxelem: 1000
 
         - name: Fail if defining ipset not idempotent
           fail:
             msg: Defining ipsets is not idempotent
-          when: result.changed | bool  # noqa no-handler
+          when: firewall_lib_result is changed  # noqa no-handler
 
-        - name: Remove entries from ipset
+        # modify ipset options not supported in container or image build
+        - name: Modify ipset options
+          when: __firewall_is_booted | d(true)
           include_role:
             name: linux-system-roles.firewall
           vars:
             firewall:
-              - ipset: customipset
+              - ipset: customipset-ipv4
+                state: present
+                ipset_options:
+                  hashsize: 240
+              - ipset: customipset-ipv6
+                state: present
+                ipset_options:
+                  hashsize: 240
+              - ipset: customipset-ipv4
+                state: absent
+                ipset_options:
+                  maxelem: null
+              - ipset: customipset-ipv6
+                state: absent
+                ipset_options:
+                  maxelem: null
+
+        - name: Fail if options not modified in ipset
+          when: __firewall_is_booted | d(true)
+          command: firewall-offline-cmd --info-ipset {{ item.name | quote }}
+          loop:
+            - name: customipset-ipv4
+              option: hashsize=240
+            - name: customipset-ipv6
+              option: hashsize=240
+          changed_when: false
+          register: result
+          failed_when: result.stdout is not search(item.option)
+
+        - name: Fail if options not removed from ipset
+          when: __firewall_is_booted | d(true)
+          command: firewall-offline-cmd --info-ipset {{ item.name | quote }}
+          loop:
+            - name: customipset-ipv4
+              option: maxelem=
+            - name: customipset-ipv6
+              option: maxelem=
+          changed_when: false
+          register: result
+          failed_when: result.stdout is search(item.option)
+
+        - name: Remove entries and options from ipset
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - ipset: customipset-ipv4
                 ipset_entries:
                   - 8.8.8.8
                   - 127.0.0.1
+                ipset_options:
+                  hashsize: null
+                  maxelem: null
+                state: absent
+                permanent: true
+              - ipset: customipset-ipv6
+                ipset_entries:
+                  - 2001:4860:4860::8844
+                  - 2001:4860:4860::8888
+                ipset_options:
+                  hashsize: null
+                  maxelem: null
                 state: absent
                 permanent: true
 
-        - name: Check that custom ipset not removed
+        - name: Fail if ipsets removed
           shell:
+            executable: /bin/bash
             cmd: |
-              set -o pipefail
-              firewall-offline-cmd --get-ipsets | grep customipset
+              set -euo pipefail
+              firewall-offline-cmd --get-ipsets | grep {{ item | quote }}
+          loop:
+            - customipset-ipv4
+            - customipset-ipv6
           changed_when: false
-          register: result
-          failed_when: result.rc != 0
 
-        - name: Check that entry has been removed
-          command: >-
-            firewall-offline-cmd --ipset customipset --query-entry 8.8.8.8
+        - name: Fail if entry not removed from ipset
+          command: firewall-offline-cmd --ipset {{ item.name | quote }} --query-entry {{ item.entry | quote }}
+          loop:
+            - name: customipset-ipv4
+              entry: 8.8.8.8
+            - name: customipset-ipv6
+              entry: 2001:4860:4860::8844
+            - name: customipset-ipv6
+              entry: 2001:4860:4860::8888
           changed_when: false
           register: result
           failed_when: result.rc != 1
+
+        - name: Fail if not all options removed from ipset
+          command: firewall-offline-cmd --info-ipset {{ item.name | quote }}
+          loop:
+            - name: customipset-ipv4
+              option1: hashsize=
+              option2: maxelem=
+            - name: customipset-ipv6
+              option1: hashsize=
+              option2: maxelem=
+          when: __firewall_is_booted | d(true)
+          changed_when: false
+          register: result
+          failed_when: result.stdout is search(item.option1) or result.stdout is search(item.option2)
 
         - name: Test update short and description
           include_role:
             name: linux-system-roles.firewall
           vars:
             firewall:
-              - ipset: customipset
+              - ipset: customipset-ipv4
+                short: CustomChanged
+                description: Custom IPSet for testing purposes (changed)
+                state: present
+                permanent: true
+              - ipset: customipset-ipv6
                 short: CustomChanged
                 description: Custom IPSet for testing purposes (changed)
                 state: present
@@ -118,109 +253,195 @@
           register: result
           loop:
             - command: |
-                firewall-offline-cmd --ipset customipset --get-description
+                firewall-offline-cmd --ipset customipset-ipv4 --get-description
               expected: "Custom IPSet for testing purposes (changed)"
             - command: |
-                firewall-offline-cmd --ipset customipset --get-short
+                firewall-offline-cmd --ipset customipset-ipv4 --get-short
+              expected: "CustomChanged"
+            - command: |
+                firewall-offline-cmd --ipset customipset-ipv6 --get-description
+              expected: "Custom IPSet for testing purposes (changed)"
+            - command: |
+                firewall-offline-cmd --ipset customipset-ipv6 --get-short
               expected: "CustomChanged"
           failed_when: result.stdout != item["expected"]
 
-        # Test that ipset can be added to zones
-        - name: Add ipset to default zone (runtime)
+        # Test that ipsets can be added to zones
+        - name: Add ipsets to default zone (runtime)
           include_role:
             name: linux-system-roles.firewall
           vars:
             firewall:
-              - source: "ipset:customipset"
+              - source: "ipset:customipset-ipv4"
+                state: enabled
+                runtime: true
+              - source: "ipset:customipset-ipv6"
                 state: enabled
                 runtime: true
           when: __firewall_is_booted
 
-        - name: Add ipset to default zone again (runtime)
+        - name: Add ipsets to default zone again (runtime)
           include_role:
             name: linux-system-roles.firewall
           vars:
             firewall:
-              - source: "ipset:customipset"
+              - source: "ipset:customipset-ipv4"
                 state: enabled
                 runtime: true
-          register: result
+              - source: "ipset:customipset-ipv6"
+                state: enabled
+                runtime: true
           when: __firewall_is_booted
 
-        - name: Fail if adding ipset is not idempotent (runtime)
+        - name: Fail if adding ipsets is not idempotent (runtime)
           fail:
             msg: "enabling ipsets in zones is not idempotent (runtime)"
           when:
-            - result.changed | bool  # noqa no-handler
+            - firewall_lib_result is changed  # noqa no-handler
             - __firewall_is_booted
 
-        - name: Add ipset to default zone (permanent)
+        - name: Add ipsets to default zone (permanent)
           include_role:
             name: linux-system-roles.firewall
           vars:
             firewall:
-              - source: "ipset:customipset"
+              - source: "ipset:customipset-ipv4"
+                state: enabled
+                permanent: true
+              - source: "ipset:customipset-ipv6"
                 state: enabled
                 permanent: true
 
-        - name: Add ipset to default zone again (permanent)
+        - name: Add ipsets to default zone again (permanent)
           include_role:
             name: linux-system-roles.firewall
           vars:
             firewall:
-              - source: "ipset:customipset"
+              - source: "ipset:customipset-ipv4"
                 state: enabled
                 permanent: true
-          register: result
+              - source: "ipset:customipset-ipv6"
+                state: enabled
+                permanent: true
 
-        - name: Fail if adding ipset is not idempotent (permanent)
+        - name: Fail if adding ipsets is not idempotent (permanent)
           fail:
             msg: "enabling ipsets in zones is not idempotent (permanent)"
-          when: result.changed | bool  # noqa no-handler
+          when: firewall_lib_result is changed  # noqa no-handler
 
-        - name: Remove ipset from default zone
+        - name: Remove ipsets from default zone
           include_role:
             name: linux-system-roles.firewall
           vars:
             firewall:
-              - source: "ipset:customipset"
+              - source: "ipset:customipset-ipv4"
+                state: disabled
+                permanent: true
+              - source: "ipset:customipset-ipv6"
                 state: disabled
                 permanent: true
 
-        - name: Remove custom ipset
+        - name: Remove custom ipsets
           include_role:
             name: linux-system-roles.firewall
           vars:
             firewall:
-              - ipset: customipset
+              - ipset: customipset-ipv4
+                state: absent
+                permanent: true
+              - ipset: customipset-ipv6
                 state: absent
                 permanent: true
 
-        - name: Fail if ipset not removed
+        - name: Fail if ipsets not removed
           shell:
+            executable: /bin/bash
             cmd: |
-              set -o pipefail
-              firewall-offline-cmd --get-ipsets | grep "customipset"
+              set -euo pipefail
+              firewall-offline-cmd --get-ipsets | grep {{ item | quote }}
+          loop:
+            - customipset-ipv4
+            - customipset-ipv6
           changed_when: false
           register: result
           failed_when: result.rc != 1
 
-        - name: Remove custom ipset again
+        - name: Remove custom ipsets again
           include_role:
             name: linux-system-roles.firewall
           vars:
             firewall:
-              - ipset: customipset
+              - ipset: customipset-ipv4
                 state: absent
                 permanent: true
-          register: result
+              - ipset: customipset-ipv6
+                state: absent
+                permanent: true
 
         - name: Fail if not idempotent
           fail:
             msg: Removing ipsets is not idempotent
-          when: result.changed | bool  # noqa no-handler
+          when: firewall_lib_result is changed  # noqa no-handler
 
+        - name: Test ipset with wrong family
+          block:
+            - name: Test ipset with wrong family (ipv4)
+              include_role:
+                name: linux-system-roles.firewall
+              vars:
+                firewall:
+                  - ipset: badipset-v4
+                    ipset_entries:
+                      - 127.0.0.1
+                      - 8.8.8.8
+                    ipset_options:
+                      family: inet6
+                    state: present
+                    permanent: true
 
+            - name: This task should not be reached
+              fail:
+                msg: Unreachable
+          rescue:
+            - name: Fail if error message is not correct
+              fail:
+                msg: Incorrect error message for badipset-v4
+              vars:
+                expected_error_message: >-
+                  ipset badipset-v4: family=inet6 is not supported for IPv4
+                  ipset_entries 127.0.0.1, 8.8.8.8
+              when: ansible_failed_result.results |
+                selectattr("msg", "contains", expected_error_message) | list | length == 0
+
+        - name: Test ipset with wrong family (ipv6)
+          block:
+            - name: Test ipset with wrong family (ipv6)
+              include_role:
+                name: linux-system-roles.firewall
+              vars:
+                firewall:
+                  - ipset: badipset-v6
+                    ipset_entries:
+                      - 2001:4860:4860::8844
+                      - 2001:4860:4860::8888
+                    ipset_options:
+                      family: inet
+                    state: present
+                    permanent: true
+
+            - name: This task should not be reached
+              fail:
+                msg: Unreachable
+          rescue:
+            - name: Fail if error message is not correct
+              fail:
+                msg: Incorrect error message for badipset-v6
+              vars:
+                expected_error_message: >-
+                  ipset badipset-v6: family=inet is not supported for IPv6
+                  ipset_entries 2001:4860:4860::8844, 2001:4860:4860::8888
+              when: ansible_failed_result.results |
+                selectattr("msg", "contains", expected_error_message) | list | length == 0
       always:
         - name: Cleanup
           tags:

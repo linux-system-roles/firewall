@@ -20,7 +20,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import absolute_import, division, print_function
+from __future__ import absolute_import, division, print_function, unicode_literals
 
 __metaclass__ = type
 
@@ -184,11 +184,20 @@ options:
   ipset_entries:
     description:
       List of addresses to add/remove from ipset.
+      Must be compatible with the ipset type of the `ipset`
+      being created or modified.
       Will only do something when set with ipset.
     required: false
     type: list
     elements: str
     default: []
+  ipset_options:
+    description:
+      Dict of key/value pairs of ipset options for the given ipset.
+      Will only do something when set with ipset.
+    required: false
+    type: dict
+    default: {}
   permanent:
     description:
       The permanent bool flag.
@@ -280,8 +289,27 @@ firewall:
 """
 
 from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.six import string_types
 import re
 import os
+
+try:
+    import ipaddress
+
+    HAS_IPADDRESS = True
+except ImportError:
+    HAS_IPADDRESS = False
+
+try:
+    from firewall.functions import check_mac
+
+    HAS_CHECK_MAC = True
+except ImportError:
+    HAS_CHECK_MAC = False
+
+    def check_mac(mac):
+        return False
+
 
 try:
     import firewall.config
@@ -315,6 +343,20 @@ except ImportError:
     NM_IMPORTED = False
 
 
+# The argument to ip_interface must be a unicode string
+# Must be "cast" in python2, python3 does not need this
+def ip_interface(entry, module):
+    try:
+        entry_str = unicode(entry)
+    except NameError:  # unicode is not defined in python3
+        entry_str = entry
+    try:
+        return ipaddress.ip_interface(entry_str)
+    except ValueError:
+        module.fail_json(msg="Invalid IP address - " + entry)
+        return None
+
+
 def try_get_connection_of_interface(interface):
     try:
         return nm_get_connection_of_interface(interface)
@@ -343,9 +385,54 @@ def try_set_zone_of_interface(module, _zone, interface):
     return (False, False)
 
 
+# Check that all of the ipset entries are ipv4, ipv6, or mac addresses
+# if not, fail the module
+# if they are, return "ipv4", "ipv6", or "mac"
+def get_ipset_entries_type(ipset_entries, module):
+    addr_type = None
+    is_mixed_addr_types = False
+    for entry in ipset_entries:
+        if check_mac(entry):
+            if addr_type is None:
+                addr_type = "mac"
+            elif addr_type != "mac":
+                is_mixed_addr_types = True
+        else:
+            if HAS_IPADDRESS:
+                addr = ip_interface(entry, module)
+                # ip_interface will fail the module if the address is invalid
+                if addr is None:
+                    continue
+            else:
+                module.fail_json(msg="No IP address library found")
+                continue
+            if addr.version == 4:
+                if addr_type is None:
+                    addr_type = "ipv4"
+                elif addr_type != "ipv4":
+                    is_mixed_addr_types = True
+            elif addr.version == 6:
+                if addr_type is None:
+                    addr_type = "ipv6"
+                elif addr_type != "ipv6":
+                    is_mixed_addr_types = True
+            else:
+                module.fail_json(msg="Invalid IP address - " + entry)
+    if is_mixed_addr_types:
+        module.fail_json(
+            msg="Address types cannot be mixed in ipset entries - " + str(ipset_entries)
+        )
+    return addr_type
+
+
+# ipset options values must be strings
+def normalize_ipset_options(ipset_options):
+    for option, value in ipset_options.items():
+        if value is not None and not isinstance(value, string_types):
+            ipset_options[option] = str(value)
+
+
 # Above: adapted from firewall-cmd source code
-
-
 class OnlineAPIBackend:
     """Implement operations with the FirewallClient() API.
 
@@ -627,7 +714,27 @@ class OnlineAPIBackend:
 
         return fw_ipset, fw_ipset_settings
 
-    def set_ipset(self, ipset, description, short, ipset_type, ipset_entries):
+    def set_ipset(
+        self, ipset, description, short, ipset_type, ipset_entries, ipset_options
+    ):
+        addr_type = get_ipset_entries_type(ipset_entries, self.module)
+        if addr_type is None and ipset_entries:
+            self.module.fail_json(
+                msg="ipset %s: Invalid IP address - %s " % (ipset, str(ipset_entries))
+            )
+        normalize_ipset_options(ipset_options)
+        if addr_type == "ipv6" and "family" not in ipset_options:
+            ipset_options["family"] = "inet6"
+        if addr_type == "ipv4" and ipset_options.get("family") == "inet6":
+            self.module.fail_json(
+                msg="ipset %s: family=inet6 is not supported for IPv4 ipset_entries %s"
+                % (ipset, ", ".join(ipset_entries))
+            )
+        if addr_type == "ipv6" and ipset_options.get("family") == "inet":
+            self.module.fail_json(
+                msg="ipset %s: family=inet is not supported for IPv6 ipset_entries %s"
+                % (ipset, ", ".join(ipset_entries))
+            )
         ipset_exists = ipset in self.fw.config().getIPSetNames()
         fw_ipset = None
         fw_ipset_settings = None
@@ -661,12 +768,34 @@ class OnlineAPIBackend:
                     if not self.module.check_mode:
                         fw_ipset_settings.addEntry(entry)
                     self.changed = True
+            for option, value in ipset_options.items():
+                if value is None:
+                    continue
+                current_options = fw_ipset_settings.getOptions()
+                if option in current_options:
+                    if current_options[option] != value:
+                        if not self.module.check_mode:
+                            fw_ipset_settings.removeOption(option)
+                            fw_ipset_settings.addOption(option, value)
+                        self.changed = True
+                else:
+                    if not self.module.check_mode:
+                        fw_ipset_settings.addOption(option, value)
+                    self.changed = True
         elif ipset_exists:
-            if ipset_entries:
+            if ipset_entries or ipset_options:
                 for entry in ipset_entries:
                     if fw_ipset_settings.queryEntry(entry):
                         if not self.module.check_mode:
                             fw_ipset_settings.removeEntry(entry)
+                        self.changed = True
+                for option, value in ipset_options.items():
+                    current_options = fw_ipset_settings.getOptions()
+                    if (value is None and option in current_options) or (
+                        value is not None and current_options[option] == value
+                    ):
+                        if not self.module.check_mode:
+                            fw_ipset_settings.removeOption(option)
                         self.changed = True
             else:
                 ipset_source_name = "ipset:%s" % ipset
@@ -1255,7 +1384,33 @@ class OfflineCLIBackend:
                     op = "--add-service=" if enable else "--remove-service-from-zone="
                     self.change("--zone", self.zone, op + item)
 
-    def set_ipset(self, ipset, description, short, ipset_type, ipset_entries):
+    def set_ipset(
+        self, ipset, description, short, ipset_type, ipset_entries, ipset_options
+    ):
+        addr_type = get_ipset_entries_type(ipset_entries, self.module)
+        if addr_type is None and ipset_entries:
+            self.module.fail_json(
+                msg="ipset %s: Invalid IP address - %s" % (ipset, str(ipset_entries))
+            )
+        normalize_ipset_options(ipset_options)
+        ipset_options_list = []
+        if ipset_options:
+            for kk, vv in ipset_options.items():
+                ipset_options_list.append("--option")
+                ipset_options_list.append(kk + "=" + str(vv))
+        if addr_type == "ipv6" and "family=inet6" not in ipset_options_list:
+            ipset_options_list.append("--option")
+            ipset_options_list.append("family=inet6")
+        if addr_type == "ipv4" and "family=inet6" in ipset_options_list:
+            self.module.fail_json(
+                msg="ipset %s: family=inet6 is not supported for IPv4 ipset_entries %s"
+                % (ipset, ", ".join(ipset_entries))
+            )
+        if addr_type == "ipv6" and "family=inet" in ipset_options_list:
+            self.module.fail_json(
+                msg="ipset %s: family=inet is not supported for IPv6 ipset_entries %s"
+                % (ipset, ", ".join(ipset_entries))
+            )
         present = self.check_state(["present", "absent"], "ipset")
         known_ipsets = self.cmd("--get-ipsets").split()
         ipset_exists = ipset in known_ipsets
@@ -1278,9 +1433,12 @@ class OfflineCLIBackend:
             if not ipset_exists:
                 if not ipset_type:
                     self.module.fail_json(
-                        msg="ipset_type needed when creating a new ipset"
+                        msg="ipset %s: ipset_type needed when creating a new ipset"
+                        % ipset
                     )
-                self.change("--new-ipset", ipset, "--type=%s" % ipset_type)
+                self.change(
+                    "--new-ipset", ipset, "--type=%s" % ipset_type, *ipset_options_list
+                )
 
             existing_description = self.cmd("--ipset", ipset, "--get-description")
             if description is not None and description != existing_description:
@@ -1635,6 +1793,10 @@ def get_forward_port(module):
 def parse_forward_port(module, item):
     type_string = "forward_port"
 
+    _port = None
+    _protocol = None
+    _to_port = None
+    _to_addr = None
     if isinstance(item, dict):
         if "port" not in item:
             module.fail_json(
@@ -1653,7 +1815,7 @@ def parse_forward_port(module, item):
         else:
             _to_port = None
         _to_addr = item.get("toaddr")
-    elif isinstance(item, str):
+    elif isinstance(item, string_types):
         args = item.split(";")
         if len(args) == 3:
             __port, _to_port, _to_addr = args
@@ -1737,6 +1899,7 @@ def main():
             ipset=dict(required=False, type="str", default=None),
             ipset_type=dict(required=False, type="str", default=None),
             ipset_entries=dict(required=False, type="list", elements="str", default=[]),
+            ipset_options=dict(required=False, type="dict", default={}),
             permanent=dict(required=False, type="bool", default=None),
             runtime=dict(
                 required=False,
@@ -1840,6 +2003,7 @@ def main():
     ipset = module.params["ipset"]
     ipset_type = module.params["ipset_type"]
     ipset_entries = module.params["ipset_entries"]
+    ipset_options = module.params["ipset_options"]
     permanent = module.params["permanent"]
     runtime = module.params["runtime"]
     state = module.params["state"]
@@ -1942,11 +2106,12 @@ def main():
                     destination_ipv6,
                     ipset_entries,
                     ipset_type,
+                    ipset_options,
                 )
             ):
                 module.fail_json(
                     msg="short, description, port, source_port, helper_module, "
-                    "protocol, destination, ipset_type or ipset_entries cannot be set "
+                    "protocol, destination, ipset_type, ipset_entries, or ipset_options cannot be set "
                     "while zone is specified "
                     "and state is set to present or absent"
                 )
@@ -1975,7 +2140,7 @@ def main():
                     msg="permanent must be enabled for service configuration. "
                     "Additionally, service runtime configuration is not possible"
                 )
-            elif ipset_entries or ipset_type:
+            elif ipset_entries or ipset_type or ipset_options:
                 module.fail_json(
                     msg="ipset parameters cannot be set when configuring services"
                 )
@@ -2090,7 +2255,9 @@ def main():
             includes,
         )
     if ipset_operation:
-        backend.set_ipset(ipset, description, short, ipset_type, ipset_entries)
+        backend.set_ipset(
+            ipset, description, short, ipset_type, ipset_entries, ipset_options
+        )
     if port and not service_operation:
         backend.set_port(port)
     if source_port and not service_operation:
