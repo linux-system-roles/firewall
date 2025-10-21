@@ -70,15 +70,31 @@ For reference, by default, `firewall_config` takes ~3KB when converted to a stri
 
 #### firewall_config
 
-This ansible fact shows the permanent configuration of
-of firewalld on the managed node in dictionary format.
-The top level of the fact is made up of three keys:
+This ansible fact shows the configuration of of firewalld on the managed node in
+dictionary format. The top level of the fact is made up of the following keys:
 
-* `default`
-* `custom`
-* `default_zone`
+* `default` - the default values
+* `custom_permanent`, `custom` (deprecated) - the permanent settings not
+  including the defaults
+* `custom_permanent_with_defaults` - the permanent settings including the
+  defaults
+* `custom_runtime_with_defaults`, `current` (deprecated) - the runtime settings
+  including the defaults
+* `runtime_only` - the runtime settings not including the defaults
+* `default_zone` - the default zone
+* `firewalld_conf` - the firewalld.conf settings
+* `fallback_default_zone`- the built-in default zone if there is no
+  firewalld.conf
 
-Each dictionaries custom and default have the keys:
+For `default`, `custom_permanent`, `custom`, `custom_permanent_with_defaults`,
+`custom_runtime_with_defaults`, `current`, `runtime_only` - these are type
+`dict` - the key is one of the keywords in the following list.  If `detailed:
+false`, then the value is a list of names e.g. list of zone names, list of
+service names.  If `detailed: true`, then the value is a `dict` - the key is the
+name of the item e.g. the zone name, service name, etc. - and the value is the
+detailed information for that item e.g. for `zone`, it will list the ports,
+services, forward ports, etc. for that zone - for `service` it will list the
+ports and description for that service.
 
 * `zones`
 * `services`
@@ -87,129 +103,15 @@ Each dictionaries custom and default have the keys:
 * `ipsets`
 * `policies` (if supported by remote host's firewalld installation)
 
-Each of the keys contains a list of elements present in
-permanent configuration for each respective option.
-
-`custom` will have a list of subdictionaries for each key,
-providing a more detailed description.
-
-`default` will have only the names of each setting,
-unless the detailed option is supplied, in which case
-it will be structured in the same manner as custom.
-
-`default_zone` contains the configured default zone
-for the managed node's firewalld installation. It
-is a string value.
-
 JSON representation of the structure of firewall_config fact:
 
 ```json
 {
-  "default": {...},
-  "custom": {...},
+  "default": {"zones": ..., "services": ...},
+  "custom_permanent_with_defaults": {"zones": ..., "services": ...},
+  "custom_runtime_with_defaults": {"zones": ..., "services": ...},
   "default_zone": "public",
-}
-```
-
-#### default
-
-The default subdictionary of firewall_config contains the default
-configuration for the managed node's firewalld configuration.
-This subdictionary only changes with changes to the managed node's
-firewalld installation.
-
-default without detailed parameter set to true
-
-```json
-"default": {
-  "zones": ["public",...],
-  "services": ["amanda_client",...],
-  "icmptypes": [...],
-  "helpers": [...],
-  "ipsets": [...],
-  "policies": [...],
-}
-```
-
-default when parameter set to true
-
-```json
-"default": {
-  "zones": {
-    "public": {
-      ...
-    },
-    ...
-  },
-  "services": {
-    "amanda_client":{
-      ...
-    },
-    ...
-  },
-  "icmptypes": {
-    ...
-  },
-  "helpers": {
-    ...
-  },
-  "ipsets": {
-    ...
-  },
-  "policies": {
-    ...
-  },
-}
-```
-
-#### custom
-
-The custom subdictionary contains any differences from the default
-firewalld configuration. This includes a repeat for a default
-element if that element has been modified in any way, and any new
-elements introduced in addition to the defaults.
-
-This subdictionary will be modified by any changes to the
-firewalld installation done locally or remotely via the
-firewall system role.
-
-If the managed nodes firewalld settings are not different from the defaults,
-the custom key and subdictionary will not be present in firewall_config.
-Additionally, if any of firewalld's settings have not changed from the default,
-there will not be a key-value pair for that setting in custom.
-
-Below is the state of the custom subdictionary where at least one
-permanent change was made to each setting:
-
-```json
-"custom": {
-  "zones": {
-    "custom_zone": {
-      ...
-    },
-    ...
-  },
-  "services": {
-    "custom_service": {
-      ...
-    },
-    ...
-  },
-  "icmptypes": {
-    "custom": {
-      ...
-    },
-    ...
-  },
-  "helpers": {
-    ...
-  },
-  "ipsets": {
-    ...
-  },
-  "policies": {
-    ...
-  },
+  ... other fields ...
 }
 ```
 
@@ -279,7 +181,7 @@ bound/assigned to another zone.
 
 That means that if there is no zone assigned to a connection, interface or
 source, only the default zone is used.  The zone should exist before setting
-it as the default zone.
+it as the default zone.  This affects both permanent and runtime.
 
 ```yaml
 firewall:
@@ -667,6 +569,8 @@ avoid confusing behavior.
 
 ### interface_pci_id
 
+NOTE: This requires NetworkManager.
+
 String or list of interface PCI device IDs.
 Accepts PCI IDs if the wildcard `XXXX:YYYY` applies
 where:
@@ -818,22 +722,20 @@ NOTE: `service` - to see how to manage services, see the service section.
 
 ### runtime
 
-Enable changes in runtime configuration. If `runtime` parameter is not provided, the default will be set to `True`.
+Enable changes in runtime configuration.  By default, this is `true` if the
+system is booted, or `false` if not booted (i.e. `bootc` system).
 
 ```yaml
-runtime: true
+runtime: false
 ```
 
 ### permanent
 
-Enable changes in permanent configuration. If `permanent` parameter is not provided, the default will be set to `True`.
+Enable changes in permanent configuration. By default, this is `true`.
 
 ```yaml
-permanent: true
+permanent: false
 ```
-
-The permanent and runtime settings are independent, so you can set only the runtime, or only the permanent.  You cannot
-set both permanent and runtime to `false`.
 
 ### previous
 
@@ -947,6 +849,58 @@ firewall:
   - zone: dmz
     interface_pci_id: 8086:15d7
     state: enabled
+```
+
+## Check mode/Diff mode
+
+If check mode or diff mode is used, the role will report the difference between the desired
+configuration and the actual configuration.  The difference will be reported as a `dict` with
+two top level keys - `permanent` for the permanent settings, and `runtime` for the runtime settings.
+Each of these will have a key `added` for the settings that would be added to the system, and
+`removed` for the settings that would be removed from the system.  Each one of these is a `dict`
+where the key is one of the settings categories described above like `zones`, `services`, etc.
+
+For example:
+
+```json
+{
+    "permanent": {
+        "added": {
+            "default_zone": "dmz",
+            "ipsets": {
+                "customipset-ipv4": {
+                    "description": "Custom IPSet for testing purposes",
+                    "entries": [
+                        "127.0.0.1",
+                        "8.8.8.8"
+                    ],
+                    "short": "Custom",
+                    "type": "hash:ip"
+                },
+                {
+                  ...
+                }
+            },
+            "zones": {
+                "dmz": {
+                    "services": [
+                        "http"
+                    ]
+                },
+                {
+                  ...
+                }
+            },
+          ...
+        },
+        "removed": {
+          ...
+        }
+    },
+    "runtime": {
+      ...
+    }
+}
 ```
 
 ## Example Playbooks
