@@ -9,6 +9,11 @@
     - tests::booted
   vars_files:
     - vars/rh_distros_vars.yml
+  vars:
+    # we don't want the test short circuit assertion to be used in this test
+    # because we will check it manually below and we don't want a bunch of
+    # block/rescue
+    __firewall_debug_short_circuit_disable: true
   tasks:
     - name: Set expected backend
       set_fact:
@@ -135,7 +140,27 @@
               zone: internal
               interface_pci_id: "{{ pci_id }}"
               state: enabled
-              permanent: true
+
+        - name: Confirm changes were not made and short circuit is false
+          assert:
+            that:
+              - not firewall_lib_result is changed
+              - not firewall_lib_result.short_circuit
+
+        - name: Add pci device again with previous replaced
+          include_tasks: tasks/run_role_with_clear_facts.yml
+          vars:
+            firewall:
+              - previous: replaced
+              - zone: internal
+                interface_pci_id: "{{ pci_id }}"
+                state: enabled
+
+        - name: Confirm changes were not made and short circuit is false
+          assert:
+            that:
+              - not firewall_lib_result is changed
+              - not firewall_lib_result.short_circuit
 
         - name: Debug - get nftables ruleset after and show diff
           shell: |
@@ -188,7 +213,48 @@
               zone: internal
               interface_pci_id: "{{ pci_id }}"
               state: disabled
-              permanent: true
+
+        - name: Confirm removal was made
+          assert:
+            that: firewall_lib_result is changed
+
+        - name: Debug0
+          debug:
+            msg: diff {{ firewall_lib_result.diff | to_nice_json }}
+
+        - name: Remove interface from internal again
+          include_tasks: tasks/run_role_with_clear_facts.yml
+          vars:
+            firewall:
+              zone: internal
+              interface_pci_id: "{{ pci_id }}"
+              state: disabled
+
+        - name: Confirm no removal changes were made
+          assert:
+            that:
+              - not firewall_lib_result is changed
+              - not firewall_lib_result.short_circuit
+
+        - name: Remove interface from internal with previous replaced
+          include_tasks: tasks/run_role_with_clear_facts.yml
+          vars:
+            firewall:
+              - previous: replaced
+              - zone: internal
+                interface_pci_id: "{{ pci_id }}"
+                state: disabled
+
+        - name: Debug1
+          debug:
+            msg: diff {{ firewall_lib_result.diff | to_nice_json }}
+
+        - name: Confirm no removal changes were made with previous replaced
+          assert:
+            that:
+              - not firewall_lib_result is changed
+              - not firewall_lib_result.short_circuit
+
       always:
         - name: Remove temporary directory
           file:

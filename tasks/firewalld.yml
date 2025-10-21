@@ -8,6 +8,7 @@
       register: __is_system_running
       changed_when: false
       failed_when: false
+      check_mode: "{{ __firewall_test_check_mode | d(ansible_check_mode) }}"
 
     - name: Require installed systemd
       fail:
@@ -26,6 +27,7 @@
     use: "{{ (__firewall_is_ostree | d(false)) |
       ternary('ansible.posix.rhel_rpm_ostree', omit) }}"
   register: firewall_package_result
+  check_mode: "{{ __firewall_test_check_mode | d(ansible_check_mode) }}"
 
 - name: Handle reboot for transactional update systems
   when:
