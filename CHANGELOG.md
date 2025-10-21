@@ -1,6 +1,23 @@
 Changelog
 =========
 
+[1.11.0] - 2025-10-21
+--------------------
+
+### New Features
+
+- feat: add IPv6 ipset support, add support for ipset_options (#296)
+
+### Other Changes
+
+- ci: rollout several recent changes to CI testing (#288)
+- ci: support openSUSE Leap in qemu/kvm test matrix (#289)
+- ci: use the new epel feature to enable EPEL for testing farm (#290)
+- ci: use tox-lsr 3.12.0 for osbuild_config.yml feature (#292)
+- ci: use JSON format for __bootc_validation (#293)
+- ci: Bump actions/setup-python from 5 to 6 (#294)
+- ci: Bump actions/github-script from 7 to 8 (#295)
+
 [1.10.2] - 2025-08-01
 --------------------
 
