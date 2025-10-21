@@ -27,9 +27,59 @@
         - name: Fail on missing zones
           fail:
             msg: "Required zones do not exist"
-          when: firewall_lib_result.changed  # noqa no-handler
+          when: firewall_lib_result is changed  # noqa no-handler
 
         # ENSURE STATE
+
+        - name: Setup firewalld to see changes in check mode
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - previous: replaced
+              - zone: 'internal'
+                service: ['tftp', 'ftp']
+                port: ['443/tcp', '443/udp']
+                forward_port: ['447/tcp;;1.2.3.4',
+                               '448/tcp;;1.2.3.5']
+                state: 'enabled'
+              - zone: 'internal'
+                service: ['tftp', 'ftp']
+                port: ['443/tcp', '443/udp']
+                forward_port: ['447/tcp;;1.2.3.4',
+                               '448/tcp;;1.2.3.5']
+                state: 'enabled'
+              - zone: customzone
+                state: present
+              - zone: customzone
+                masquerade: true
+                state: enabled
+              - set_default_zone: dmz
+                state: enabled
+              - service: http
+                state: enabled
+              - ipset: customipset-ipv4
+                ipset_type: "hash:ip"
+                ipset_entries:
+                  - 127.0.0.1
+                  - 8.8.8.8
+                short: Custom
+                description: Custom IPSet for testing purposes
+                state: present
+              - ipset: customipset-ipv6
+                ipset_type: "hash:ip"
+                ipset_entries:
+                  - 2001:4860:4860::8844
+                short: Custom
+                description: Custom IPSet for testing purposes
+                state: present
+              - zone: public
+                service: ["imaps", "kubelet"]
+                permanent: false
+                runtime: true
+                state: enabled
+            __firewall_test_check_mode: true
+          when: not __bootc_validation | d(false)
 
         - name: Setup firewalld
           include_role:
@@ -50,10 +100,8 @@
                                '448/tcp;;1.2.3.5']
                 state: 'enabled'
               - zone: customzone
-                permanent: true
                 state: present
               - zone: customzone
-                permanent: true
                 masquerade: true
                 state: enabled
               - set_default_zone: dmz
@@ -68,7 +116,6 @@
                 short: Custom
                 description: Custom IPSet for testing purposes
                 state: present
-                permanent: true
               - ipset: customipset-ipv6
                 ipset_type: "hash:ip"
                 ipset_entries:
@@ -76,7 +123,6 @@
                 short: Custom
                 description: Custom IPSet for testing purposes
                 state: present
-                permanent: true
           when: not __bootc_validation | d(false)
 
         - name: Fail if no changes are done
@@ -84,7 +130,7 @@
             msg: "FAILED"
           when:
             - not __bootc_validation | d(false)
-            - not firewall_lib_result.changed
+            - not firewall_lib_result is changed
 
         # ENSURE STATE AGAIN
 
@@ -107,10 +153,8 @@
                                '448/tcp;;1.2.3.5']
                 state: 'enabled'
               - zone: customzone
-                permanent: true
                 state: present
               - zone: customzone
-                permanent: true
                 masquerade: true
                 state: enabled
               - set_default_zone: dmz
@@ -125,7 +169,6 @@
                 short: Custom
                 description: Custom IPSet for testing purposes
                 state: present
-                permanent: true
               - ipset: customipset-ipv6
                 ipset_type: "hash:ip"
                 ipset_entries:
@@ -133,7 +176,6 @@
                 short: Custom
                 description: Custom IPSet for testing purposes
                 state: present
-                permanent: true
           when: not __bootc_validation | d(false)
 
         - name: Fail on newly changes
@@ -141,7 +183,7 @@
             msg: "FAILED"
           when:
             - not __bootc_validation | d(false)
-            - firewall_lib_result.changed  # noqa no-handler
+            - firewall_lib_result is changed  # noqa no-handler
 
         - name: Create QEMU deployment during bootc end-to-end test
           delegate_to: localhost
@@ -221,27 +263,10 @@
 
       always:
         - name: Cleanup
-          when: not __bootc_validation | d(false)
           tags:
             - tests::cleanup
-          block:
-            # CLEANUP: RESET TO ZONE DEFAULTS
-
-            - name: Remove customzone zone
-              command: firewall-offline-cmd --delete-zone=customzone
-              register: result
-              failed_when: result.failed and "INVALID_ZONE" not in result.stderr
-              changed_when: false
-
-            - name: Reset to zone defaults
-              shell:
-                cmd: |
-                  firewall-offline-cmd --load-zone-defaults=internal
-                  firewall-offline-cmd --load-zone-defaults=external
-                  firewall-offline-cmd --load-zone-defaults=trusted || true
-              changed_when: false
-
-            - name: Reload firewall
-              when: __firewall_is_booted
-              command: firewall-cmd --reload
-              changed_when: false
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - previous: replaced

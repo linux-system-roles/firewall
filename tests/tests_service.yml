@@ -2,6 +2,57 @@
 - name: Test firewall user defined services
   hosts: all
   become: true
+  vars:
+    default_http_service:
+      service: http
+      short: "WWW (HTTP)"
+      description: >-
+        HTTP is the protocol used to serve Web pages.
+        If you plan to make your Web server publicly available,
+        enable this option.
+        This option is not required for
+        viewing pages locally or developing Web pages.
+      port: ["80/tcp"]
+      state: present
+    custom_http_service:
+      service: http
+      description: "linux system role test description"
+      port: ["8080/tcp"]
+      destination:
+        - 1.1.1.1
+        - 1::1
+      includes: "{{ ['ssh', 'ldaps']
+        if ansible_facts['distribution'] in ['RedHat', 'CentOS', 'Fedora']
+        and ansible_facts['distribution_major_version'] is version('8', '>=')
+        else [] }}"
+      state: present
+    custom_lsr_service:
+      service: systemroletest
+      short: Test service (Ansible)
+      description: >-
+        This should only be available
+        when firewalld is being configured
+        by the firewall linux system role
+      port: ["9999/udp"]
+      source_port: ["10000/udp"]
+      destination:
+        - 1.1.1.1
+        - 1::1
+      protocol: icmp
+      # these two don't exist yet in RHEL 7
+      helper_module: "{{ 'ftp'
+        if ansible_facts['distribution'] in ['RedHat', 'CentOS', 'Fedora']
+        and ansible_facts['distribution_major_version'] is version('8', '>=')
+        else omit }}"
+      includes: "{{ ['ssh', 'ldaps']
+        if ansible_facts['distribution'] in ['RedHat', 'CentOS', 'Fedora']
+        and ansible_facts['distribution_major_version'] is version('8', '>=')
+        else [] }}"
+      state: present
+    service_removal:  # to be combine()'d with service definition
+      state: absent
+      description: "{{ omit }}"
+      short: "{{ omit }}"
   tasks:
     - name: Test firewall user defined services
       block:
@@ -38,23 +89,12 @@
           include_role:
             name: linux-system-roles.firewall
           vars:
-            firewall:
-              - service: http
-                short: "WWW (HTTP)"
-                description: >-
-                  HTTP is the protocol used to serve Web pages.
-                  If you plan to make your Web server publicly available,
-                  enable this option.
-                  This option is not required for
-                  viewing pages locally or developing Web pages.
-                port: ["80/tcp"]
-                permanent: true
-                state: present
+            firewall: "{{ [default_http_service] }}"
 
         - name: Fail if service changed
           fail:
             msg: FAILED - Defaults not properly reset for services
-          when: firewall_lib_result.changed  # noqa no-handler
+          when: firewall_lib_result is changed  # noqa no-handler
 
         ## Begin builtin service tests
 
@@ -62,47 +102,57 @@
           include_role:
             name: linux-system-roles.firewall
           vars:
-            firewall:
-              - service: http
-                description: "linux system role test description"
-                port: ["8080/tcp"]
-                destination:
-                  - 1.1.1.1
-                  - 1::1
-                includes: "{{ ['ssh', 'ldaps']
-                  if ansible_facts['distribution'] in ['RedHat', 'CentOS', 'Fedora']
-                  and ansible_facts['distribution_major_version'] is version('8', '>=')
-                  else [] }}"
-                permanent: true
-                state: present
+            firewall: "{{ [custom_http_service] }}"
 
         - name: Fail when http is unchanged
           fail:
             msg: FAILED - http unchanged
-          when: not firewall_lib_result.changed  # noqa no-handler
+          when: not firewall_lib_result is changed  # noqa no-handler
 
         - name: Change default service http again
           include_role:
             name: linux-system-roles.firewall
           vars:
-            firewall:
-              - service: http
-                description: "linux system role test description"
-                port: ["8080/tcp"]
-                destination:
-                  - 1.1.1.1
-                  - 1::1
-                includes: "{{ ['ssh', 'ldaps']
-                  if ansible_facts['distribution'] in ['RedHat', 'CentOS', 'Fedora']
-                  and ansible_facts['distribution_major_version'] is version('8', '>=')
-                  else [] }}"
-                permanent: true
-                state: present
+            firewall: "{{ [custom_http_service] }}"
 
-        - name: Fail when http changes affect permanent configuration
+        - name: Fail when http changes are not idempotent
           fail:
             msg: http changed when reapplying the same changes
-          when: firewall_lib_result.changed  # noqa no-handler
+          when: firewall_lib_result is changed  # noqa no-handler
+
+        - name: Change default service http again with previous replaced
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall: "{{ [{'previous': 'replaced'}] + [custom_http_service] }}"
+
+        - name: Fail when http changes are not idempotent with previous replaced
+          fail:
+            msg: http changed when reapplying the same changes with previous replaced
+          when: firewall_lib_result is changed  # noqa no-handler
+
+        - name: Remove http service changes
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall: "{{ [custom_http_service | combine(service_removal)] }}"
+
+        - name: Fail when http is unchanged after removal
+          fail:
+            msg: FAILED - http unchanged after removal
+          when: not firewall_lib_result is changed  # noqa no-handler
+
+        - name: Revert all changes
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - previous: replaced
+
+        - name: Fail if not changed
+          fail:
+            msg: FAILED - Defaults not properly reset for services
+          when: not firewall_lib_result is changed  # noqa no-handler
 
         ## End builtin service tests
 
@@ -112,30 +162,7 @@
           include_role:
             name: linux-system-roles.firewall
           vars:
-            firewall:
-              - service: systemroletest
-                short: Test service (Ansible)
-                description: >-
-                  This should only be available
-                  when firewalld is being configured
-                  by the firewall linux system role
-                port: ["9999/udp"]
-                source_port: ["10000/udp"]
-                destination:
-                  - 1.1.1.1
-                  - 1::1
-                protocol: icmp
-                # these two don't exist yet in RHEL 7
-                helper_module: "{{ 'ftp'
-                  if ansible_facts['distribution'] in ['RedHat', 'CentOS', 'Fedora']
-                  and ansible_facts['distribution_major_version'] is version('8', '>=')
-                  else omit }}"
-                includes: "{{ ['ssh', 'ldaps']
-                  if ansible_facts['distribution'] in ['RedHat', 'CentOS', 'Fedora']
-                  and ansible_facts['distribution_major_version'] is version('8', '>=')
-                  else [] }}"
-                permanent: true
-                state: present
+            firewall: "{{ [custom_lsr_service] }}"
 
         # Verify that custom service is added to permanent configuration
 
@@ -144,15 +171,15 @@
           register: result
           changed_when: false
 
-        - name: Fail if systemrole test not created
+        - name: Fail if systemroletest not created
           fail:
-            msg: system role test not created by role
+            msg: systemroletest service not created by role
           when: result.stdout.find("systemroletest") == -1
 
         - name: Fail when custom service not changed
           fail:
             msg: New custom service did not set changed flag
-          when: not firewall_lib_result.changed  # noqa no-handler
+          when: not firewall_lib_result is changed  # noqa no-handler
 
         # Verify idempotency
 
@@ -160,55 +187,36 @@
           include_role:
             name: linux-system-roles.firewall
           vars:
-            firewall:
-              - service: systemroletest
-                short: Test service (Ansible)
-                description: >-
-                  This should only be available when
-                  firewalld is being configured by the
-                  firewall linux system role
-                port: 9999/udp
-                source_port: ["10000/udp"]
-                destination:
-                  - 1.1.1.1
-                  - 1::1
-                protocol: icmp
-                # these two don't exist yet in RHEL 7
-                helper_module: "{{ 'ftp'
-                  if ansible_facts['distribution'] in ['RedHat', 'CentOS', 'Fedora']
-                  and ansible_facts['distribution_major_version'] is version('8', '>=')
-                  else omit }}"
-                includes: "{{ ['ssh', 'ldaps']
-                  if ansible_facts['distribution'] in ['RedHat', 'CentOS', 'Fedora']
-                  and ansible_facts['distribution_major_version'] is version('8', '>=')
-                  else [] }}"
-                permanent: true
-                state: present
+            firewall: "{{ [custom_lsr_service] }}"
 
         - name: Fail when custom service changed
           fail:
             msg: Custom service changed when it should not have
-          when: firewall_lib_result.changed  # noqa no-handler
+          when: firewall_lib_result is changed  # noqa no-handler
+
+        - name: Add same custom service again with previous replaced
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall: "{{ [{'previous': 'replaced'}] + [custom_lsr_service] }}"
+
+        - name: Fail when custom service changed with previous replaced
+          fail:
+            msg: Custom service changed when it should not have with previous replaced
+          when: firewall_lib_result is changed  # noqa no-handler
+
+        - name: Get all services again
+          command: firewall-offline-cmd --get-services
+          register: result
+          changed_when: false
 
         # Verify that custom service not a part of default zone for some reason
 
         - name: Query if default zone has custom service added
           command: firewall-offline-cmd --query-service systemroletest
-          ignore_errors: true  # noqa ignore-errors
           register: result
           changed_when: false
-
-        - name: Fail if query return code incorrect
-          fail:
-            msg: query should return code 1
-          when: result.rc != 1
-
-        - name: Fail if custom service in default zone
-          fail:
-            msg: >-
-              custom zone should not already in default zone
-              without being added
-          when: result.stdout.find("yes") != -1
+          failed_when: result is success or "no" not in result.stdout
 
         # Test that service can be added to zones
 
@@ -226,11 +234,22 @@
           command: firewall-offline-cmd --query-service systemroletest
           register: result
           changed_when: false
+          failed_when: not result is success or "yes" not in result.stdout
 
-        - name: Fail if service not added to default zone
+        - name: Add custom service to default zone again with previous replaced
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - previous: replaced
+              - "{{ custom_lsr_service }}"
+              - service: systemroletest
+                state: enabled
+
+        - name: Verify that no changes are made with previous replaced
           fail:
-            msg: custom service should be in default zone
-          when: result.stdout.find("yes") == -1
+            msg: Custom service changed when it should not have with previous replaced
+          when: firewall_lib_result is changed  # noqa no-handler
 
         # Remove custom service from default zone to prevent errors later
 
@@ -242,77 +261,56 @@
               - service: systemroletest
                 state: disabled
 
+        - name: Verify that custom service is removed from default zone
+          command: firewall-offline-cmd --query-service systemroletest
+          register: result
+          changed_when: false
+          failed_when: result is success or "no" not in result.stdout
+
+        - name: Remove custom service from default zone again to check idempotency
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - service: systemroletest
+                state: disabled
+
+        - name: Verify that no changes are made removing service again
+          fail:
+            msg: Custom service changed when it should not have
+          when: firewall_lib_result is changed  # noqa no-handler
+
         # Test removing elements from custom service
 
         - name: Remove custom service elements
           include_role:
             name: linux-system-roles.firewall
           vars:
-            firewall:
-              - service: systemroletest
-                port: ["9999/udp"]
-                source_port: ["10000/udp"]
-                destination:
-                  - 1.1.1.1
-                  - 1::1
-                protocol: icmp
-                helper_module: "{{ 'ftp'
-                  if ansible_facts['distribution'] in ['RedHat', 'CentOS', 'Fedora']
-                  and ansible_facts['distribution_major_version'] is version('8', '>=')
-                  else omit }}"
-                includes: "{{ ['ssh', 'ldaps']
-                  if ansible_facts['distribution'] in ['RedHat', 'CentOS', 'Fedora']
-                  and ansible_facts['distribution_major_version'] is version('8', '>=')
-                  else [] }}"
-                permanent: true
-                state: absent
+            firewall: "{{ [custom_lsr_service | combine(service_removal)] }}"
 
         # Verify nothing is removed in this case
 
         - name: Fail if custom service elements unchanged
           fail:
             msg: Custom service unchanged (should not be)
-          when: not firewall_lib_result.changed  # noqa no-handler
+          when: not firewall_lib_result is changed  # noqa no-handler
 
         - name: Remove custom service elements again
           include_role:
             name: linux-system-roles.firewall
           vars:
-            firewall:
-              - service: systemroletest
-                port: ["9999/udp"]
-                source_port: ["10000/udp"]
-                destination:
-                  - 1.1.1.1
-                  - 1::1
-                protocol: icmp
-                helper_module: "{{ 'ftp'
-                  if ansible_facts['distribution'] in ['RedHat', 'CentOS', 'Fedora']
-                  and ansible_facts['distribution_major_version'] is version('8', '>=')
-                  else omit }}"
-                includes: "{{ ['ssh', 'ldaps']
-                  if ansible_facts['distribution'] in ['RedHat', 'CentOS', 'Fedora']
-                  and ansible_facts['distribution_major_version'] is version('8', '>=')
-                  else [] }}"
-                permanent: true
-                state: absent
+            firewall: "{{ [custom_lsr_service | combine(service_removal)] }}"
 
         - name: Fail if custom service elements changed
           fail:
             msg: Custom service changed when it should not have
-          when: firewall_lib_result.changed  # noqa no-handler
+          when: firewall_lib_result is changed  # noqa no-handler
 
-        - name: Get all services
+        - name: Check if custom service still defined
           command: firewall-offline-cmd --get-services
           register: result
           changed_when: false
-
-        - name: Fail if systemroletest removed
-          fail:
-            msg: >-
-              custom service incorrectly removed when removing
-              elements from service
-          when: result.stdout.find("systemroletest") == -1
+          failed_when: result.stdout.find("systemroletest") == -1
 
         # Test remove service
 
@@ -322,7 +320,6 @@
           vars:
             firewall:
               - service: systemroletest
-                permanent: true
                 state: absent
 
         - name: Get all services
@@ -341,33 +338,61 @@
           vars:
             firewall:
               - service: systemroletest
-                permanent: true
                 state: absent
 
         - name: Fail if second removal changes anything
           fail:
             msg: something changed when systemrole test removed
-          when: firewall_lib_result.changed  # noqa no-handler
+          when: firewall_lib_result is changed  # noqa no-handler
 
-        - name: Try to add a service that does not exist in check mode
-          check_mode: true
-          block:
-            - name: Attempt to enable http-alt, which does not exist
-              include_role:
-                name: linux-system-roles.firewall
-              vars:
-                firewall:
-                  - service: http-alt
-                    state: enabled
-                    zone: public
-                    permanent: true
+        - name: Remove custom service again with previous replaced
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - previous: replaced
+              - service: systemroletest
+                state: absent
+
+        - name: Fail if second removal changes anything with previous replaced
+          fail:
+            msg: something changed when systemrole test removed with previous replaced
+          when: firewall_lib_result is changed  # noqa no-handler
+
+        - name: Attempt to enable http-alt, which does not exist
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - service: http-alt
+                state: enabled
+                zone: public
+            __firewall_test_check_mode: true
 
         - name: Fail if enabling service in check mode reports changes
           fail:
             msg: >-
               enabling/disabling non-existent service in check mode
               resulted in changes
-          when: firewall_lib_result.changed  # noqa no-handler
+          when: firewall_lib_result is changed  # noqa no-handler
+
+        - name: Attempt to enable http-alt, which does not exist with previous replaced
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - previous: replaced
+              - service: http-alt
+                state: enabled
+                zone: public
+            __firewall_test_check_mode: true
+
+        - name: Fail if enabling service in check mode reports changes with previous replaced
+          fail:
+            msg: >-
+              enabling/disabling non-existent service in check mode with previous replaced
+              resulted in changes
+          when: firewall_lib_result is changed  # noqa no-handler
 
       always:
         - name: Cleanup

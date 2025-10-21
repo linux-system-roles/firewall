@@ -10,6 +10,11 @@
   gather_facts: true
   vars_files:
     - vars/rh_distros_vars.yml
+  vars:
+    # we don't want the test short circuit assertion to be used in this test
+    # because we will check it manually below and we don't want a bunch of
+    # block/rescue
+    __firewall_debug_short_circuit_disable: true
   tasks:
     - name: Set expected backend
       set_fact:
@@ -66,30 +71,44 @@
           register: pci_id
           changed_when: false
 
-        - name: Set up for el7
-          when:
-            - __firewall_is_rh_distro
-            - ansible_facts['distribution_major_version'] is version('8', '<')
+        - name: Handle missing NetworkManager
           block:
+            - name: Add pci device ethernet controller
+              include_role:
+                name: linux-system-roles.firewall
+              vars:
+                firewall:
+                  zone: internal
+                  interface_pci_id: "{{ pci_id.stdout }}"
+                  state: enabled
+          rescue:
+            - name: See if the error is because NetworkManager is not installed
+              fail:
+                msg: "{{ ansible_failed_result | to_nice_json }}"
+              when: not ansible_failed_result.msg | regex_search('interface_pci_id is only supported with NetworkManager')
+
             - name: Install NetworkManager
               package:
                 name: NetworkManager
                 state: present
 
-            - name: Start NetworkManager
+            - name: Start NetworkManager service
               service:
                 name: NetworkManager
                 state: started
 
-        - name: Add pci device ethernet controller
-          include_role:
-            name: linux-system-roles.firewall
-          vars:
-            firewall:
-              zone: internal
-              interface_pci_id: "{{ pci_id.stdout }}"
-              state: enabled
-              permanent: true
+            - name: Add pci device ethernet controller again with NetworkManager installed
+              include_role:
+                name: linux-system-roles.firewall
+              vars:
+                firewall:
+                  zone: internal
+                  interface_pci_id: "{{ pci_id.stdout }}"
+                  state: enabled
+
+        - name: Confirm changes were made
+          assert:
+            that: firewall_lib_result is changed
 
         - name: Add pci device again
           include_role:
@@ -99,7 +118,28 @@
               zone: internal
               interface_pci_id: "{{ pci_id.stdout }}"
               state: enabled
-              permanent: true
+
+        - name: Confirm changes were not made and short circuit is false
+          assert:
+            that:
+              - not firewall_lib_result is changed
+              - not firewall_lib_result.short_circuit
+
+        - name: Add pci device again with previous replaced
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - previous: replaced
+              - zone: internal
+                interface_pci_id: "{{ pci_id.stdout }}"
+                state: enabled
+
+        - name: Confirm changes were not made and short circuit is false
+          assert:
+            that:
+              - not firewall_lib_result is changed
+              - not firewall_lib_result.short_circuit
 
         - name: Debug - get nftables ruleset after and show diff
           shell: |
@@ -144,7 +184,42 @@
               zone: internal
               interface_pci_id: "{{ pci_id.stdout }}"
               state: disabled
-              permanent: true
+
+        - name: Confirm removal was made
+          assert:
+            that: firewall_lib_result is changed
+
+        - name: Remove interface from internal again
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              zone: internal
+              interface_pci_id: "{{ pci_id.stdout }}"
+              state: disabled
+
+        - name: Confirm no removal changes were made
+          assert:
+            that:
+              - not firewall_lib_result is changed
+              - not firewall_lib_result.short_circuit
+
+        - name: Remove interface from internal with previous replaced
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - previous: replaced
+              - zone: internal
+                interface_pci_id: "{{ pci_id.stdout }}"
+                state: disabled
+
+        - name: Confirm no removal changes were made with previous replaced
+          assert:
+            that:
+              - not firewall_lib_result is changed
+              - not firewall_lib_result.short_circuit
+
       always:
         - name: Cleanup
           tags:
