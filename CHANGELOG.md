@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.11.1] - 2025-10-22
+--------------------
+
+### Other Changes
+
+- test: allow unicode literals for ansible-test (#298)
+
 [1.11.0] - 2025-10-21
 --------------------
 
