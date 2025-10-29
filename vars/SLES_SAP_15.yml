@@ -1,0 +1,4 @@
+---
+# Put internal variables here with SLES_SAP_15 specific values.
+
+__firewall_packages_extra: [python311-firewall]
