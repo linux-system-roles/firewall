@@ -1,6 +1,21 @@
 Changelog
 =========
 
+[1.11.2] - 2025-11-13
+--------------------
+
+### Bug Fixes
+
+- fix: install python311-firewall on SLES 15 (#300)
+
+### Other Changes
+
+- ci: Bump github/codeql-action from 3 to 4 (#301)
+- ci: Bump actions/upload-artifact from 4 to 5 (#302)
+- ci: use versioned upload-artifact instead of master; bump codeql-action to v4; bump upload-artifact to v5 (#303)
+- ci: bump tox-lsr to 3.13.0 (#304)
+- ci: bump tox-lsr to 3.14.0 - this moves standard-inventory-qcow2 to tox-lsr (#305)
+
 [1.11.1] - 2025-10-22
 --------------------
 
