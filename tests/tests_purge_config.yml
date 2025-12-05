@@ -7,13 +7,13 @@
         state: present
       - set_default_zone: customzone
         state: enabled
-      - service: [tftp, ftp]
+      - service: [tftp, ftp, ssh]
         port: ['443/tcp', '443/udp']
         forward_port: ['447/tcp;;1.2.3.4',
                        '448/tcp;;1.2.3.5']
         state: enabled
       - zone: internal
-        service: [tftp, ftp]
+        service: [tftp, ftp, ssh]
         port: ['443/tcp', '443/udp']
         forward_port: ['447/tcp;;1.2.3.4',
                        '448/tcp;;1.2.3.5']
