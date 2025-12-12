@@ -75,7 +75,6 @@
               zone: internal
               interface_pci_id: "{{ pci_id.stdout }}"
               state: enabled
-              permanent: true
 
         - name: Add pci device again
           include_role:
@@ -85,7 +84,6 @@
               zone: internal
               interface_pci_id: "{{ pci_id.stdout }}"
               state: enabled
-              permanent: true
 
         - name: Debug - get nftables ruleset after and show diff
           shell: |
@@ -129,7 +127,6 @@
               zone: internal
               interface_pci_id: "{{ pci_id.stdout }}"
               state: disabled
-              permanent: true
       always:
         - name: Cleanup
           tags:
