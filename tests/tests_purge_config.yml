@@ -7,13 +7,13 @@
         state: present
       - set_default_zone: customzone
         state: enabled
-      - service: [tftp, ftp]
+      - service: [tftp, ftp, ssh]
         port: ['443/tcp', '443/udp']
         forward_port: ['447/tcp;;1.2.3.4',
                        '448/tcp;;1.2.3.5']
         state: enabled
       - zone: internal
-        service: [tftp, ftp]
+        service: [tftp, ftp, ssh]
         port: ['443/tcp', '443/udp']
         forward_port: ['447/tcp;;1.2.3.4',
                        '448/tcp;;1.2.3.5']
@@ -72,6 +72,17 @@
           fail:
             msg: The role reported changes
           when: firewall_lib_result.changed  # noqa no-handler
+
+        - name: Get config
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              detailed: true
+
+        - name: Show config
+          debug:
+            msg: facts {{ firewall_config | to_nice_json }}
 
         - name: Use again previous replaced and basic config
           include_role:
