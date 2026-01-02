@@ -565,6 +565,26 @@ class FirewallInterfaceTests(unittest.TestCase):
         assert result is None
 
     @patch("firewall_lib.NM_IMPORTED", True)
+    @patch("firewall_lib.AnsibleModule", new_callable=MockAnsibleModule)
+    @patch("firewall_lib.HAS_FIREWALLD", True)
+    @patch("firewall_lib.pci_ids", {"600D:7C1D": ["eth0"]})
+    @patch("firewall_lib.get_interface_pci", create=True, return_value={})
+    def test_parse_pci_id(self, get_interface_pci, am_class):
+        am = am_class.return_value
+
+        am.params = {"interface_pci_id": ["123G:1111"]}
+        with self.assertRaises(MockException):
+            firewall_lib.main()
+        am.fail_json.assert_called_with(
+            msg="PCI id 123G:1111 does not match format: XXXX:XXXX (X = hexadecimal number)"
+        )
+
+        am.params = {"interface_pci_id": ["600D:7C1D"]}
+        with self.assertRaises(MockException):
+            firewall_lib.main()
+        am.fail_json.assert_called_with(msg="Options invalid without state option set")
+
+    @patch("firewall_lib.NM_IMPORTED", True)
     @patch("firewall_lib.try_get_connection_of_interface")
     @patch("firewall_lib.nm_get_zone_of_connection", create=True, return_value="")
     @patch("firewall_lib.nm_set_zone_of_connection", create=True)
@@ -658,24 +678,6 @@ class FirewallLibParsers(unittest.TestCase):
         item = "a/b;;"
         rc = firewall_lib.parse_forward_port(module, item)
         self.assertEqual(("a", "b", None, None), rc)
-
-    @patch("firewall_lib.AnsibleModule", new_callable=MockAnsibleModule)
-    @patch("firewall_lib.HAS_FIREWALLD", True)
-    @patch("firewall_lib.pci_ids", {"600D:7C1D": ["eth0"]})
-    def test_parse_pci_id(self, am_class):
-        am = am_class.return_value
-
-        am.params = {"interface_pci_id": ["123G:1111"]}
-        with self.assertRaises(MockException):
-            firewall_lib.main()
-        am.fail_json.assert_called_with(
-            msg="PCI id 123G:1111 does not match format: XXXX:XXXX (X = hexadecimal number)"
-        )
-
-        am.params = {"interface_pci_id": ["600D:7C1D"]}
-        with self.assertRaises(MockException):
-            firewall_lib.main()
-        am.fail_json.assert_called_with(msg="Options invalid without state option set")
 
 
 @patch("firewall_lib.AnsibleModule", new_callable=MockAnsibleModule)
@@ -951,7 +953,9 @@ class FirewallLibMain(unittest.TestCase):
         am.warn.assert_called_with(
             "AllowZoneDrifting is deprecated in this version of firewalld and no longer supported"
         )
-        am.exit_json.assert_called_with(changed=False, __firewall_changed=False)
+        am.exit_json.assert_called_with(
+            changed=False, __firewall_changed=False, short_circuit=False
+        )
 
     @patch("firewall_lib.HAS_FIREWALLD", True)
     @patch("firewall_lib.FW_VERSION", "0.9.0", create=True)
@@ -1003,7 +1007,9 @@ class FirewallLibMain(unittest.TestCase):
                 try_set_zone_of_interface.return_value = rv
                 fw_settings.queryService.return_value = state == "disabled"
                 firewall_lib.main()
-                am.exit_json.assert_called_with(changed=rv[1], __firewall_changed=rv[1])
+                am.exit_json.assert_called_with(
+                    changed=rv[1], __firewall_changed=rv[1], short_circuit=False
+                )
 
         for state in ["enabled", "disabled"]:
             am.params["state"] = state
@@ -1012,7 +1018,9 @@ class FirewallLibMain(unittest.TestCase):
                 try_set_zone_of_interface.return_value = rv
                 fw_settings.queryService.return_value = state == "disabled"
                 firewall_lib.main()
-                am.exit_json.assert_called_with(changed=True, __firewall_changed=True)
+                am.exit_json.assert_called_with(
+                    changed=True, __firewall_changed=True, short_circuit=False
+                )
 
     @patch("firewall_lib.HAS_FIREWALLD", True)
     @patch("firewall_lib.FW_VERSION", "0.9.0", create=True)
@@ -1464,6 +1472,8 @@ def test_module_parameters(method, state, input, expected, _offline_cmd):
     fw_client = fw_client_patcher.start()
     has_fw_patcher = patch("firewall_lib.HAS_FIREWALLD", True)
     has_fw_patcher.start()
+    has_nm_patcher = patch("firewall_lib.NM_IMPORTED", True)
+    has_nm_patcher.start()
     fw_ver_patcher = patch("firewall_lib.FW_VERSION", "0.3.8", create=True)
     fw_ver_patcher.start()
     rich_rule_patcher = patch("firewall_lib.Rich_Rule", create=True)
@@ -1534,7 +1544,9 @@ def test_module_parameters(method, state, input, expected, _offline_cmd):
         if permanent:
             called_mock = getattr(fw_settings, called_mock_name)
             assert expected["permanent"] == called_mock.call_args_list
-        am.exit_json.assert_called_once_with(changed=True, __firewall_changed=True)
+        am.exit_json.assert_called_once_with(
+            changed=True, __firewall_changed=True, short_circuit=False
+        )
     finally:
         am_class_patcher.stop()
         fw_client_patcher.stop()
@@ -1614,7 +1626,9 @@ def test_module_parameters_offline(method, state, input, expected, offline_cmd):
         else:
             firewall_lib.main()
             assert called_cmds == expected["offline"]
-            am.exit_json.assert_called_once_with(changed=True, __firewall_changed=True)
+            am.exit_json.assert_called_once_with(
+                changed=True, __firewall_changed=True, short_circuit=False
+            )
     finally:
         am_class_patcher.stop()
         has_fw_patcher.stop()
