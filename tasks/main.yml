@@ -40,7 +40,7 @@
       selectattr('previous', 'match', '^replaced$') |
       list | length > 0 }}"
     __firewall_python_cmd: "{{ ansible_python_interpreter |
-      d(discovered_interpreter_python) }}"
+      d(ansible_facts['discovered_interpreter_python']) }}"
     __firewall_report_changed: true
 
 - name: Handle previous replaced

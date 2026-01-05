@@ -5,14 +5,20 @@ __firewall_usr_lib_dir: /usr/lib/firewalld
 
 # ansible_facts required by the role
 __firewall_required_facts:
+  - discovered_interpreter_python
+  - distribution_major_version
+  - distribution
   - python_version
   - service_mgr
+
+__firewall_no_subsets_facts:
+  - discovered_interpreter_python
 
 # the subsets of ansible_facts that need to be gathered in case any of the
 # facts in required_facts is missing; see the documentation of
 # the 'gather_subset' parameter of the 'setup' module
 __firewall_required_facts_subsets: "{{ ['!all', '!min'] +
-  __firewall_required_facts }}"
+  __firewall_required_facts | difference(__firewall_no_subsets_facts) }}"
 
 __firewall_packages_base: [firewalld]
 
@@ -42,8 +48,8 @@ __firewall_rh_distros:
 __firewall_rh_distros_fedora: "{{ __firewall_rh_distros + ['Fedora'] }}"
 
 # Use this in conditionals to check if distro is Red Hat or clone
-__firewall_is_rh_distro: "{{ ansible_distribution in __firewall_rh_distros }}"
+__firewall_is_rh_distro: "{{ ansible_facts['distribution'] in __firewall_rh_distros }}"
 
 # Use this in conditionals to check if distro is Red Hat or clone, or Fedora
-__firewall_is_rh_distro_fedora: "{{ ansible_distribution in __firewall_rh_distros_fedora }}"
+__firewall_is_rh_distro_fedora: "{{ ansible_facts['distribution'] in __firewall_rh_distros_fedora }}"
 # END - DO NOT EDIT THIS BLOCK - rh distros variables
