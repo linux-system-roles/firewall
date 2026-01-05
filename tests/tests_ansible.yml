@@ -614,8 +614,8 @@
           register: result
           failed_when: result is failed or result is not changed
           when:
-            - ansible_distribution in ["RedHat", "CentOS", "Fedora"]
-            - ansible_distribution_major_version is version("8", ">=")
+            - ansible_facts["distribution"] in ["RedHat", "CentOS", "Fedora"]
+            - ansible_facts["distribution_major_version"] is version("8", ">=")
 
         - name: Add includes again to check idempotence
           firewall_lib:
@@ -629,8 +629,8 @@
           register: result
           failed_when: result is failed or result is changed
           when:
-            - ansible_distribution in ["RedHat", "CentOS", "Fedora"]
-            - ansible_distribution_major_version is version("8", ">=")
+            - ansible_facts["distribution"] in ["RedHat", "CentOS", "Fedora"]
+            - ansible_facts["distribution_major_version"] is version("8", ">=")
 
         - name: Delete custom service
           firewall_lib:
@@ -665,12 +665,12 @@
               - "aaaa:aaaa:aaaa:aaa:aaaa:aaaa:aaaa::"
             # these two don't exist yet in RHEL 7
             helper_module: "{{ 'nf_conntrack_ftp'
-              if ansible_distribution in ['RedHat', 'CentOS', 'Fedora']
-              and ansible_distribution_major_version is version('8', '>=')
+              if ansible_facts['distribution'] in ['RedHat', 'CentOS', 'Fedora']
+              and ansible_facts['distribution_major_version'] is version('8', '>=')
               else omit }}"
             includes: "{{ ['https', 'ldaps']
-              if ansible_distribution in ['RedHat', 'CentOS', 'Fedora']
-              and ansible_distribution_major_version is version('8', '>=')
+              if ansible_facts['distribution'] in ['RedHat', 'CentOS', 'Fedora']
+              and ansible_facts['distribution_major_version'] is version('8', '>=')
               else omit }}"
             online: "{{ __firewall_is_booted }}"
           register: result
@@ -693,8 +693,8 @@
             that:
               - '"includes: https ldaps" in info.stdout'
               - '"helpers: nf_conntrack_ftp" in info.stdout'
-          when: ansible_distribution in ['RedHat', 'CentOS', 'Fedora']
-                and ansible_distribution_major_version is version('8', '>=')
+          when: ansible_facts["distribution"] in ['RedHat', 'CentOS', 'Fedora']
+                and ansible_facts["distribution_major_version"] is version('8', '>=')
 
         - name: Add helper module that already is on customservice
           firewall_lib:
@@ -705,8 +705,8 @@
             online: "{{ __firewall_is_booted }}"
           register: result
           failed_when: result is failed or result is changed
-          when: ansible_distribution in ['RedHat', 'CentOS', 'Fedora']
-                and ansible_distribution_major_version is version('8', '>=')
+          when: ansible_facts["distribution"] in ['RedHat', 'CentOS', 'Fedora']
+                and ansible_facts["distribution_major_version"] is version('8', '>=')
 
         - name: Forward port 40 to 0.0.0.0:8080 (string)
           firewall_lib:

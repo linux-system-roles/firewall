@@ -5,9 +5,9 @@
   gather_facts: true
   tasks:
     - name: Test firewalld zones
-      when: ansible_distribution == "Fedora" or
-        ((ansible_distribution == "CentOS" or ansible_distribution == "RedHat")
-        and ansible_distribution_major_version | int >= 7)
+      when: ansible_facts["distribution"] == "Fedora" or
+        ((ansible_facts["distribution"] == "CentOS" or ansible_facts["distribution"] == "RedHat")
+        and ansible_facts["distribution_major_version"] | int >= 7)
       block:
 
         # INIT TEST

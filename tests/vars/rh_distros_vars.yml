@@ -14,7 +14,7 @@ __firewall_rh_distros:
 __firewall_rh_distros_fedora: "{{ __firewall_rh_distros + ['Fedora'] }}"
 
 # Use this in conditionals to check if distro is Red Hat or clone
-__firewall_is_rh_distro: "{{ ansible_distribution in __firewall_rh_distros }}"
+__firewall_is_rh_distro: "{{ ansible_facts['distribution'] in __firewall_rh_distros }}"
 
 # Use this in conditionals to check if distro is Red Hat or clone, or Fedora
-__firewall_is_rh_distro_fedora: "{{ ansible_distribution in __firewall_rh_distros_fedora }}"
+__firewall_is_rh_distro_fedora: "{{ ansible_facts['distribution'] in __firewall_rh_distros_fedora }}"
