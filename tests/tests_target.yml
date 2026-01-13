@@ -4,16 +4,21 @@
   tasks:
     - name: Run target tests
       block:
+        - name: Ensure starting from clean system
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - previous: replaced
+
         - name: Call role to change target settings
           include_role:
             name: linux-system-roles.firewall
           vars:
             firewall:
               - set_default_zone: public
-                permanent: true
               - target: DROP
                 state: enabled
-                permanent: true
 
         - name: Get target setting
           command: firewall-offline-cmd --info-zone=public
@@ -26,6 +31,21 @@
           vars:
             __expected: "  target: DROP"
 
+        - name: Call role to change target settings with previous replaced
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - previous: replaced
+              - set_default_zone: public
+              - target: DROP
+                state: enabled
+
+        - name: Verify target setting with previous replaced
+          fail:
+            msg: Target setting changed when it should not have with previous replaced
+          when: firewall_lib_result is changed  # noqa no-handler
+
         - name: Call role to reset target settings
           include_role:
             name: linux-system-roles.firewall
@@ -33,7 +53,6 @@
             firewall:
               target: DROP
               state: absent
-              permanent: true
 
         - name: Get target setting
           command: firewall-offline-cmd --info-zone=public
@@ -45,6 +64,21 @@
             that: __expected not in __result.stdout_lines
           vars:
             __expected: "  target: DROP"
+
+        - name: Call role to reset target settings with previous replaced
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - previous: replaced
+              - target: DROP
+                state: absent
+
+        - name: Verify target setting was reset with previous replaced
+          fail:
+            msg: Target setting changed when it should not have with previous replaced
+          when: firewall_lib_result is changed  # noqa no-handler
+
       always:
         - name: Cleanup
           tags:
