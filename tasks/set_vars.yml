@@ -1,0 +1,45 @@
+---
+- name: Ensure ansible_facts used by role
+  setup:
+    gather_subset: "{{ __firewall_required_facts_subsets }}"
+  when: __firewall_required_facts |
+    difference(ansible_facts.keys() | list) | length > 0
+
+- name: Determine if system is ostree and set flag
+  when: __firewall_is_ostree is not defined
+  block:
+    - name: Check if system is ostree
+      stat:
+        path: /run/ostree-booted
+      register: __ostree_booted_stat
+
+    - name: Set flag to indicate system is ostree
+      set_fact:
+        __firewall_is_ostree: "{{ __ostree_booted_stat.stat.exists }}"
+
+- name: Determine if system is transactional update and set flag
+  when: not __firewall_is_transactional is defined
+  block:
+    - name: Check if transactional-update exists in /sbin
+      stat:
+        path: /sbin/transactional-update
+      register: __transactional_update_stat
+
+    - name: Set flag if transactional-update exists
+      set_fact:
+        __firewall_is_transactional: "{{ __transactional_update_stat.stat.exists }}"
+
+- name: Set platform/version specific variables
+  include_vars: "{{ __vars_file }}"
+  loop:
+    - "{{ ansible_facts['os_family'] }}.yml"
+    - "{{ ansible_facts['distribution'] }}.yml"
+    - >-
+      {{ ansible_facts['distribution'] ~ '_' ~
+      ansible_facts['distribution_major_version'] }}.yml
+    - >-
+      {{ ansible_facts['distribution'] ~ '_' ~
+      ansible_facts['distribution_version'] }}.yml
+  vars:
+    __vars_file: "{{ role_path }}/vars/{{ item }}"
+  when: __vars_file is file
