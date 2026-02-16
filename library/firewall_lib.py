@@ -1136,7 +1136,7 @@ class OfflineCLIBackend:
 
     def _call_offline_cmd(self, args, check_rc=True):
         argv = ["firewall-offline-cmd"] + list(args)
-        (rc, out, err) = self.module.run_command(argv, check_rc=check_rc)
+        rc, out, err = self.module.run_command(argv, check_rc=check_rc)
         out = out.strip()
         self.module.debug("OfflineCLIBackend: %r -> exit %i, out: %s" % (argv, rc, out))
         return (rc, out)
