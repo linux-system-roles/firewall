@@ -1,4 +1,7 @@
 ---
+- name: Set platform/version specific variables
+  include_tasks: set_vars.yml
+
 - name: Setup firewalld
   include_tasks: firewalld.yml
 
