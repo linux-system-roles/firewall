@@ -2,22 +2,20 @@
 # Tests interface_pci field, test must be used in VM
 - name: Test interfaces with PCI ids
   hosts: all
+  become: true
   tags:
     # container builds have no PCI devices, so ethernet interface detection
     # won't find anything; so save ourselves the extra initial role invocation
     - tests::booted
-  become: true
-  roles:
-    - linux-system-roles.firewall
-
+  gather_facts: true
+  vars_files:
+    - vars/rh_distros_vars.yml
   tasks:
     - name: Set expected backend
       set_fact:
-        nftables_backend:
-          "{{ true
-            if ansible_facts['distribution'] in ['RedHat', 'CentOS', 'Fedora']
-            and ansible_facts['distribution_major_version'] is version('8', '>=')
-            else false }}"
+        nftables_backend: "{{
+          __firewall_is_rh_distro_fedora and
+          ansible_facts['distribution_major_version'] is version('8', '>=') }}"
 
     - name: Find ethernet interface
       shell: |
@@ -57,6 +55,7 @@
             set -euo pipefail
             nft list ruleset > {{ temp_dir.path }}/nft_before.txt || :
           changed_when: false
+          when: nftables_backend | bool
 
         - name: Determine interface vendor/product ID
           shell: |
@@ -66,6 +65,21 @@
             echo "$VID:$PID"
           register: pci_id
           changed_when: false
+
+        - name: Set up for el7
+          when:
+            - __firewall_is_rh_distro
+            - ansible_facts['distribution_major_version'] is version('8', '<')
+          block:
+            - name: Install NetworkManager
+              package:
+                name: NetworkManager
+                state: present
+
+            - name: Start NetworkManager
+              service:
+                name: NetworkManager
+                state: started
 
         - name: Add pci device ethernet controller
           include_role:
@@ -94,6 +108,7 @@
             diff -u {{ temp_dir.path }}/nft_before.txt {{ temp_dir.path }}/nft_after.txt || :
             rm -rf {{ temp_dir.path }}
           changed_when: false
+          when: nftables_backend | bool
 
         - name: Get nftable ruleset
           command: nft list ruleset

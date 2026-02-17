@@ -948,10 +948,16 @@ class FirewallLibMain(unittest.TestCase):
             "permanent": True,
         }
         firewall_lib.main()
-        am.warn.assert_called_with(
-            "AllowZoneDrifting is deprecated in this version of firewalld and no longer supported"
-        )
-        am.exit_json.assert_called_with(changed=False, __firewall_changed=False)
+        warning_msg = "AllowZoneDrifting is deprecated in this version of firewalld and no longer supported"
+        if getattr(am, "warn", None):
+            am.warn.assert_called_with(warning_msg)
+            am.exit_json.assert_called_with(
+                changed=False, __firewall_changed=False, warnings=[]
+            )
+        else:
+            am.exit_json.assert_called_with(
+                changed=False, __firewall_changed=False, warnings=[warning_msg]
+            )
 
     @patch("firewall_lib.HAS_FIREWALLD", True)
     @patch("firewall_lib.FW_VERSION", "0.9.0", create=True)
@@ -1003,7 +1009,9 @@ class FirewallLibMain(unittest.TestCase):
                 try_set_zone_of_interface.return_value = rv
                 fw_settings.queryService.return_value = state == "disabled"
                 firewall_lib.main()
-                am.exit_json.assert_called_with(changed=rv[1], __firewall_changed=rv[1])
+                am.exit_json.assert_called_with(
+                    changed=rv[1], __firewall_changed=rv[1], warnings=[]
+                )
 
         for state in ["enabled", "disabled"]:
             am.params["state"] = state
@@ -1012,7 +1020,9 @@ class FirewallLibMain(unittest.TestCase):
                 try_set_zone_of_interface.return_value = rv
                 fw_settings.queryService.return_value = state == "disabled"
                 firewall_lib.main()
-                am.exit_json.assert_called_with(changed=True, __firewall_changed=True)
+                am.exit_json.assert_called_with(
+                    changed=True, __firewall_changed=True, warnings=[]
+                )
 
     @patch("firewall_lib.HAS_FIREWALLD", True)
     @patch("firewall_lib.FW_VERSION", "0.9.0", create=True)
@@ -1534,7 +1544,9 @@ def test_module_parameters(method, state, input, expected, _offline_cmd):
         if permanent:
             called_mock = getattr(fw_settings, called_mock_name)
             assert expected["permanent"] == called_mock.call_args_list
-        am.exit_json.assert_called_once_with(changed=True, __firewall_changed=True)
+        am.exit_json.assert_called_once_with(
+            changed=True, __firewall_changed=True, warnings=[]
+        )
     finally:
         am_class_patcher.stop()
         fw_client_patcher.stop()
@@ -1614,7 +1626,9 @@ def test_module_parameters_offline(method, state, input, expected, offline_cmd):
         else:
             firewall_lib.main()
             assert called_cmds == expected["offline"]
-            am.exit_json.assert_called_once_with(changed=True, __firewall_changed=True)
+            am.exit_json.assert_called_once_with(
+                changed=True, __firewall_changed=True, warnings=[]
+            )
     finally:
         am_class_patcher.stop()
         has_fw_patcher.stop()

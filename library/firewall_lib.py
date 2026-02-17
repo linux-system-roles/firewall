@@ -1664,22 +1664,26 @@ def parse_pci_id(module, item):
     if not module.params["online"]:
         module.fail_json(msg="interface_pci_id is not supported in offline mode.")
 
+    warning = ""
     if PCI_REGEX.search(item):
         global pci_ids
         if not pci_ids:
             pci_ids = get_interface_pci()
 
-        interface_name = pci_ids.get(item)
-        if interface_name:
-            return interface_name
+        interface_names = pci_ids.get(item)
+        if interface_names:
+            return interface_names, warning
 
-        module.warn(msg="No network interfaces found with PCI device ID %s" % item)
+        warning = "No network interfaces found with PCI device ID %s" % item
+        if callable(getattr(module, "warn", None)):
+            module.warn(warning)
+            warning = ""
     else:
         module.fail_json(
             msg="PCI id %s does not match format: XXXX:XXXX (X = hexadecimal number)"
             % item
         )
-    return []
+    return [], warning
 
 
 def parse_port(module, item):
@@ -1938,6 +1942,7 @@ def main():
     if not HAS_FIREWALLD:
         module.fail_json(msg="No firewall backend could be imported.")
 
+    warnings = []
     # Argument parse
     firewalld_conf = module.params["firewalld_conf"]
     if firewalld_conf:
@@ -1946,9 +1951,14 @@ def main():
             FW_VERSION
         ) >= lsr_parse_version("1.0.0")
         if allow_zone_drifting_deprecated and firewalld_conf.get("allow_zone_drifting"):
-            module.warn(
-                "AllowZoneDrifting is deprecated in this version of firewalld and no longer supported"
-            )
+            if callable(getattr(module, "warn", None)):
+                module.warn(
+                    "AllowZoneDrifting is deprecated in this version of firewalld and no longer supported"
+                )
+            else:
+                warnings.append(
+                    "AllowZoneDrifting is deprecated in this version of firewalld and no longer supported"
+                )
     else:
         # CodeQL will produce an error without this line
         allow_zone_drifting_deprecated = None
@@ -1991,9 +2001,12 @@ def main():
             module.fail_json(msg="cannot have more than one destination ipv6")
     interface = module.params["interface"]
     for _interface in module.params["interface_pci_id"]:
-        for interface_name in parse_pci_id(module, _interface):
+        interface_names, warning = parse_pci_id(module, _interface)
+        for interface_name in interface_names:
             if interface_name not in interface:
                 interface.append(interface_name)
+        if warning:
+            warnings.append(warning)
     icmp_block = module.params["icmp_block"]
     icmp_block_inversion = module.params["icmp_block_inversion"]
     timeout = module.params["timeout"]
@@ -2282,7 +2295,7 @@ def main():
     backend.finalize()
 
     changed = backend.changed and module.params["__report_changed"]
-    module.exit_json(changed=changed, __firewall_changed=changed)
+    module.exit_json(changed=changed, __firewall_changed=changed, warnings=warnings)
 
 
 #################################################
