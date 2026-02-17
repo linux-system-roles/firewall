@@ -22,7 +22,10 @@ __firewall_required_facts_subsets: "{{ ['!all', '!min'] +
 
 __firewall_packages_base: [firewalld]
 
-__firewall_packages_extra: "{{ ['python-ipaddress']
+# NetworkManager is required for the interface_pci_id functionality
+# python-ipaddress is required for the ipaddress module
+# These are built-in (?) on EL8 and later
+__firewall_packages_extra: "{{ ['NetworkManager', 'python-ipaddress']
   if __firewall_is_rh_distro and ansible_facts['distribution_major_version'] | int < 8
   else [] }}"
 
