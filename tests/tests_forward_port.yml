@@ -1,8 +1,27 @@
 ---
 - name: Test forward port
   hosts: all
-  become: true
-
+  vars:
+    _test_settings_strings:
+      - forward_port: 40/tcp;8080;0.0.0.0
+        state: "{{ test_state }}"
+      - forward_port: 50/tcp;8080;0.0.0.0
+        state: "{{ test_state }}"
+    _test_settings_dicts:
+      - forward_port:
+          port: 40
+          proto: tcp
+          toport: 8080
+          toaddr: 0.0.0.0
+        state: "{{ test_state }}"
+      - forward_port:
+          port: 50
+          proto: tcp
+          toport: 8080
+          toaddr: 0.0.0.0
+        state: "{{ test_state }}"
+    previous_replaced:
+      - {previous: replaced}
   tasks:
     - name: Clean slate
       include_role:
@@ -13,30 +32,134 @@
 
     # Tests string and dict form types
 
-    - name: Test forward_port and undo (string)
+    - name: Test forward_port strings
       include_role:
         name: linux-system-roles.firewall
       vars:
-        firewall:
-          - forward_port: 40/tcp;8080;0.0.0.0
-            state: enabled
-          - forward_port: 40/tcp;8080;0.0.0.0
-            state: disabled
+        firewall: "{{ _test_settings_strings }}"
+        test_state: enabled
 
-    - name: Test forward_port (dict) and undo
+    - name: Verify forward_port strings
+      fail:
+      when: firewall_lib_result is failed or firewall_lib_result is not changed
+
+    - name: Test forward_port strings idempotence
       include_role:
         name: linux-system-roles.firewall
       vars:
-        firewall:
-          - forward_port:
-              port: 40
-              proto: tcp
-              toport: 8080
-              toaddr: 0.0.0.0
-            state: enabled
-          - forward_port:
-              - port: 40
-                proto: tcp
-                toport: 8080
-                toaddr: 0.0.0.0
-            state: disabled
+        firewall: "{{ _test_settings_strings }}"
+        test_state: enabled
+
+    - name: Verify forward_port strings idempotence
+      fail:
+      when: firewall_lib_result is failed or firewall_lib_result is changed
+
+    - name: Test forward_port strings idempotence with previous replaced
+      include_role:
+        name: linux-system-roles.firewall
+      vars:
+        firewall: "{{ _test_settings_strings + previous_replaced }}"
+        test_state: enabled
+
+    - name: Verify forward_port strings idempotence with previous replaced
+      fail:
+      when: firewall_lib_result is failed or firewall_lib_result is changed
+
+    - name: Test forward_port strings undo
+      include_role:
+        name: linux-system-roles.firewall
+      vars:
+        firewall: "{{ _test_settings_strings }}"
+        test_state: disabled
+
+    - name: Verify forward_port strings undo
+      fail:
+      when: firewall_lib_result is failed or firewall_lib_result is not changed
+
+    - name: Test forward_port strings undo idempotence
+      include_role:
+        name: linux-system-roles.firewall
+      vars:
+        firewall: "{{ _test_settings_strings }}"
+        test_state: disabled
+
+    - name: Verify forward_port strings undo idempotence
+      fail:
+      when: firewall_lib_result is failed or firewall_lib_result is changed
+
+    - name: Test forward_port strings undo idempotence with previous replaced
+      include_role:
+        name: linux-system-roles.firewall
+      vars:
+        firewall: "{{ _test_settings_strings + previous_replaced }}"
+        test_state: disabled
+
+    - name: Verify forward_port strings undo idempotence with previous replaced
+      fail:
+      when: firewall_lib_result is failed or firewall_lib_result is changed
+
+    - name: Test forward_port dicts
+      include_role:
+        name: linux-system-roles.firewall
+      vars:
+        firewall: "{{ _test_settings_dicts }}"
+        test_state: enabled
+
+    - name: Verify forward_port dicts
+      fail:
+      when: firewall_lib_result is failed or firewall_lib_result is not changed
+
+    - name: Test forward_port dicts idempotence
+      include_role:
+        name: linux-system-roles.firewall
+      vars:
+        firewall: "{{ _test_settings_dicts }}"
+        test_state: enabled
+
+    - name: Verify forward_port dicts idempotence
+      fail:
+      when: firewall_lib_result is failed or firewall_lib_result is changed
+
+    - name: Test forward_port dicts idempotence with previous replaced
+      include_role:
+        name: linux-system-roles.firewall
+      vars:
+        firewall: "{{ _test_settings_dicts + previous_replaced }}"
+        test_state: enabled
+
+    - name: Verify forward_port dicts idempotence with previous replaced
+      fail:
+      when: firewall_lib_result is failed or firewall_lib_result is changed
+
+    - name: Test forward_port dicts undo
+      include_role:
+        name: linux-system-roles.firewall
+      vars:
+        firewall: "{{ _test_settings_dicts }}"
+        test_state: disabled
+
+    - name: Verify forward_port dicts undo
+      fail:
+      when: firewall_lib_result is failed or firewall_lib_result is not changed
+
+    - name: Test forward_port dicts undo idempotence
+      include_role:
+        name: linux-system-roles.firewall
+      vars:
+        firewall: "{{ _test_settings_dicts }}"
+        test_state: disabled
+
+    - name: Verify forward_port dicts undo idempotence
+      fail:
+      when: firewall_lib_result is failed or firewall_lib_result is changed
+
+    - name: Test forward_port dicts undo idempotence with previous replaced
+      include_role:
+        name: linux-system-roles.firewall
+      vars:
+        firewall: "{{ _test_settings_dicts + previous_replaced }}"
+        test_state: disabled
+
+    - name: Verify forward_port dicts undo idempotence with previous replaced
+      fail:
+      when: firewall_lib_result is failed or firewall_lib_result is changed

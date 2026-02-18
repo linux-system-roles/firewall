@@ -1,7 +1,32 @@
 ---
 - name: Test firewall user defined ipsets
   hosts: all
-  become: true
+  vars:
+    previous_replaced:
+      - {previous: replaced}
+    _test_ipsets:
+      - ipset: customipset-ipv4
+        ipset_type: "hash:ip"
+        ipset_entries:
+          - 127.0.0.1
+          - 8.8.8.8
+        ipset_options:
+          hashsize: 120
+          maxelem: 1000
+        short: Custom
+        description: Custom IPSet for testing purposes
+        state: present
+      - ipset: customipset-ipv6
+        ipset_type: "hash:ip"
+        ipset_entries:
+          - 2001:4860:4860::8844
+          - 2001:4860:4860::8888
+        ipset_options:
+          hashsize: 120
+          maxelem: 1000
+        short: Custom
+        description: Custom IPSet for testing purposes
+        state: present
   tasks:
     - name: Test firewall user defined ipsets
       block:
@@ -16,59 +41,26 @@
             firewall:
               - previous: replaced
 
-        # Verify customipset-ipv4 is not already defined
-        - name: Get all ipsets
-          shell:
-            executable: /bin/bash
-            cmd: |
-              set -euo pipefail
-              firewall-offline-cmd --get-ipsets | grep customipset-ipv4
+        # Verify customipset-ipv4 and ipv6 ipsets are not already defined
+        - name: Check for customipset-ipv4 and ipv6 ipsets
+          command: firewall-offline-cmd --get-ipsets
           register: result
           changed_when: false
-          failed_when: result.rc != 1
+          failed_when: '"customipset-ipv4" in result.stdout or "customipset-ipv6" in result.stdout'
 
         # Begin custom ipset tests
 
-        - name: Define new ipset
+        - name: Define new ipsets
           include_role:
             name: linux-system-roles.firewall
           vars:
-            firewall:
-              - ipset: customipset-ipv4
-                ipset_type: "hash:ip"
-                ipset_entries:
-                  - 127.0.0.1
-                  - 8.8.8.8
-                ipset_options:
-                  hashsize: 120
-                  maxelem: 1000
-                short: Custom
-                description: Custom IPSet for testing purposes
-                state: present
-                permanent: true
-              - ipset: customipset-ipv6
-                ipset_type: "hash:ip"
-                ipset_entries:
-                  - 2001:4860:4860::8844
-                  - 2001:4860:4860::8888
-                ipset_options:
-                  hashsize: 120
-                  maxelem: 1000
-                short: Custom
-                description: Custom IPSet for testing purposes
-                state: present
-                permanent: true
+            firewall: "{{ _test_ipsets }}"
 
         - name: Fail if ipsets not added
-          shell:
-            executable: /bin/bash
-            cmd: |
-              set -euo pipefail
-              firewall-offline-cmd --get-ipsets | grep {{ item | quote }}
-          loop:
-            - customipset-ipv4
-            - customipset-ipv6
+          command: firewall-offline-cmd --get-ipsets
+          register: result
           changed_when: false
+          failed_when: '"customipset-ipv4" not in result.stdout or "customipset-ipv6" not in result.stdout'
 
         - name: Fail if entry not added to ipset
           command: firewall-offline-cmd --ipset {{ item.name | quote }} --query-entry {{ item.entry | quote }}
@@ -103,7 +95,6 @@
                 short: Custom
                 description: Custom IPSet for testing purposes
                 state: present
-                permanent: true
                 ipset_options:
                   hashsize: 120
                   maxelem: 1000
@@ -111,12 +102,22 @@
                 short: Custom
                 description: Custom IPSet for testing purposes
                 state: present
-                permanent: true
                 ipset_options:
                   hashsize: 120
                   maxelem: 1000
 
         - name: Fail if defining ipset not idempotent
+          fail:
+            msg: Defining ipsets is not idempotent
+          when: firewall_lib_result is changed  # noqa no-handler
+
+        - name: Redefine new ipsets with previous replaced
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall: "{{ _test_ipsets + previous_replaced }}"
+
+        - name: Fail if defining ipset not idempotent with previous replaced
           fail:
             msg: Defining ipsets is not idempotent
           when: firewall_lib_result is changed  # noqa no-handler
@@ -182,7 +183,6 @@
                   hashsize: null
                   maxelem: null
                 state: absent
-                permanent: true
               - ipset: customipset-ipv6
                 ipset_entries:
                   - 2001:4860:4860::8844
@@ -191,7 +191,6 @@
                   hashsize: null
                   maxelem: null
                 state: absent
-                permanent: true
 
         - name: Fail if ipsets removed
           shell:
@@ -240,12 +239,12 @@
                 short: CustomChanged
                 description: Custom IPSet for testing purposes (changed)
                 state: present
-                permanent: true
+                runtime: false
               - ipset: customipset-ipv6
                 short: CustomChanged
                 description: Custom IPSet for testing purposes (changed)
                 state: present
-                permanent: true
+                runtime: false
 
         - name: Verify changes
           command: "{{ item['command'] }}"
@@ -274,10 +273,10 @@
             firewall:
               - source: "ipset:customipset-ipv4"
                 state: enabled
-                runtime: true
+                permanent: false
               - source: "ipset:customipset-ipv6"
                 state: enabled
-                runtime: true
+                permanent: false
           when: __firewall_is_booted
 
         - name: Add ipsets to default zone again (runtime)
@@ -287,10 +286,10 @@
             firewall:
               - source: "ipset:customipset-ipv4"
                 state: enabled
-                runtime: true
+                permanent: false
               - source: "ipset:customipset-ipv6"
                 state: enabled
-                runtime: true
+                permanent: false
           when: __firewall_is_booted
 
         - name: Fail if adding ipsets is not idempotent (runtime)
@@ -307,10 +306,15 @@
             firewall:
               - source: "ipset:customipset-ipv4"
                 state: enabled
-                permanent: true
+                runtime: false
               - source: "ipset:customipset-ipv6"
                 state: enabled
-                permanent: true
+                runtime: false
+
+        - name: Fail if adding ipsets reports no changes
+          fail:
+            msg: "enabling ipsets in zones reports no changes"
+          when: firewall_lib_result is not changed  # noqa no-handler
 
         - name: Add ipsets to default zone again (permanent)
           include_role:
@@ -319,10 +323,10 @@
             firewall:
               - source: "ipset:customipset-ipv4"
                 state: enabled
-                permanent: true
+                runtime: false
               - source: "ipset:customipset-ipv6"
                 state: enabled
-                permanent: true
+                runtime: false
 
         - name: Fail if adding ipsets is not idempotent (permanent)
           fail:
@@ -336,10 +340,13 @@
             firewall:
               - source: "ipset:customipset-ipv4"
                 state: disabled
-                permanent: true
               - source: "ipset:customipset-ipv6"
                 state: disabled
-                permanent: true
+
+        - name: Fail if removing ipsets reports no changes
+          fail:
+            msg: "removing ipsets in zones reports no changes"
+          when: firewall_lib_result is not changed  # noqa no-handler
 
         - name: Remove custom ipsets
           include_role:
@@ -348,10 +355,8 @@
             firewall:
               - ipset: customipset-ipv4
                 state: absent
-                permanent: true
               - ipset: customipset-ipv6
                 state: absent
-                permanent: true
 
         - name: Fail if ipsets not removed
           shell:
@@ -373,14 +378,28 @@
             firewall:
               - ipset: customipset-ipv4
                 state: absent
-                permanent: true
               - ipset: customipset-ipv6
                 state: absent
-                permanent: true
 
         - name: Fail if not idempotent
           fail:
             msg: Removing ipsets is not idempotent
+          when: firewall_lib_result is changed  # noqa no-handler
+
+        - name: Remove custom ipsets again with previous replaced
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              - previous: replaced
+              - ipset: customipset-ipv4
+                state: absent
+              - ipset: customipset-ipv6
+                state: absent
+
+        - name: Fail if not idempotent with previous replaced
+          fail:
+            msg: Removing ipsets is not idempotent with previous replaced
           when: firewall_lib_result is changed  # noqa no-handler
 
         - name: Test ipset with wrong family
@@ -397,7 +416,6 @@
                     ipset_options:
                       family: inet6
                     state: present
-                    permanent: true
 
             - name: This task should not be reached
               fail:
@@ -410,8 +428,7 @@
                 expected_error_message: >-
                   ipset badipset-v4: family=inet6 is not supported for IPv4
                   ipset_entries 127.0.0.1, 8.8.8.8
-              when: ansible_failed_result.results |
-                selectattr("msg", "contains", expected_error_message) | list | length == 0
+              when: expected_error_message not in ansible_failed_result.msg
 
         - name: Test ipset with wrong family (ipv6)
           block:
@@ -427,7 +444,6 @@
                     ipset_options:
                       family: inet
                     state: present
-                    permanent: true
 
             - name: This task should not be reached
               fail:
@@ -440,8 +456,7 @@
                 expected_error_message: >-
                   ipset badipset-v6: family=inet is not supported for IPv6
                   ipset_entries 2001:4860:4860::8844, 2001:4860:4860::8888
-              when: ansible_failed_result.results |
-                selectattr("msg", "contains", expected_error_message) | list | length == 0
+              when: expected_error_message not in ansible_failed_result.msg
       always:
         - name: Cleanup
           tags:

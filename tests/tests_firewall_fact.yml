@@ -114,62 +114,39 @@
 
         # Test detailed mode
 
-        - name: Get firewall_config with detailed on
-          block:
-            - name: Run role with detailed on
-              include_role:
-                name: linux-system-roles.firewall
-              vars:
-                firewall:
-                  detailed: true
-          rescue:
-            - name: Record role failure
-              set_fact:
-                __details_failed: true
-          always:
-            - name: Default to not failed
-              set_fact:
-                __details_failed: "{{ __details_failed | default(false) }}"
+        - name: Run role with detailed on
+          include_role:
+            name: linux-system-roles.firewall
+          vars:
+            firewall:
+              detailed: true
 
-        # offline mode does not currently have details
-        - name: Check role failure with details in non-booted mode
+        - name: Fail if default settings values not dictionaries
           fail:
-            msg: "Role with details did not fail in non-booted mode"
-          when: not __firewall_is_booted and not __details_failed
+            msg: >-
+              detailed firewall_config.default not formatted properly -
+              see README.md for expected formatting
+          when: item is not mapping
+          loop: "{{ firewall_config.default.values() | list }}"
 
-        - name: Test details in booted mode
-          when: __firewall_is_booted
-          block:
-            - name: Assert that role succeeded
-              assert:
-                that: not __details_failed
+        - name: Fail if custom firewall_config is not its previous value
+          fail:
+            msg: custom firewall_config changed unexpectedly
+          when: firewall_config.custom != __previous_firewall_config.custom
 
-            - name: Fail if default settings values not dictionaries
-              fail:
-                msg: >-
-                  detailed firewall_config.default not formatted properly -
-                  see README.md for expected formatting
-              when: item is not mapping
-              loop: "{{ firewall_config.default.values() | list }}"
+        - name: Fail if default zone differs
+          fail:
+            msg: default zone should not have changed
+          when: firewall_config.default_zone !=
+            __previous_firewall_config.default_zone
 
-            - name: Fail if custom firewall_config is not its previous value
-              fail:
-                msg: custom firewall_config changed unexpectedly
-              when: firewall_config.custom != __previous_firewall_config.custom
-
-            - name: Fail if default zone differs
-              fail:
-                msg: default zone should not have changed
-              when: firewall_config.default_zone !=
-                __previous_firewall_config.default_zone
-
-            - name: Spot-check default entry details and structure
-              assert:
-                that:
-                  - firewall_config.default.helpers.snmp.description is string
-                  - '"reachable" in firewall_config.default.icmptypes["echo-request"].description'
-                  - '"HTTP" in firewall_config.default.services.http.description'
-                  - '"public areas" in firewall_config.default.zones.public.description'
+        - name: Spot-check default entry details and structure
+          assert:
+            that:
+              - firewall_config.default.helpers.snmp.module is string
+              - '"reachable" in firewall_config.default.icmptypes["echo-request"].description'
+              - '"HTTP" in firewall_config.default.services.http.description'
+              - '"public areas" in firewall_config.default.zones.public.description'
 
       always:
         - name: Cleanup

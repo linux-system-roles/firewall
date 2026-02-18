@@ -27,7 +27,6 @@
         firewall:
           firewalld_conf:
             allow_zone_drifting: false
-          permanent: true
 
     - name: Check if AllowZoneDrifting is disabled if possible
       command: grep -Fx AllowZoneDrifting=no /etc/firewalld/firewalld.conf
@@ -49,7 +48,6 @@
         firewall:
           firewalld_conf:
             allow_zone_drifting: true
-          permanent: true
 
     - name: Check if AllowZoneDrifting is enabled if possible
       command: grep -Fx AllowZoneDrifting=yes /etc/firewalld/firewalld.conf
