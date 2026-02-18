@@ -1,6 +1,24 @@
 Changelog
 =========
 
+[1.11.5] - 2026-02-18
+--------------------
+
+### Bug Fixes
+
+- fix: add set vars platform vars loader (#322)
+- fix: el7 interface functionality requires NetworkManager (#323)
+
+### Other Changes
+
+- ci: use ANSIBLE_INJECT_FACT_VARS=false by default for testing (#316)
+- ci: bump ansible/ansible-lint from 25 to 26 (#317)
+- ci: skip most CI checks if title contains citest skip [citest_skip] (#318)
+- ci: ansible-lint - remove .collection directory from converted collection [citest_skip] (#319)
+- ci: tox-lsr version 3.15.0 [citest_skip] (#320)
+- ci: Add Fedora 43, remove Fedora 41 from Testing Farm CI (#321)
+- ci: Ansible version must be string, not float [citest_skip] (#324)
+
 [1.11.4] - 2026-01-06
 --------------------
 
