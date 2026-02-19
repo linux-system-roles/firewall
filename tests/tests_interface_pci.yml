@@ -17,31 +17,37 @@
           __firewall_is_rh_distro_fedora and
           ansible_facts['distribution_major_version'] is version('8', '>=') }}"
 
-    - name: Find ethernet interface
+    - name: Find ethernet interfaces with PCI devices
       shell: |
         set -euo pipefail
-        I=$(find /sys/class/net -name 'e*' | head -n1)
-        # containers only have virtual devices; for PCI we need a real one
-        if [ -n "$I" ] && [ -e "$I/device/vendor" ]; then
-          echo "$I"
-        fi
-      register: find_iface
+        find /sys/class/net -name 'e*' | while read -r iface_path; do
+          # containers only have virtual devices; for PCI we need a real one
+          if [ -n "$iface_path" ] && [ -e "$iface_path/device/vendor" ] && [ -e "$iface_path/device/device" ]; then
+            echo "$iface_path"
+          fi
+        done
+      register: find_iface_paths
       changed_when: false
 
-    - name: Debug
-      shell: |
-        set -euxo pipefail
-        exec 1>&2
-        ip addr
-        ls -alrtF /sys/class/net
-        ls -alrtF /sys/class/net/*/device/vendor || :
-        ls -alrtF /sys/class/net/*/device/device || :
-      changed_when: false
+    - name: Determine if system is ostree and set flag
+      when: not __firewall_is_ostree is defined
+      block:
+        - name: Check if system is ostree
+          stat:
+            path: /run/ostree-booted
+          register: __ostree_booted_stat
+
+        - name: Set flag to indicate system is ostree
+          set_fact:
+            __firewall_is_ostree: "{{ __ostree_booted_stat.stat.exists }}"
 
     - name: Test interfaces with PCI ids
       # this can't be tested in containers or similar envs without any real
       # ethernet devices
-      when: find_iface.stdout != ""
+      when: find_iface_paths.stdout_lines | length > 0
+      vars:
+        iface_path: "{{ pci_id_result.stdout_lines[0] }}"
+        pci_id: "{{ pci_id_result.stdout_lines[1] }}"
       block:
         - name: Get temp directory
           tempfile:
@@ -57,29 +63,62 @@
           changed_when: false
           when: nftables_backend | bool
 
-        - name: Determine interface vendor/product ID
+        - name: Debug - get iptables ruleset before
           shell: |
             set -euo pipefail
-            VID="$(sed 's/^0x//' < {{ find_iface.stdout | quote }}/device/vendor)"
-            PID="$(sed 's/^0x//' < {{ find_iface.stdout | quote }}/device/device)"
-            echo "$VID:$PID"
-          register: pci_id
+            iptables -S > {{ temp_dir.path }}/iptables_before.txt || :
+          changed_when: false
+          when: not nftables_backend | bool
+
+        - name: Ensure NetworkManager is installed
+          package:
+            name: NetworkManager
+            state: present
+            use: "{{ (__firewall_is_ostree | d(false)) |
+                     ternary('ansible.posix.rhel_rpm_ostree', omit) }}"
+          register: nm_package_result
+
+        - name: Ensure NetworkManager is started
+          service:
+            name: NetworkManager
+            state: started
+          register: nm_service_result
+
+        - name: Debug - List devices managed by NetworkManager
+          shell: |
+            set -euo pipefail
+            nmcli --fields all device status
+            for dev in $(nmcli --fields DEVICE -t -c no device status); do
+              echo "################### device: $dev ###################"
+              nmcli --fields all device show "$dev"
+              echo ""
+            done
           changed_when: false
 
-        - name: Set up for el7
-          when:
-            - __firewall_is_rh_distro
-            - ansible_facts['distribution_major_version'] is version('8', '<')
-          block:
-            - name: Install NetworkManager
-              package:
-                name: NetworkManager
-                state: present
-
-            - name: Start NetworkManager
-              service:
-                name: NetworkManager
-                state: started
+        - name: Find the first interface with PCI devices that is managed by NetworkManager
+          shell: |
+            set -euo pipefail
+            for iface in {{ find_iface_paths.stdout_lines | map("quote") | join(" ") }}; do
+              # get the full real device path
+              full_path="$(readlink -f "$iface")"
+              # now, find the device with the matching GENERAL.UDI path in the nmcli output
+              for dev in $(nmcli --fields DEVICE -t -c no device status); do
+                # see if device is connected - state is 100
+                if [[ "$(nmcli -g GENERAL.STATE -e no device show "$dev")" =~ ^100($|\ ) ]]; then
+                  udi="$(nmcli -g GENERAL.UDI -e no device show "$dev")"
+                  full_udi="$(readlink -f "$udi")"
+                  if [ "$full_path" = "$full_udi" ]; then
+                    VID="$(sed 's/^0x//' < "$full_path/device/vendor")"
+                    PID="$(sed 's/^0x//' < "$full_path/device/device")"
+                    echo "$iface"
+                    echo "$VID:$PID"
+                    break 2
+                  fi
+                fi
+              done
+            done
+          register: pci_id_result
+          changed_when: false
 
         - name: Add pci device ethernet controller
           include_role:
@@ -87,7 +126,7 @@
           vars:
             firewall:
               zone: internal
-              interface_pci_id: "{{ pci_id.stdout }}"
+              interface_pci_id: "{{ pci_id }}"
               state: enabled
               permanent: true
 
@@ -97,7 +136,7 @@
           vars:
             firewall:
               zone: internal
-              interface_pci_id: "{{ pci_id.stdout }}"
+              interface_pci_id: "{{ pci_id }}"
               state: enabled
               permanent: true
 
@@ -119,9 +158,18 @@
         - name: Assert that interface is in nftable ruleset
           assert:
             that:
-              - find_iface.stdout | basename in nft_list.stdout
-              - pci_id.stdout | trim not in nft_list.stdout
+              - iface_path | basename in nft_list.stdout
+              - pci_id | trim not in nft_list.stdout
           when: nftables_backend | bool
+
+        - name: Debug - get iptables ruleset after and show diff
+          shell: |
+            set -euo pipefail
+            iptables -S > {{ temp_dir.path }}/iptables_after.txt || :
+            diff -u {{ temp_dir.path }}/iptables_before.txt {{ temp_dir.path }}/iptables_after.txt || :
+            rm -rf {{ temp_dir.path }}
+          changed_when: false
+          when: not nftables_backend | bool
 
         - name: Get iptables ruleset
           command: iptables -S
@@ -132,8 +180,8 @@
         - name: Assert that interface is in iptables ruleset
           assert:
             that:
-              - find_iface.stdout | basename in ipt_list.stdout
-              - pci_id.stdout | trim not in ipt_list.stdout
+              - iface_path | basename in ipt_list.stdout
+              - pci_id | trim not in ipt_list.stdout
           when: not nftables_backend | bool
 
         - name: Remove interface from internal
@@ -142,10 +190,33 @@
           vars:
             firewall:
               zone: internal
-              interface_pci_id: "{{ pci_id.stdout }}"
+              interface_pci_id: "{{ pci_id }}"
               state: disabled
               permanent: true
       always:
+        - name: Remove temporary directory
+          file:
+            path: "{{ temp_dir.path }}"
+            state: absent
+          when: temp_dir.path is defined
+
+        - name: Stop NetworkManager if it was not started by the test
+          service:
+            name: NetworkManager
+            state: stopped
+          when:
+            - nm_service_result is defined
+            - nm_service_result is changed
+
+        - name: Remove NetworkManager if it was not installed by the test
+          package:
+            name: NetworkManager
+            state: absent
+          when:
+            - not __firewall_is_ostree
+            - nm_package_result is defined
+            - nm_package_result is changed
+
         - name: Cleanup
           tags:
             - tests::cleanup
