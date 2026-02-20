@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.11.6] - 2026-02-20
+--------------------
+
+### Other Changes
+
+- test: ensure interface chosen is managed by NetworkManager (#326)
+
 [1.11.5] - 2026-02-18
 --------------------
 
