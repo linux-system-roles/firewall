@@ -1,11 +1,9 @@
 ---
 - name: Ensure role handles startup issues
   hosts: all
-  gather_facts: false
   tasks:
     - name: Attempt to run role with default parameters (1)
-      include_role:
-        name: linux-system-roles.firewall
+      include_tasks: tasks/run_role_with_clear_facts.yml
 
     - name: Mask firewalld
       systemd:
@@ -13,8 +11,7 @@
         masked: true
 
     - name: Attempt to run role with default parameters (2)
-      include_role:
-        name: linux-system-roles.firewall
+      include_tasks: tasks/run_role_with_clear_facts.yml
 
     - name: Determine if system is ostree and set flag
       when: not __firewall_is_ostree is defined
@@ -41,8 +38,7 @@
         enabled: true
 
     - name: Attempt to run role, disabling conflicting services
-      include_role:
-        name: linux-system-roles.firewall
+      include_tasks: tasks/run_role_with_clear_facts.yml
       vars:
         firewall_disable_conflicting_services: true
 

@@ -5,8 +5,7 @@
     - name: Run target tests
       block:
         - name: Call role to change target settings
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               - set_default_zone: public
@@ -27,8 +26,7 @@
             __expected: "  target: DROP"
 
         - name: Call role to reset target settings
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               target: DROP
@@ -49,8 +47,7 @@
         - name: Cleanup
           tags:
             - tests::cleanup
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               - previous: replaced

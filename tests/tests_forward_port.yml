@@ -5,8 +5,7 @@
 
   tasks:
     - name: Clean slate
-      include_role:
-        name: linux-system-roles.firewall
+      include_tasks: tasks/run_role_with_clear_facts.yml
       vars:
         firewall:
           previous: replaced
@@ -14,8 +13,7 @@
     # Tests string and dict form types
 
     - name: Test forward_port and undo (string)
-      include_role:
-        name: linux-system-roles.firewall
+      include_tasks: tasks/run_role_with_clear_facts.yml
       vars:
         firewall:
           - forward_port: 40/tcp;8080;0.0.0.0
@@ -24,8 +22,7 @@
             state: disabled
 
     - name: Test forward_port (dict) and undo
-      include_role:
-        name: linux-system-roles.firewall
+      include_tasks: tasks/run_role_with_clear_facts.yml
       vars:
         firewall:
           - forward_port:

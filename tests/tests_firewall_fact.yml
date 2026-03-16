@@ -6,8 +6,7 @@
     - name: Test firewall ansible fact
       block:
         - name: Start with default configuration
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               - previous: replaced
@@ -20,8 +19,7 @@
         # Test base fact (no custom settings applied)
 
         - name: Get default ansible fact
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
 
@@ -74,8 +72,7 @@
           changed_when: false
 
         - name: Refetch firewall_config
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
 
@@ -117,8 +114,7 @@
         - name: Get firewall_config with detailed on
           block:
             - name: Run role with detailed on
-              include_role:
-                name: linux-system-roles.firewall
+              include_tasks: tasks/run_role_with_clear_facts.yml
               vars:
                 firewall:
                   detailed: true
@@ -175,8 +171,7 @@
         - name: Cleanup
           tags:
             - tests::cleanup
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               previous: replaced
