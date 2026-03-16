@@ -9,8 +9,7 @@
         # INIT TEST
 
         - name: Start from clean slate
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               - previous: replaced
@@ -35,8 +34,7 @@
           when: result.stdout.find("systemroletest") != -1
 
         - name: Ensure http has default configuration
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               - service: http
@@ -59,8 +57,7 @@
         ## Begin builtin service tests
 
         - name: Change default service http
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               - service: http
@@ -82,8 +79,7 @@
           when: not firewall_lib_result.changed  # noqa no-handler
 
         - name: Change default service http again
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               - service: http
@@ -109,8 +105,7 @@
         ## Begin custom service tests
 
         - name: Add custom service
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               - service: systemroletest
@@ -157,8 +152,7 @@
         # Verify idempotency
 
         - name: Add same custom service again
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               - service: systemroletest
@@ -213,8 +207,7 @@
         # Test that service can be added to zones
 
         - name: Add custom service to default zone
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               - service: systemroletest
@@ -235,8 +228,7 @@
         # Remove custom service from default zone to prevent errors later
 
         - name: Remove custom service from default zone
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               - service: systemroletest
@@ -245,8 +237,7 @@
         # Test removing elements from custom service
 
         - name: Remove custom service elements
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               - service: systemroletest
@@ -275,8 +266,7 @@
           when: not firewall_lib_result.changed  # noqa no-handler
 
         - name: Remove custom service elements again
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               - service: systemroletest
@@ -317,8 +307,7 @@
         # Test remove service
 
         - name: Remove custom service
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               - service: systemroletest
@@ -336,8 +325,7 @@
           when: result.stdout.find("systemroletest") != -1
 
         - name: Remove custom service again
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               - service: systemroletest
@@ -353,8 +341,7 @@
           check_mode: true
           block:
             - name: Attempt to enable http-alt, which does not exist
-              include_role:
-                name: linux-system-roles.firewall
+              include_tasks: tasks/run_role_with_clear_facts.yml
               vars:
                 firewall:
                   - service: http-alt
@@ -373,8 +360,7 @@
         - name: Cleanup
           tags:
             - tests::cleanup
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               - previous: replaced

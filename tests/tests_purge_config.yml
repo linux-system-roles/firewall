@@ -25,15 +25,13 @@
     - name: Run previous replaced tests
       block:
         - name: Start from a clean slate
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               - previous: replaced
 
         - name: Run the role with no config
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
 
         - name: Verify that nothing changed
           fail:
@@ -41,8 +39,7 @@
           when: firewall_lib_result.changed  # noqa no-handler
 
         - name: Apply basic config
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall: "{{ basic_config }}"
 
@@ -52,8 +49,7 @@
           when: not firewall_lib_result.changed  # noqa no-handler
 
         - name: Apply again basic config
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall: "{{ basic_config }}"
 
@@ -63,8 +59,7 @@
           when: firewall_lib_result.changed  # noqa no-handler
 
         - name: Use previous replaced and basic config
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall: "{{ basic_config + [{'previous': 'replaced'}] }}"
 
@@ -74,8 +69,7 @@
           when: firewall_lib_result.changed  # noqa no-handler
 
         - name: Use again previous replaced and basic config
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall: "{{ basic_config + [{'previous': 'replaced'}] }}"
 
@@ -85,8 +79,7 @@
           when: firewall_lib_result.changed  # noqa no-handler
 
         - name: Apply basic config
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall: "{{ basic_config }}"
 
@@ -96,8 +89,7 @@
           when: firewall_lib_result.changed  # noqa no-handler
 
         - name: Use only previous replaced
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               - previous: replaced
@@ -108,8 +100,7 @@
           when: not firewall_lib_result.changed  # noqa no-handler
 
         - name: Apply only default zone
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               - set_default_zone: dmz
@@ -120,8 +111,7 @@
           when: not firewall_lib_result.changed  # noqa no-handler
 
         - name: Apply only default zone again
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               - set_default_zone: dmz
@@ -132,8 +122,7 @@
           when: firewall_lib_result.changed  # noqa no-handler
 
         - name: Apply only default zone again with previous replaced
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               - previous: replaced
@@ -147,8 +136,7 @@
         ### Test firewalld.conf reset
 
         - name: Change default zone (Change firewalld.conf)
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               - set_default_zone: internal
@@ -160,8 +148,7 @@
           failed_when: not __stat_before.stat.exists
 
         - name: Purge config
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               - previous: replaced
@@ -178,8 +165,7 @@
           when: __stat_before.stat.checksum == __stat_after_a.stat.checksum
 
         - name: Purge config (no changes made since last purge)
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               - previous: replaced
@@ -199,8 +185,7 @@
         - name: Cleanup
           tags:
             - tests::cleanup
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               - previous: replaced

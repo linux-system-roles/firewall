@@ -2,19 +2,22 @@
 - name: Test firewalld zones
   hosts: all
   become: true
-  gather_facts: true
   tasks:
+    - name: Set condition for zone tests
+      set_fact:
+        __run_zone_tests: >-
+          {{ ansible_facts["distribution"] == "Fedora" or
+             ((ansible_facts["distribution"] == "CentOS" or ansible_facts["distribution"] == "RedHat")
+             and ansible_facts["distribution_major_version"] | int >= 7) }}
+
     - name: Test firewalld zones
-      when: ansible_facts["distribution"] == "Fedora" or
-        ((ansible_facts["distribution"] == "CentOS" or ansible_facts["distribution"] == "RedHat")
-        and ansible_facts["distribution_major_version"] | int >= 7)
+      when: __run_zone_tests
       block:
 
         # INIT TEST
 
         - name: Verify used firewalld zones
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               - zone: 'internal'
@@ -32,8 +35,7 @@
         # ENSURE STATE
 
         - name: Setup firewalld
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               - previous: replaced
@@ -89,8 +91,7 @@
         # ENSURE STATE AGAIN
 
         - name: Setup firewalld again
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               - previous: replaced

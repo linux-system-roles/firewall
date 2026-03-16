@@ -7,7 +7,6 @@
     # container builds have no PCI devices, so ethernet interface detection
     # won't find anything; so save ourselves the extra initial role invocation
     - tests::booted
-  gather_facts: true
   vars_files:
     - vars/rh_distros_vars.yml
   tasks:
@@ -121,8 +120,7 @@
           changed_when: false
 
         - name: Add pci device ethernet controller
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               zone: internal
@@ -131,8 +129,7 @@
               permanent: true
 
         - name: Add pci device again
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               zone: internal
@@ -185,8 +182,7 @@
           when: not nftables_backend | bool
 
         - name: Remove interface from internal
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               zone: internal
@@ -220,8 +216,7 @@
         - name: Cleanup
           tags:
             - tests::cleanup
-          include_role:
-            name: linux-system-roles.firewall
+          include_tasks: tasks/run_role_with_clear_facts.yml
           vars:
             firewall:
               - previous: replaced

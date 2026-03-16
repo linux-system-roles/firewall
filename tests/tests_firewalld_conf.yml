@@ -1,11 +1,9 @@
 ---
 - name: Test firewalld_conf options
   hosts: all
-  gather_facts: false
   tasks:
     - name: Start with a clean configuration
-      include_role:
-        name: linux-system-roles.firewall
+      include_tasks: tasks/run_role_with_clear_facts.yml
       vars:
         firewall:
           previous: replaced
@@ -21,8 +19,7 @@
         allow_zone_drifting_not_deprecated: "{{ result.rc == 0 }}"
 
     - name: Try to disable zone drifting
-      include_role:
-        name: linux-system-roles.firewall
+      include_tasks: tasks/run_role_with_clear_facts.yml
       vars:
         firewall:
           firewalld_conf:
@@ -43,8 +40,7 @@
         - result.rc == 1
 
     - name: Try to enable zone drifting
-      include_role:
-        name: linux-system-roles.firewall
+      include_tasks: tasks/run_role_with_clear_facts.yml
       vars:
         firewall:
           firewalld_conf:

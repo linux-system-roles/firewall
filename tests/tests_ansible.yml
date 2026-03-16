@@ -5,8 +5,7 @@
 
   tasks:
     - name: Import role
-      import_role:
-        name: linux-system-roles.firewall
+      include_tasks: tasks/run_role_with_clear_facts.yml
 
     - name: Get default zone
       command: firewall-offline-cmd --get-default-zone

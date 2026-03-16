@@ -4,7 +4,6 @@
   tags:
     # this test does not work in container builds
     - tests::booted
-  gather_facts: true
   pre_tasks:
     - name: Test not supported on EL7
       meta: end_host
