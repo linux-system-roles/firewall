@@ -1,0 +1,79 @@
+---
+# This workflow calls the latest version of the
+# reusable workflow.
+# You can copy this file into your respository if
+# you want to check against pinned versions of
+# Automation Hub tests.
+name: Run collection certification checks
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: cert-ver-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  LSR_ROLE2COLL_NAMESPACE: fedora
+  LSR_ROLE2COLL_NAME: linux_system_roles
+
+# Files that are not related to the core functionality
+# of your collection can cause Ansible Lint to fail.
+# If this happens, add an .ansible-lint file that includes
+# those files and directories to the root of your
+# repository; for example:
+# https://github.com/ansible-collections/partner-certification-checker/blob/main/.ansible-lint
+# https://github.com/ansible-collections/partner-certification-checker/blob/main/.ansible-lint
+
+# If there are sanity test failures that cannot be fixed and are allowed to ignore
+# https://docs.ansible.com/projects/lint/rules/sanity/, create a sanity ignore file
+# https://docs.ansible.com/projects/ansible/devel/dev_guide/testing/sanity/ignores.html#ignore-file-location
+# for each affected version of ansible-core (for example, `tests/sanity/ignore-2.18.txt`) and add corresponding entries.
+jobs:
+  prep:
+    if: |
+      !((github.event_name == 'pull_request' && contains(github.event.pull_request.title, '[citest_skip]')) ||
+        (github.event_name == 'push' && contains(github.event.head_commit.message, '[citest_skip]')))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update pip, git
+        run: |
+          set -euxo pipefail
+          python3 -m pip install --upgrade pip
+          sudo apt update
+          sudo apt install -y git
+
+      - name: Checkout repo
+        uses: actions/checkout@v6
+
+      - name: Install tox, tox-lsr
+        run: |
+          set -euxo pipefail
+          pip3 install "git+https://github.com/linux-system-roles/tox-lsr@3.17.1"
+
+      - name: Convert role to collection format
+        run: |
+          set -euxo pipefail
+          TOXENV=collection lsr_ci_runtox
+  call:
+    if: |
+      !((github.event_name == 'pull_request' && contains(github.event.pull_request.title, '[citest_skip]')) ||
+        (github.event_name == 'push' && contains(github.event.head_commit.message, '[citest_skip]')))
+    needs: prep
+    uses: ansible-collections/partner-certification-checker/.github/workflows/certification-reusable.yml@2f6d9300ebe9190da3120a740c3a4d5ca2f0f02e # v1.0.0
+    # If the minimal Ansible Core version your collection supports Ansible
+    # is greater than 2.16.0, specify it below.
+    # You might also have to specify Python version supported by that version,
+    # see https://docs.ansible.com/projects/ansible/latest/reference_appendices/release_and_maintenance.html#ansible-core-support-matrix
+    # with:
+    #   ansible-core-version: '2.17.0'
+    #   python-versions: '["3.7", "3.8", "3.9", "3.10", "3.11", "3.12"]'
+    with:
+      collection-root: ${{ github.workspace }}/.tox/ansible_collections/fedora/linux_system_roles
