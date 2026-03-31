@@ -62,9 +62,6 @@ jobs:
         run: |
           set -euxo pipefail
           TOXENV=collection lsr_ci_runtox
-          pwd
-          ls -alrtF .
-          ls -la .tox/ansible_collections/fedora/linux_system_roles
   call:
     if: |
       !((github.event_name == 'pull_request' && contains(github.event.pull_request.title, '[citest_skip]')) ||
@@ -79,4 +76,4 @@ jobs:
     #   ansible-core-version: '2.17.0'
     #   python-versions: '["3.7", "3.8", "3.9", "3.10", "3.11", "3.12"]'
     with:
-      collection-root: .tox/ansible_collections/fedora/linux_system_roles
+      collection-root: /home/runner/work/firewall/firewall/.tox/ansible_collections/fedora/linux_system_roles
