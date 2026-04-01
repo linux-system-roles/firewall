@@ -583,10 +583,16 @@ from ansible.module_utils.firewall_lsr.get_config import (
     export_config_dict,
     recursive_show_diffs,
 )
-from ansible.module_utils.six import string_types
 import re
 import os
 import copy
+
+# ansible six is deprecated, and it seems a lot to add a dependency on python-six
+# just for this
+try:
+    lsr_string_types = (basestring,)
+except NameError:
+    lsr_string_types = (str,)
 
 try:
     import ipaddress
@@ -738,7 +744,7 @@ def get_ipset_entries_type(ipset_entries, module):
 # ipset options values must be strings
 def normalize_ipset_options(ipset_options):
     for option, value in ipset_options.items():
-        if value is not None and not isinstance(value, string_types):
+        if value is not None and not isinstance(value, lsr_string_types):
             ipset_options[option] = str(value)
 
 
@@ -2766,7 +2772,7 @@ def parse_forward_port(module, item):
         else:
             _to_port = None
         _to_addr = item.get("toaddr")
-    elif isinstance(item, string_types):
+    elif isinstance(item, lsr_string_types):
         args = item.split(";")
         if len(args) == 3:
             __port, _to_port, _to_addr = args
