@@ -96,3 +96,9 @@
         - name: Update firewalld_config fact
           set_fact:
             firewall_config: "{{ __firewalld_facts.firewall_config }}"
+
+- name: Record role success fingerprint
+  sr_fingerprint:
+    sr_message: >-
+      success system_role:firewall ansible_version={{ ansible_version.full }}
+      {{ ansible_facts['distribution'] }}-{{ ansible_facts['distribution_version'] }}

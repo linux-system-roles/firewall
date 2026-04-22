@@ -7,3 +7,4 @@ tests/firewall/unit/test_firewall_lib.py no-unicode-literals!skip
 plugins/module_utils/firewall_lsr/get_config.py future-import-boilerplate!skip
 plugins/modules/firewall_lib_facts.py no-unicode-literals!skip
 plugins/module_utils/firewall_lsr/get_config.py no-unicode-literals!skip
+plugins/modules/sr_fingerprint.py validate-modules:missing-gplv3-license
