@@ -92,6 +92,7 @@
             online: "{{ __firewall_is_booted }}"
             detailed: "{{ firewall_detailed_facts }}"
           register: __firewalld_facts
+          no_log: "{{ ansible_verbosity < 2 }}"
 
         - name: Update firewalld_config fact
           set_fact:
