@@ -40,16 +40,11 @@
     state: "{{ 'started' if __firewall_is_booted else omit }}"
   check_mode: "{{ __firewall_test_check_mode | d(ansible_check_mode) }}"
 
-# NOTE: The old implementation of this role would always set permanent to True if it was not set,
-# and would set runtime to True if it was not set
-# so replicate that behavior here in order to maintain backwards compatibility in the module
-# in case someone is erroneously using the module directly
 - name: Configure firewall and/or gather facts
   vars:
     firewall_config_list: "{{ firewall is mapping | ternary([firewall], firewall) | list
       if firewall is not none else [] }}"
-    firewall_lib_config_list: "{{ firewall_config_list | map('dict2items') | map('rejectattr', 'key', 'match', '^detailed$') |
-        map('list') | map('items2dict') | list }}"
+    firewall_lib_config_list: "{{ firewall_config_list | map('dict2items') | map('rejectattr', 'key', 'match', '^detailed$') | map('list') | select | map('items2dict') | list }}"
     _detailed:
       detailed: true
     firewall_detailed_facts: "{{ firewall == _detailed or firewall == [_detailed] }}"
