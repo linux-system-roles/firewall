@@ -206,6 +206,20 @@ variable with no other variables, and use `state: present` to add the zone, or
 zone: public
 ```
 
+NOTE: There is no way currently to add a protocol directly to a zone, but it can
+be done via a service. Make a service that contains the protocol you wish to
+add, then attach the service to the zone. e.g:
+
+```yaml
+- service: custom-ospfv3
+  state: present
+  short: OSPFv3 Service
+  description: OSPFv3 Service
+  protocol: 89  # OSPFv3
+- zone: myzone
+  service: ["custom-ospfv3"]
+```
+
 ### service
 
 Name of a service or service list to add or remove inbound access to.
