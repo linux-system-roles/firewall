@@ -79,6 +79,10 @@
         - firewall_lib_result.short_circuit is defined
         - not firewall_lib_result.short_circuit | bool
 
+    - name: Reset firewall_config
+      set_fact:
+        firewall_config: {}
+
     - name: Gather firewall ansible facts if no args
       when: firewall_lib_config_list | length == 0
       block:
