@@ -45,12 +45,14 @@
                 forward_port: ['447/tcp;;1.2.3.4',
                                '448/tcp;;1.2.3.5']
                 state: 'enabled'
+                rich_rule: 'rule family="ipv4" source address="192.0.2.0/24" reject'
               - zone: 'internal'
                 service: ['tftp', 'ftp']
                 port: ['443/tcp', '443/udp']
                 forward_port: ['447/tcp;;1.2.3.4',
                                '448/tcp;;1.2.3.5']
                 state: 'enabled'
+                rich_rule: 'rule family="ipv4" source address="192.0.2.0/24" reject'
               - zone: customzone
                 state: present
               - zone: customzone
@@ -94,12 +96,14 @@
                 forward_port: ['447/tcp;;1.2.3.4',
                                '448/tcp;;1.2.3.5']
                 state: 'enabled'
+                rich_rule: 'rule family="ipv4" source address="192.0.2.0/24" reject'
               - zone: 'internal'
                 service: ['tftp', 'ftp']
                 port: ['443/tcp', '443/udp']
                 forward_port: ['447/tcp;;1.2.3.4',
                                '448/tcp;;1.2.3.5']
                 state: 'enabled'
+                rich_rule: 'rule family="ipv4" source address="192.0.2.0/24" reject'
               - zone: customzone
                 state: present
               - zone: customzone
@@ -146,12 +150,14 @@
                 forward_port: ['447/tcp;;1.2.3.4',
                                '448/tcp;;1.2.3.5']
                 state: 'enabled'
+                rich_rule: 'rule family="ipv4" source address="192.0.2.0/24" reject'
               - zone: 'internal'
                 service: ['tftp', 'ftp']
                 port: ['443/tcp', '443/udp']
                 forward_port: ['447/tcp;;1.2.3.4',
                                '448/tcp;;1.2.3.5']
                 state: 'enabled'
+                rich_rule: 'rule family="ipv4" source address="192.0.2.0/24" reject'
               - zone: customzone
                 state: present
               - zone: customzone
@@ -198,7 +204,7 @@
           command: firewall-offline-cmd --zone=internal --list-services
           register: result
           changed_when: false
-          failed_when: result.failed
+          failed_when: result is failed
                       or "tftp" not in result.stdout
                       or "ftp" not in result.stdout
 
@@ -206,7 +212,7 @@
           command: firewall-offline-cmd --zone=internal --list-ports
           register: result
           changed_when: false
-          failed_when: result.failed
+          failed_when: result is failed
                       or "443/tcp" not in result.stdout
                       or "443/udp" not in result.stdout
 
@@ -214,7 +220,7 @@
           command: firewall-offline-cmd --zone=internal --list-forward-ports
           register: result
           changed_when: false
-          failed_when: result.failed
+          failed_when: result is failed
                       or "port=447:proto=tcp:toport=:toaddr=1.2.3.4"
                           not in result.stdout
                       or "port=448:proto=tcp:toport=:toaddr=1.2.3.5"
@@ -240,6 +246,13 @@
           changed_when: false
           failed_when: result is failed
                       or "yes" not in result.stdout
+
+        - name: Verify rich rule has been added to the internal zone
+          command: firewall-offline-cmd --zone=internal --list-rich-rules
+          register: result
+          changed_when: false
+          failed_when: result is failed
+                      or 'rule family="ipv4" source address="192.0.2.0/24" reject' not in result.stdout
 
         - name: Fail if ipsets not added
           shell:
