@@ -1948,6 +1948,8 @@ class InMemoryBackend:
                     zone_config["masquerade"] = masquerade
                     self.changed = True
 
+    # note: rich_rule is a single string, normalized using str(Rich_Rule(rule_str=original_string))
+    # the zone config field 'rich_rule' is a list of normalized strings
     def set_rich_rule(self, rich_rule):
         """Configure rich rules in a zone."""
         for config_type, zone_config in (
@@ -1957,12 +1959,12 @@ class InMemoryBackend:
             if config_type and zone_config is not None:
                 for item in rich_rule:
                     if self.state == "enabled":
-                        if item not in zone_config.get("rich_rules", []):
-                            zone_config.setdefault("rich_rules", []).append(item)
+                        if item not in zone_config.get("rich_rule", []):
+                            zone_config.setdefault("rich_rule", []).append(item)
                             self.changed = True
                     elif self.state == "disabled":
-                        if item in zone_config.get("rich_rules", []):
-                            zone_config["rich_rules"].remove(item)
+                        if item in zone_config.get("rich_rule", []):
+                            zone_config["rich_rule"].remove(item)
                             self.changed = True
 
     def set_source(self, source):
@@ -2481,7 +2483,7 @@ class OfflineCLIBackend:
         enable = self.check_state(["enabled", "disabled"], "rich_rule")
 
         for item in rich_rule:
-            # note: item is a Rich_Rule object, but its __str__() does the right thing
+            # note: item is a string, normalized using str(Rich_Rule(rule_str=original_string))
             cur = self.query("--zone", self.zone, "--query-rich-rule=" + item)
 
             if cur != enable:

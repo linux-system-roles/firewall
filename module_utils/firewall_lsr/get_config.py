@@ -33,7 +33,7 @@ import sys
 try:
     import firewall.config
 
-    from firewall.client import FirewallClient
+    from firewall.client import FirewallClient, Rich_Rule
 
     # firewall.core.io modules needed for xml file reading
     from firewall.core.io.zone import zone_reader
@@ -97,6 +97,11 @@ def export_config_dict(io_object):
                 object_dict["forward_ports"] = normalize_forward_ports(
                     object_dict["forward_ports"]
                 )
+            if object_dict.get("rules_str"):
+                object_dict["rich_rule"] = [
+                    str(Rich_Rule(rule_str=rule)) for rule in object_dict["rules_str"]
+                ]
+                del object_dict["rules_str"]
         return object_dict
     else:
         return {}
@@ -176,15 +181,13 @@ def fetch_settings_using_offline_cmd(module, setting_name):
                 element_settings["sources"] = offline_cmd(
                     module, ["--zone=" + item, "--list-sources"], defaults=True
                 ).split()
-                element_settings["rules_str"] = (
-                    offline_cmd(
+                rich_rules = [
+                    str(Rich_Rule(rule_str=rule))
+                    for rule in offline_cmd(
                         module, ["--zone=" + item, "--list-rich-rules"], defaults=True
                     ).split("\n")
-                    if offline_cmd(
-                        module, ["--zone=" + item, "--list-rich-rules"], defaults=True
-                    )
-                    else []
-                )
+                ]
+                element_settings["rich_rule"] = rich_rules
 
                 # Query masquerade (returns yes/no or error)
                 try:
@@ -386,15 +389,13 @@ def fetch_settings_using_offline_cmd(module, setting_name):
                     module, ["--policy=" + item, "--list-forward-ports"], defaults=True
                 ).split()
 
-                element_settings["rules_str"] = (
-                    offline_cmd(
+                rich_rules = [
+                    str(Rich_Rule(rule_str=rule))
+                    for rule in offline_cmd(
                         module, ["--policy=" + item, "--list-rich-rules"], defaults=True
                     ).split("\n")
-                    if offline_cmd(
-                        module, ["--policy=" + item, "--list-rich-rules"], defaults=True
-                    )
-                    else []
-                )
+                ]
+                element_settings["rich_rule"] = rich_rules
 
                 # Get ingress/egress zones
                 try:
@@ -905,7 +906,10 @@ def fetch_online_settings(fw, setting_list, detailed=False):
                         element_settings["forward_ports"] = element.getForwardPorts()
                         element_settings["interfaces"] = element.getInterfaces()
                         element_settings["sources"] = element.getSources()
-                        element_settings["rules_str"] = element.getRichRules()
+                        element_settings["rich_rule"] = [
+                            str(Rich_Rule(rule_str=rule))
+                            for rule in element.getRichRules()
+                        ]
                         element_settings["protocols"] = element.getProtocols()
                         element_settings["source_ports"] = element.getSourcePorts()
                         element_settings["icmp_block_inversion"] = (
@@ -916,6 +920,12 @@ def fetch_online_settings(fw, setting_list, detailed=False):
                         element_settings["forward_ports"] = normalize_forward_ports(
                             element_settings["forward_ports"]
                         )
+                    if "rules_str" in element_settings:
+                        element_settings["rich_rule"] = [
+                            str(Rich_Rule(rule_str=rule))
+                            for rule in element_settings["rules_str"]
+                        ]
+                        del element_settings["rules_str"]
                 elif setting_name == "services":
                     element = fw.getServiceSettings(_item)
                     try:
@@ -1058,6 +1068,7 @@ def fetch_settings_from_xml_files(module, setting_list, defaults=False):
     return all_settings
 
 
+# currently unused
 def fetch_settings_from_dir(directory, detailed=False, fw=None):
     setting_options = [
         _file[:-4] for _file in os.listdir(directory) if _file.endswith(".xml")
@@ -1085,7 +1096,9 @@ def fetch_settings_from_dir(directory, detailed=False, fw=None):
                     element_settings["forward_ports"] = element.getForwardPorts()
                     element_settings["interfaces"] = element.getInterfaces()
                     element_settings["sources"] = element.getSources()
-                    element_settings["rules_str"] = element.getRichRules()
+                    element_settings["rich_rule"] = [
+                        str(Rich_Rule(rule_str=rule)) for rule in element.getRichRules()
+                    ]
                     element_settings["protocols"] = element.getProtocols()
                     element_settings["source_ports"] = element.getSourcePorts()
                     element_settings["icmp_block_inversion"] = (
