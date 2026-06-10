@@ -39,13 +39,21 @@
         executable: /bin/bash
       register: test_results
       environment:
-        TEST_DEBUG: "{{ lookup('env', 'TEST_DEBUG') }}"
+        TEST_DEBUG: "true"
+
+    - name: Debug
+      debug:
+        msg: "Coherence check: {{ coherence_check }}, Restart check: {{ restart_check }}, Reload check: {{ reload_check }}"
+      vars:
+        coherence_check: "{{ (test_results.stdout_lines | select('search', 'sr_test_coherence=') | first).split('=') | last | int }}"
+        restart_check: "{{ (test_results.stdout_lines | select('search', 'sr_test_restart=') | first).split('=') | last | int }}"
+        reload_check: "{{ (test_results.stdout_lines | select('search', 'sr_test_reload=') | first).split('=') | last | int }}"
 
     - name: Process test results
       vars:
-        coherence_check: "{{ test_results.stdout_lines[0] }}"
-        restart_check: "{{ test_results.stdout_lines[2] }}"
-        reload_check: "{{ test_results.stdout_lines[1] }}"
+        coherence_check: "{{ (test_results.stdout_lines | select('search', 'sr_test_coherence=') | first).split('=') | last | int }}"
+        restart_check: "{{ (test_results.stdout_lines | select('search', 'sr_test_restart=') | first).split('=') | last | int }}"
+        reload_check: "{{ (test_results.stdout_lines | select('search', 'sr_test_reload=') | first).split('=') | last | int }}"
       fail:
         msg: Either coherence check or benchmark failed
       when: >-
