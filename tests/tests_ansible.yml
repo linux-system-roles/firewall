@@ -1,82 +1,27 @@
 ---
-- name: Ensure that the roles runs with default parameters
+- name: Test the firewall_lib module directly
   hosts: all
   become: true
-
   tasks:
-    - name: Import role
+    - name: Get current configuration
       include_tasks: tasks/run_role_with_clear_facts.yml
+      vars:
+        firewall:
 
-    - name: Get default zone
-      command: firewall-offline-cmd --get-default-zone
-      register: __default_zone
-      changed_when: false
+    - name: Save default zone
+      set_fact:
+        __default_zone: "{{ firewall_config.default_zone }}"
+
+    - name: Run role to clear settings and create custom zone
+      include_tasks: tasks/run_role_with_clear_facts.yml
+      vars:
+        firewall:
+          - previous: replaced
+          - zone: custom
+            state: present
 
     - name: Test firewalld posix compatibility
       block:
-
-        # INIT TEST
-
-        - name: Remove custom zone
-          command: firewall-offline-cmd --delete-zone=custom
-          register: result
-          failed_when: result.failed and "INVALID_ZONE" not in result.stderr
-          changed_when: false
-
-        - name: Reset internal zone to defaults
-          command: firewall-offline-cmd --load-zone-defaults=internal
-          register: result
-          failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
-          changed_when: false
-
-        - name: Reset trusted zone to defaults
-          command: firewall-offline-cmd --load-zone-defaults=trusted
-          register: result
-          failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
-          changed_when: false
-
-        - name: Reset dmz zone to defaults
-          command: firewall-offline-cmd --load-zone-defaults=dmz
-          register: result
-          failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
-          changed_when: false
-
-        - name: Reset drop zone to defaults
-          command: firewall-offline-cmd --load-zone-defaults=drop
-          register: result
-          failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
-          changed_when: false
-
-        - name: Reset public zone to defaults
-          command: firewall-offline-cmd --load-zone-defaults=public
-          register: result
-          failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
-          changed_when: false
-
-        - name: Reset default zone to defaults
-          shell:
-            cmd: |
-              zone=$(firewall-offline-cmd --get-default-zone)
-              firewall-offline-cmd --load-zone-defaults=$zone
-          register: result
-          failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
-          changed_when: false
-
-        - name: Create custom zone
-          # noqa no-changed-when
-          command: firewall-offline-cmd --new-zone=custom
-          register: result
-          failed_when: result.failed or not result.changed
-
-        - name: Reload firewalld
-          # noqa no-changed-when
-          command: firewall-cmd --reload
-          register: result
-          failed_when: result.failed or not result.changed
-          when: __firewall_is_booted
-
-        # TEST
-
         - name: Permit traffic in default zone for https service
           firewall_lib:
             service: https
@@ -792,73 +737,11 @@
           failed_when: result is failed or result is changed
 
       always:
-
         - name: Cleanup
           tags:
             - tests::cleanup
-          block:
-            # CLEANUP: RESET TO ZONE DEFAULTS
-
-            - name: Remove custom zone
-              command: firewall-offline-cmd --delete-zone=custom
-              register: result
-              failed_when: result.failed and "INVALID_ZONE" not in result.stderr
-              changed_when: false
-
-            - name: Remove customzone zone
-              command: firewall-offline-cmd --delete-zone=customzone
-              register: result
-              failed_when: result.failed and "INVALID_ZONE" not in result.stderr
-              changed_when: false
-
-            - name: Reset internal zone to defaults
-              command: firewall-offline-cmd --load-zone-defaults=internal
-              register: result
-              failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
-              changed_when: false
-
-            - name: Reset trusted zone to defaults
-              command: firewall-offline-cmd --load-zone-defaults=trusted
-              register: result
-              failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
-              changed_when: false
-
-            - name: Reset dmz zone to defaults
-              command: firewall-offline-cmd --load-zone-defaults=dmz
-              register: result
-              failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
-              changed_when: false
-
-            - name: Reset drop zone to defaults
-              command: firewall-offline-cmd --load-zone-defaults=drop
-              register: result
-              failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
-              changed_when: false
-
-            - name: Reset public zone to defaults
-              command: firewall-offline-cmd --load-zone-defaults=public
-              register: result
-              failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
-              changed_when: false
-
-            - name: Reset default zone to defaults
-              command: firewall-offline-cmd --load-zone-defaults=public
-              register: result
-              failed_when: result.failed and "NO_DEFAULTS" not in result.stderr
-              changed_when: false
-
-            - name: Reset default zone
-              # --set-default-zone not idempotent: https://bugzilla.redhat.com/show_bug.cgi?id=2363037
-              shell: |
-                cur_zone=$(firewall-offline-cmd --get-default-zone)
-                if [ "$cur_zone" != {{ __default_zone.stdout | quote }} ]; then
-                  firewall-offline-cmd --set-default-zone={{ __default_zone.stdout | quote }}
-                fi
-              changed_when: false
-
-            - name: Reload firewalld
-              # noqa no-changed-when
-              command: firewall-cmd --reload
-              register: result
-              failed_when: result.failed or not result.changed
-              when: __firewall_is_booted
+          include_tasks: tasks/run_role_with_clear_facts.yml
+          vars:
+            firewall:
+              - previous: replaced
+              - set_default_zone: "{{ __default_zone }}"
