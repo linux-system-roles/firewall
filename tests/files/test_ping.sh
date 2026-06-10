@@ -59,7 +59,6 @@ podman exec test-firewalld systemctl restart firewalld.service
 wait "$pid"
 
 # Print Results
-tail -2 /tmp/ping0 | head -1 | awk '{print $4}'
-tail -2 /tmp/ping1 | head -1 | awk '{print $4}'
-tail -2 /tmp/ping2 | head -1 | awk '{print $4}'
-
+tail -2 /tmp/ping0 | head -1 | awk '{print "sr_test_coherence=" $4}'
+tail -2 /tmp/ping1 | head -1 | awk '{print "sr_test_reload=" $4}'
+tail -2 /tmp/ping2 | head -1 | awk '{print "sr_test_restart=" $4}'
