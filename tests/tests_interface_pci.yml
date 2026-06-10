@@ -156,6 +156,10 @@
                 interface_pci_id: "{{ pci_id }}"
                 state: enabled
 
+        - name: Debug0
+          debug:
+            msg: result {{ firewall_lib_result | to_nice_json }}
+
         - name: Confirm changes were not made and short circuit is false
           assert:
             that:
