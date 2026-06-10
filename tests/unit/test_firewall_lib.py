@@ -564,6 +564,42 @@ class FirewallInterfaceTests(unittest.TestCase):
 
         assert result is None
 
+    @patch("firewall_lib.open", create=True)
+    @patch("firewall_lib.nm_get_client", create=True)
+    @patch("firewall_lib.nm_get_interfaces", create=True)
+    def test_get_interface_pci_file_not_found(
+        self, nm_get_interfaces, nm_get_client, mock_open
+    ):
+        nm_get_interfaces.return_value = ["eth0", "eth1"]
+
+        def get_device(iface):
+            device = Mock()
+            device.get_udi.return_value = "/sys/devices/pci/{0}".format(iface)
+            return device
+
+        nm_get_client.return_value.get_device_by_iface.side_effect = get_device
+
+        def open_side_effect(path):
+            if path.endswith("eth1/device/vendor"):
+                mock_file = MagicMock()
+                mock_file.__enter__ = Mock(return_value=mock_file)
+                mock_file.__exit__ = Mock(return_value=False)
+                mock_file.readline.return_value = "0x8086\n"
+                return mock_file
+            if path.endswith("eth1/device/device"):
+                mock_file = MagicMock()
+                mock_file.__enter__ = Mock(return_value=mock_file)
+                mock_file.__exit__ = Mock(return_value=False)
+                mock_file.readline.return_value = "0x1234\n"
+                return mock_file
+            raise IOError(2, "No such file or directory", path)
+
+        mock_open.side_effect = open_side_effect
+
+        result = firewall_lib.get_interface_pci()
+
+        assert result == {"8086:1234": ["eth1"]}
+
     @patch("firewall_lib.NM_IMPORTED", True)
     @patch("firewall_lib.AnsibleModule", new_callable=MockAnsibleModule)
     @patch("firewall_lib.HAS_FIREWALLD", True)

@@ -2599,8 +2599,13 @@ def get_interface_pci():
         device_udi = nm_get_client().get_device_by_iface(interface).get_udi()
         device_path = os.path.join(device_udi, "device")
         for field in ["vendor", "device"]:
-            with open(os.path.join(device_path, field)) as _file:
-                interface_ids.append(_file.readline().strip(" \n")[2:])
+            try:
+                with open(os.path.join(device_path, field)) as _file:
+                    interface_ids.append(_file.readline().strip(" \n")[2:])
+            except IOError:
+                continue
+        if len(interface_ids) != 2:
+            continue
         interface_ids = ":".join(interface_ids)
         if interface_ids not in pci_dict:
             pci_dict[interface_ids] = [interface]
