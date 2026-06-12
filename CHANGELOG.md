@@ -1,6 +1,24 @@
 Changelog
 =========
 
+[1.12.2] - 2026-06-12
+--------------------
+
+### Bug Fixes
+
+- fix: role should not configure firewall if only getting facts (#354)
+- fix: ensure firewall_config is reset (#355)
+- fix: ignore network device interface file that is not found (#359)
+
+### Other Changes
+
+- refactor: use ansible.posix 2.1.X for EL7 compatibility [citest_skip] (#351)
+- ci: Add config file for CodeRabbit with custom rules (#352)
+- ci: Skip reviews for PRs with [citest_skip] in the title (#353)
+- docs: explain how to add protocol to zone (#356)
+- test: improve tests_ansible (#360)
+- test: improve tests_reload_on_reset output (#361)
+
 [1.12.1] - 2026-05-07
 --------------------
 
