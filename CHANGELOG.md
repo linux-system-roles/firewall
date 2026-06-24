@@ -1,6 +1,17 @@
 Changelog
 =========
 
+[1.12.3] - 2026-06-24
+--------------------
+
+### Bug Fixes
+
+- fix: ensure rich rule handling is idempotent (#358)
+
+### Other Changes
+
+- test: remove unused files (#363)
+
 [1.12.2] - 2026-06-12
 --------------------
 
