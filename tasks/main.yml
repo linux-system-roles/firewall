@@ -40,6 +40,15 @@
     state: "{{ 'started' if __firewall_is_booted else omit }}"
   check_mode: "{{ __firewall_test_check_mode | d(ansible_check_mode) }}"
 
+- name: Check if firewalld is responding to dbus requests
+  # noqa command-instead-of-module
+  command: firewall-cmd --state
+  register: __firewall_cmd_state
+  changed_when: false
+  until: __firewall_cmd_state.stdout | trim == "running"
+  when: __firewall_is_booted
+  check_mode: false  # firewall_lib uses firewalld in check mode
+
 - name: Configure firewall and/or gather facts
   vars:
     firewall_config_list: "{{ firewall is mapping | ternary([firewall], firewall) | list
