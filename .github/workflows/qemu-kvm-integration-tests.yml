@@ -43,7 +43,8 @@ jobs:
           - { image: "fedora-43", env: "container-ansible-core-2-20" }
           - { image: "fedora-44", env: "container-ansible-core-2-21" }
           - { image: "fedora-43-bootc", env: "container-ansible-core-2-20" }
-          - { image: "fedora-44-bootc", env: "container-ansible-core-2-21" }
+          # ansible-core 2.21 cannot enable services using service module in bootc images
+          - { image: "fedora-44-bootc", env: "container-ansible-core-2-20" }
 
     env:
       TOX_ARGS: "--skip-tags tests::infiniband,tests::nvme,tests::scsi"
@@ -110,7 +111,7 @@ jobs:
           python3 -m pip install --upgrade pip
           sudo apt update
           sudo apt install -y --no-install-recommends git ansible-core genisoimage qemu-system-x86
-          pip3 install "git+https://github.com/richm/tox-lsr@runcontainer-use-podman-init-flag"
+          pip3 install "git+https://github.com/richm/tox-lsr@3.20.1"
 
       - name: Check for podman version 5 or higher
         id: check_podman_version
