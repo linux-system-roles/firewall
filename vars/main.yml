@@ -30,6 +30,8 @@ __firewall_conflicting_services:
   - iptables
   - ufw
 
+__firewall_write_log_file: false
+
 # BEGIN - DO NOT EDIT THIS BLOCK - rh distros variables
 # Ansible distribution identifiers that the role treats like RHEL
 __firewall_rh_distros:
