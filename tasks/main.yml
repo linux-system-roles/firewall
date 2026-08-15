@@ -53,7 +53,9 @@
   vars:
     firewall_config_list: "{{ firewall is mapping | ternary([firewall], firewall) | list
       if firewall is not none else [] }}"
-    firewall_lib_config_list: "{{ firewall_config_list | map('dict2items') | map('rejectattr', 'key', 'match', '^detailed$') | map('list') | select | map('items2dict') | list }}"
+    _filtered_firewall_config_list: "{{ firewall_config_list | map('dict2items') | map('rejectattr', 'key', 'match', '^detailed$') | map('list') | select | map('items2dict') | list }}"
+    firewall_lib_config_list: "{{ _filtered_firewall_config_list | community.general.json_query('[?!policy]') }}"
+    firewall_policy_list: "{{ _filtered_firewall_config_list | community.general.json_query('[?policy]') }}"
     _detailed:
       detailed: true
     firewall_detailed_facts: "{{ firewall == _detailed or firewall == [_detailed] }}"
@@ -66,6 +68,13 @@
       when: firewall_lib_config_list | length > 0
       check_mode: "{{ __firewall_test_check_mode | d(ansible_check_mode) }}"
       register: firewall_lib_result
+
+    - name: Configure firewall policies
+      firewall_policy_lib:
+        config_list: "{{ firewall_policy_list }}"
+        online: "{{ __firewall_is_booted }}"
+      when: firewall_policy_list | length > 0
+      check_mode: "{{ __firewall_test_check_mode | d(ansible_check_mode) }}"
 
     - name: Show diffs
       debug:
