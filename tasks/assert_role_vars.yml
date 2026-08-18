@@ -57,7 +57,11 @@
       - previous
       - includes
       - detailed
-  loop: "{{ firewall is mapping | ternary([firewall], firewall) }}"
+  loop: >-
+    {{ [firewall] if firewall is mapping
+       else (firewall if (firewall is not none and firewall is sequence
+             and firewall is not string and firewall is not mapping)
+       else []) }}
   loop_control:
     index_var: idx
     label: "{{ idx }}"
