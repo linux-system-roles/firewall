@@ -1,0 +1,77 @@
+# SPDX-License-Identifier: MIT
+---
+- name: Assert firewall is a list of dicts or a single dict
+  ansible.builtin.assert:
+    that:
+      - >-
+        firewall is mapping
+        or (firewall is sequence and firewall is not string
+            and firewall is not mapping
+            and firewall | reject('mapping') | list | length == 0)
+    fail_msg: >-
+      firewall must be a list of dictionaries or a single dictionary,
+      got {{ firewall | type_debug }}
+  when: firewall is not none
+
+- name: Assert firewall dicts contain only valid keys
+  ansible.builtin.assert:
+    that:
+      - >-
+        item.keys() | list | difference(__firewall_valid_keys)
+        | length == 0
+    fail_msg: >-
+      firewall[{{ idx }}] contains invalid keys:
+      {{ item.keys() | list | difference(__firewall_valid_keys) | join(', ') }}
+  vars:
+    __firewall_valid_keys:
+      - firewalld_conf
+      - service
+      - port
+      - source_port
+      - forward_port
+      - port_forward
+      - masquerade
+      - rich_rule
+      - source
+      - interface
+      - interface_pci_id
+      - icmp_block
+      - icmp_block_inversion
+      - timeout
+      - target
+      - zone
+      - set_default_zone
+      - ipset
+      - ipset_type
+      - ipset_entries
+      - ipset_options
+      - permanent
+      - runtime
+      - immediate
+      - state
+      - description
+      - short
+      - protocol
+      - helper_module
+      - destination
+      - previous
+      - includes
+      - detailed
+  loop: "{{ firewall is mapping | ternary([firewall], firewall) }}"
+  loop_control:
+    index_var: idx
+    label: "{{ idx }}"
+  when:
+    - firewall is not none
+    - firewall | length > 0
+
+- name: Assert firewall_transactional_update_reboot_ok is null or a boolean
+  ansible.builtin.assert:
+    that:
+      - >-
+        (firewall_transactional_update_reboot_ok is none)
+        or (firewall_transactional_update_reboot_ok is sameas true)
+        or (firewall_transactional_update_reboot_ok is sameas false)
+    fail_msg: >-
+      firewall_transactional_update_reboot_ok must be null or a boolean,
+      got {{ firewall_transactional_update_reboot_ok | type_debug }}

@@ -117,6 +117,9 @@ JSON representation of the structure of firewall_config fact:
 
 ## Variables
 
+Validation is enforced by `meta/argument_specs.yml` and
+`tasks/assert_role_vars.yml`.
+
 ### firewall_disable_conflicting_services
 
 By default, the firewall role does not attempt to disable conflicting services due to the
