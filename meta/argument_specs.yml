@@ -19,8 +19,10 @@ argument_specs:
       firewall:
         type: raw
         description: >
-          A list of firewall configuration dictionaries, or a single
-          dictionary. Each dictionary describes a desired firewall state
+          A list of firewall configuration dictionaries, a single
+          dictionary, or `null`. When set to `null` or an empty list,
+          the role gathers firewall facts without making changes. Each
+          dictionary describes a desired firewall state
           using one or more of the following keys:
           `service` - list of firewalld service name strings to add or
           remove from a zone. Service names must be defined in the
