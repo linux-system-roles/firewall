@@ -120,6 +120,26 @@ JSON representation of the structure of firewall_config fact:
 Validation is enforced by `meta/argument_specs.yml` and
 `tasks/assert_role_vars.yml`.
 
+| Variable | Type | Default | Accepted values |
+|----------|------|---------|-----------------|
+| `firewall` | raw | `[]` | A list of dicts, a single dict, or `null` |
+| `firewall_disable_conflicting_services` | bool | `false` | `true`, `false` |
+| `firewall_transactional_update_reboot_ok` | raw | `null` | `true`, `false`, or `null` |
+
+```yaml
+- name: Example role usage
+  hosts: all
+  vars:
+    firewall:
+      - service: http
+        state: enabled
+      - port: "8080/tcp"
+        state: enabled
+    firewall_disable_conflicting_services: true
+  roles:
+    - linux-system-roles.firewall
+```
+
 ### firewall_disable_conflicting_services
 
 By default, the firewall role does not attempt to disable conflicting services due to the
