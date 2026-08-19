@@ -91,6 +91,10 @@ argument_specs:
           existing settings. Defaults to `kept`;
           `includes` - list of service names to include in a custom
           service definition;
+          `detailed` - boolean to request detailed firewall facts. When
+          set to `true` with no other keys, the role gathers and returns
+          extended firewall configuration information in the
+          `firewall_config` fact;
           `firewalld_conf` - dictionary of firewalld.conf directives.
           Currently supports `allow_zone_drifting` (boolean) to set the
           AllowZoneDrifting directive.
