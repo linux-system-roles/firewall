@@ -21,10 +21,7 @@
       destination:
         - 1.1.1.1
         - 1::1
-      includes: "{{ ['ssh', 'ldaps']
-        if ansible_facts['distribution'] in ['RedHat', 'CentOS', 'Fedora']
-        and ansible_facts['distribution_major_version'] is version('8', '>=')
-        else [] }}"
+      includes: "{{ ['ssh', 'ldaps'] if __includes_and_helpers_support else [] }}"
       state: present
     custom_lsr_service:
       service: systemroletest
@@ -40,20 +37,22 @@
         - 1::1
       protocol: icmp
       # these two don't exist yet in RHEL 7
-      helper_module: "{{ 'ftp'
-        if ansible_facts['distribution'] in ['RedHat', 'CentOS', 'Fedora']
-        and ansible_facts['distribution_major_version'] is version('8', '>=')
-        else omit }}"
-      includes: "{{ ['ssh', 'ldaps']
-        if ansible_facts['distribution'] in ['RedHat', 'CentOS', 'Fedora']
-        and ansible_facts['distribution_major_version'] is version('8', '>=')
-        else [] }}"
+      helper_module: "{{ 'ftp' if __includes_and_helpers_support else omit }}"
+      includes: "{{ ['ssh', 'ldaps'] if __includes_and_helpers_support else [] }}"
       state: present
     service_removal:  # to be combine()'d with service definition
       state: absent
       description: "{{ omit }}"
       short: "{{ omit }}"
+  vars_files:
+    - vars/rh_distros_vars.yml
   tasks:
+    # are includes and helpers supported on this distro?
+    - name: Set var for includes and helpers support
+      set_fact:
+        __includes_and_helpers_support: "{{ __firewall_is_rh_distro_fedora
+          and ansible_facts['distribution_major_version'] is version('8', '>=') }}"
+
     - name: Test firewall user defined services
       block:
 
