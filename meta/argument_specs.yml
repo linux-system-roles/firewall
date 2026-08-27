@@ -7,6 +7,7 @@ argument_specs:
     description: >
       The firewall role allows you to manage the firewall configuration
       using firewalld on Fedora and Red Hat Enterprise Linux 7 and later.
+
       It can configure zones, services, ports, port forwarding,
       masquerading, rich rules, ICMP blocks, sources, interfaces, IPSets,
       and other firewalld settings.
@@ -20,9 +21,11 @@ argument_specs:
         type: raw
         description: >
           A list of firewall configuration dictionaries, a single
-          dictionary, or `null`. When set to `null` or an empty list,
-          the role gathers firewall facts without making changes. Each
-          dictionary describes a desired firewall state
+          dictionary, or `null`.
+          When set to `null` or an empty list, the role gathers firewall
+          facts without making changes.
+          Defaults to an empty list.
+          Each dictionary describes a desired firewall state
           using one or more of the following keys:
           `service` - list of firewalld service name strings to add or
           remove from a zone. Service names must be defined in the
@@ -100,7 +103,6 @@ argument_specs:
           `firewalld_conf` - dictionary of firewalld.conf directives.
           Currently supports `allow_zone_drifting` (boolean) to set the
           AllowZoneDrifting directive.
-          Defaults to an empty list.
       firewall_disable_conflicting_services:
         type: bool
         description: >
