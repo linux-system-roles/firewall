@@ -4,6 +4,8 @@ plugins/modules/firewall_lib_facts.py no-unicode-literals!skip
 plugins/modules/firewall_lib_facts.py future-import-boilerplate!skip
 plugins/modules/firewall_lib.py no-unicode-literals!skip
 plugins/modules/firewall_lib.py future-import-boilerplate!skip
+plugins/modules/firewall_policy_lib.py validate-modules:missing-gplv3-license
+plugins/modules/firewall_policy_lib.py no-unicode-literals!skip
 tests/firewall/unit/test_firewall_lib.py no-unicode-literals!skip
 plugins/module_utils/firewall_lsr/get_config.py future-import-boilerplate!skip
 plugins/module_utils/firewall_lsr/get_config.py no-unicode-literals!skip
