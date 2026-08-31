@@ -13,7 +13,7 @@
         # versions.
 
         - name: Run argument specs validation tests
-          when: ansible_version.full is version('2.10', '>=')
+          when: ansible_version.full is version('2.11', '>=')
           block:
             - name: Argument specs reject invalid firewall_disable_conflicting_services
               block:
