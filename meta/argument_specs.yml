@@ -19,12 +19,12 @@ argument_specs:
     options:
       firewall:
         type: raw
+        default: []
         description: >
           A list of firewall configuration dictionaries, a single
           dictionary, or `null`.
           When set to `null` or an empty list, the role gathers firewall
           facts without making changes.
-          Defaults to an empty list.
           Each dictionary describes a desired firewall state
           using one or more of the following keys:
           `service` - list of firewalld service name strings to add or
@@ -105,14 +105,15 @@ argument_specs:
           AllowZoneDrifting directive.
       firewall_disable_conflicting_services:
         type: bool
+        default: false
         description: >
           Whether to disable and mask services that conflict with firewalld
-          such as iptables, nftables, and ufw. Defaults to `false`.
+          such as iptables, nftables, and ufw.
       firewall_transactional_update_reboot_ok:
         type: raw
+        default: null
         description: >
           Whether to permit reboots required by transactional updates. Set
           to `true` to allow reboots, `false` to disallow reboots, or
           leave unset so that the role will fail to ensure the reboot
           requirement is not overlooked. Accepts a boolean value or `null`.
-          Defaults to `null`.
