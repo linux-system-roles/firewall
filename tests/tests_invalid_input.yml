@@ -1,0 +1,235 @@
+# SPDX-License-Identifier: MIT
+---
+# Verify meta/argument_specs.yml and tasks/assert_role_vars.yml reject bad
+# parameters.  Each block runs the role expecting failure; rescue records
+# that outcome.
+- name: Verify invalid parameters are rejected
+  hosts: all
+  tasks:
+    - name: Run invalid input tests
+      block:
+        # --- meta/argument_specs (invalid type) ---
+        # Role argument validation requires Ansible 2.10+; skipped on older
+        # versions.
+
+        - name: Run argument specs validation tests
+          when: ansible_version.full is version('2.11', '>=')
+          block:
+            - name: Argument specs reject invalid firewall_disable_conflicting_services
+              block:
+                - name: Run role with non-boolean firewall_disable_conflicting_services
+                  ansible.builtin.include_tasks: tasks/run_role_with_clear_facts.yml
+                  vars:
+                    firewall_disable_conflicting_services: not_a_bool
+              rescue:
+                - name: Mark invalid firewall_disable_conflicting_services rejected
+                  ansible.builtin.set_fact:
+                    __invalid_input_disable_cs_type_failed: true
+
+            - name: Assert invalid firewall_disable_conflicting_services type failed
+              ansible.builtin.assert:
+                that:
+                  - __invalid_input_disable_cs_type_failed | default(false)
+                fail_msg: >-
+                  meta/argument_specs should reject
+                  firewall_disable_conflicting_services values that are not
+                  booleans
+
+        # --- tasks/assert_role_vars.yml (raw type validation) ---
+
+        - name: Assert rejects firewall as a string
+          block:
+            - name: Run role with firewall as a string
+              ansible.builtin.include_tasks: tasks/run_role_with_clear_facts.yml
+              vars:
+                firewall: not_a_dict_or_list
+          rescue:
+            - name: Mark firewall string rejected
+              ansible.builtin.set_fact:
+                __invalid_input_firewall_string_failed: true
+
+        - name: Assert firewall as string failed validation
+          ansible.builtin.assert:
+            that:
+              - __invalid_input_firewall_string_failed | default(false)
+            fail_msg: >-
+              tasks/assert_role_vars.yml should reject firewall when it is
+              a string instead of a list of dicts or a single dict
+
+        - name: Assert rejects firewall as an integer
+          block:
+            - name: Run role with firewall as an integer
+              ansible.builtin.include_tasks: tasks/run_role_with_clear_facts.yml
+              vars:
+                firewall: 42
+          rescue:
+            - name: Mark firewall integer rejected
+              ansible.builtin.set_fact:
+                __invalid_input_firewall_int_failed: true
+
+        - name: Assert firewall as integer failed validation
+          ansible.builtin.assert:
+            that:
+              - __invalid_input_firewall_int_failed | default(false)
+            fail_msg: >-
+              tasks/assert_role_vars.yml should reject firewall when it is
+              an integer instead of a list of dicts or a single dict
+
+        - name: Assert rejects firewall list with non-dict element
+          block:
+            - name: Run role with firewall list containing a string
+              ansible.builtin.include_tasks: tasks/run_role_with_clear_facts.yml
+              vars:
+                firewall:
+                  - service:
+                      - http
+                    state: enabled
+                  - not_a_dict
+          rescue:
+            - name: Mark firewall list with string element rejected
+              ansible.builtin.set_fact:
+                __invalid_input_firewall_list_str_failed: true
+
+        - name: Assert firewall list with non-dict element failed validation
+          ansible.builtin.assert:
+            that:
+              - __invalid_input_firewall_list_str_failed | default(false)
+            fail_msg: >-
+              tasks/assert_role_vars.yml should reject firewall lists
+              containing non-dictionary elements
+
+        - name: Assert rejects firewall dict with invalid key
+          block:
+            - name: Run role with firewall dict containing an unknown key
+              ansible.builtin.include_tasks: tasks/run_role_with_clear_facts.yml
+              vars:
+                firewall:
+                  - invalid_key_name: some_value
+                    state: enabled
+          rescue:
+            - name: Mark firewall invalid key rejected
+              ansible.builtin.set_fact:
+                __invalid_input_firewall_bad_key_failed: true
+
+        - name: Assert firewall dict with invalid key failed validation
+          ansible.builtin.assert:
+            that:
+              - __invalid_input_firewall_bad_key_failed | default(false)
+            fail_msg: >-
+              tasks/assert_role_vars.yml should reject firewall dicts
+              containing keys not in the valid set
+
+        - name: Assert rejects firewall_transactional_update_reboot_ok as string
+          block:
+            - name: Run role with non-boolean transactional_update_reboot_ok
+              ansible.builtin.include_tasks: tasks/run_role_with_clear_facts.yml
+              vars:
+                firewall_transactional_update_reboot_ok: not_a_bool
+          rescue:
+            - name: Mark invalid transactional_update_reboot_ok rejected
+              ansible.builtin.set_fact:
+                __invalid_input_tu_reboot_type_failed: true
+
+        - name: Assert transactional_update_reboot_ok as string failed validation
+          ansible.builtin.assert:
+            that:
+              - __invalid_input_tu_reboot_type_failed | default(false)
+            fail_msg: >-
+              tasks/assert_role_vars.yml should reject
+              firewall_transactional_update_reboot_ok when it is a string
+              instead of null or a boolean
+
+        - name: Assert rejects firewall_transactional_update_reboot_ok as integer
+          block:
+            - name: Run role with integer transactional_update_reboot_ok
+              ansible.builtin.include_tasks: tasks/run_role_with_clear_facts.yml
+              vars:
+                firewall_transactional_update_reboot_ok: 42
+          rescue:
+            - name: Mark integer transactional_update_reboot_ok rejected
+              ansible.builtin.set_fact:
+                __invalid_input_tu_reboot_int_failed: true
+
+        - name: Assert transactional_update_reboot_ok as integer failed validation
+          ansible.builtin.assert:
+            that:
+              - __invalid_input_tu_reboot_int_failed | default(false)
+            fail_msg: >-
+              tasks/assert_role_vars.yml should reject
+              firewall_transactional_update_reboot_ok when it is an integer
+              instead of null or a boolean
+
+        # --- module argument validation (invalid choice / type) ---
+
+        - name: Module rejects invalid state
+          block:
+            - name: Run role with invalid state
+              ansible.builtin.include_tasks: tasks/run_role_with_clear_facts.yml
+              vars:
+                firewall:
+                  - state: not_a_valid_state
+          rescue:
+            - name: Mark invalid state rejected
+              ansible.builtin.set_fact:
+                __invalid_input_state_failed: true
+
+        - name: Assert invalid state failed validation
+          ansible.builtin.assert:
+            that:
+              - __invalid_input_state_failed | default(false)
+            fail_msg: >-
+              The role should reject state values outside the allowed set
+
+        - name: Module rejects invalid target
+          block:
+            - name: Run role with invalid target
+              ansible.builtin.include_tasks: tasks/run_role_with_clear_facts.yml
+              vars:
+                firewall:
+                  - target: INVALID_TARGET
+                    state: present
+          rescue:
+            - name: Mark invalid target rejected
+              ansible.builtin.set_fact:
+                __invalid_input_target_failed: true
+
+        - name: Assert invalid target failed validation
+          ansible.builtin.assert:
+            that:
+              - __invalid_input_target_failed | default(false)
+            fail_msg: >-
+              The role should reject target values outside the allowed set
+
+        - name: Module rejects invalid previous
+          block:
+            - name: Run role with invalid previous
+              ansible.builtin.include_tasks: tasks/run_role_with_clear_facts.yml
+              vars:
+                firewall:
+                  - previous: not_a_valid_previous
+          rescue:
+            - name: Mark invalid previous rejected
+              ansible.builtin.set_fact:
+                __invalid_input_previous_failed: true
+
+        - name: Assert invalid previous failed validation
+          ansible.builtin.assert:
+            that:
+              - __invalid_input_previous_failed | default(false)
+            fail_msg: >-
+              The role should reject previous values outside the allowed set
+
+      always:
+        - name: Clear test facts
+          ansible.builtin.set_fact:
+            __invalid_input_disable_cs_type_failed:
+            __invalid_input_firewall_string_failed:
+            __invalid_input_firewall_int_failed:
+            __invalid_input_firewall_list_str_failed:
+            __invalid_input_firewall_bad_key_failed:
+            __invalid_input_tu_reboot_type_failed:
+            __invalid_input_tu_reboot_int_failed:
+            __invalid_input_state_failed:
+            __invalid_input_target_failed:
+            __invalid_input_previous_failed:
+          tags: tests::cleanup

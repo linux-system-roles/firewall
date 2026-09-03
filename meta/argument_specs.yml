@@ -1,0 +1,119 @@
+# SPDX-License-Identifier: MIT
+---
+# https://docs.ansible.com/ansible/latest/user_guide/playbooks_reuse_roles.html#specification-format
+argument_specs:
+  main:
+    short_description: The firewall role.
+    description: >
+      The firewall role allows you to manage the firewall configuration
+      using firewalld on Fedora and Red Hat Enterprise Linux 7 and later.
+
+      It can configure zones, services, ports, port forwarding,
+      masquerading, rich rules, ICMP blocks, sources, interfaces, IPSets,
+      and other firewalld settings.
+
+      This role will install and enable the firewalld service, optionally
+      disable conflicting services such as iptables, nftables, and ufw,
+      and apply the desired firewall configuration as specified in the
+      `firewall` variable.
+    options:
+      firewall:
+        type: raw
+        default: []
+        description: >
+          A list of firewall configuration dictionaries, a single
+          dictionary, or `null`.
+          When set to `null` or an empty list, the role gathers firewall
+          facts without making changes.
+          Each dictionary describes a desired firewall state
+          using one or more of the following keys:
+          `service` - list of firewalld service name strings to add or
+          remove from a zone. Service names must be defined in the
+          firewalld configuration. A service can be created by setting
+          this to a single service name with `state` set to `present`;
+          `port` - list of port or port range strings in
+          `<port>[-<port>]/<protocol>` format;
+          `source_port` - list of source port or port range strings in
+          `<port>[-<port>]/<protocol>` format;
+          `forward_port` - list of forward port strings or dicts, or a
+          single string or dict, in
+          `<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>]` format
+          (alias `port_forward`);
+          `masquerade` - boolean to enable or disable IP masquerading in
+          the zone;
+          `rich_rule` - list of rich language rule strings as described in
+          firewalld.richlanguage(5);
+          `source` - list of source address or address range strings, or
+          IPSet references prefixed with `ipset:`. A source address is an
+          IP address or a network address with a mask for IPv4 or IPv6;
+          `interface` - list of network interface name strings to bind to
+          a zone;
+          `interface_pci_id` - list of PCI device ID strings that
+          correspond to named network interfaces;
+          `icmp_block` - list of ICMP type name strings to block. The ICMP
+          type names must be defined in the firewalld configuration;
+          `icmp_block_inversion` - boolean to enable or disable ICMP block
+          inversion for the zone;
+          `timeout` - integer number of seconds a runtime setting remains
+          in effect, usable for services, ports, source ports, forward
+          ports, masquerade, rich rules, or ICMP blocks;
+          `target` - the firewalld zone target, one of `default`, `ACCEPT`,
+          `DROP`, or `%%REJECT%%`. Setting `state` to `absent` resets the
+          target to `default`;
+          `zone` - the zone name to operate on. If not specified, the
+          default zone is used;
+          `set_default_zone` - sets the default firewalld zone to the given
+          zone name;
+          `ipset` - name of the IPSet to create, modify, or remove.
+          Requires `state` set to `present` or `absent` and `permanent`
+          set to `true`;
+          `ipset_type` - type of the IPSet being created. Required when
+          creating a new IPSet. Use `firewall-cmd --get-ipset-types` to
+          list supported types;
+          `ipset_entries` - list of addresses to add to or remove from the
+          IPSet. Entries must be compatible with the IPSet type;
+          `ipset_options` - dictionary of key/value pairs of IPSet options;
+          `permanent` - boolean to persist settings across system reboots
+          and firewalld service restarts. If not set, runtime is assumed;
+          `runtime` - boolean to apply settings to the runtime environment
+          only, not persistent across reboots (alias `immediate`);
+          `state` - one of `enabled`, `disabled`, `present`, or `absent`.
+          Use `present` and `absent` for zone, service, or target
+          operations;
+          `description` - description string for a custom service or
+          IPSet. Requires `state` set to `present`;
+          `short` - short description string, generally a full name, for a
+          custom service or IPSet. Requires `state` set to `present`;
+          `protocol` - list of protocol strings for service configuration
+          only;
+          `helper_module` - list of netfilter kernel helper module names
+          for service configuration;
+          `destination` - list of IPv4 or IPv6 addresses with optional
+          mask in `address[/mask]` format for service configuration. Only
+          one IPv4 and one IPv6 address are allowed;
+          `previous` - set to `replaced` to replace the entire firewall
+          configuration with the new configuration, or `kept` to preserve
+          existing settings. Defaults to `kept`;
+          `includes` - list of service names to include in a custom
+          service definition;
+          `detailed` - boolean to request detailed firewall facts. When
+          set to `true` with no other keys, the role gathers and returns
+          extended firewall configuration information in the
+          `firewall_config` fact;
+          `firewalld_conf` - dictionary of firewalld.conf directives.
+          Currently supports `allow_zone_drifting` (boolean) to set the
+          AllowZoneDrifting directive.
+      firewall_disable_conflicting_services:
+        type: bool
+        default: false
+        description: >
+          Whether to disable and mask services that conflict with firewalld
+          such as iptables, nftables, and ufw.
+      firewall_transactional_update_reboot_ok:
+        type: raw
+        default: null
+        description: >
+          Whether to permit reboots required by transactional updates. Set
+          to `true` to allow reboots, `false` to disallow reboots, or
+          leave unset so that the role will fail to ensure the reboot
+          requirement is not overlooked. Accepts a boolean value or `null`.
