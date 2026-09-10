@@ -93,7 +93,7 @@ argument_specs:
           one IPv4 and one IPv6 address are allowed;
           `previous` - set to `replaced` to replace the entire firewall
           configuration with the new configuration, or `kept` to preserve
-          existing settings. Defaults to `kept`;
+          existing settings;
           `includes` - list of service names to include in a custom
           service definition;
           `detailed` - boolean to request detailed firewall facts. When
