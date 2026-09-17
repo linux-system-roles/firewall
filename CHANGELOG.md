@@ -1,6 +1,30 @@
 Changelog
 =========
 
+[1.14.0] - 2026-09-17
+--------------------
+
+### New Features
+
+- feat: Add argument spec validation to Firewall role (#384)
+
+### Other Changes
+
+- ci: use commit hash for github action, add persist-credentials false [citest_skip] (#380)
+- ci: refactor build_docs so that pandoc runs in isolated read-only job [citest_skip] (#381)
+- ci: use exact match for systemroller instead of contains [citest_skip] (#382)
+- ci(build_docs): fix pandoc container syntax [citest_skip] (#385)
+- test: use __includes_and_helpers_support in tests_service.yml (#386)
+- ci: [citest_skip] bump github/codeql-action/analyze from 4.37.4 to 4.37.9 (#387)
+- ci: [citest_skip] bump github/codeql-action/init from 4.37.4 to 4.37.9 (#388)
+- ci: [citest_skip] bump myrotvorets/set-commit-status-action from 2774e1f040c82ed70a76b4b5cd53bb11ffaedd0a to c0f880c99d91381c6fdb97726f03feb8004409b4 (#389)
+- ci: [citest_skip] bump codespell-project/actions-codespell from 2.1 to 2.2 (#390)
+- ci: [citest_skip] bump actions/download-artifact from 7.0.0 to 8.0.1 (#391)
+- refactor: Relax collection constraints, gate vendored modules by python version, update ci versions [citest_skip] (#392)
+- ci: do not run ci tests by default, require citest comment or label [citest_skip] (#393)
+- ci: replace weekly_ci with periodic_ci, stagger schedules [citest_skip] (#394)
+- ci: update status when action triggered by issue comment (#395)
+
 [1.13.0] - 2026-08-06
 --------------------
 
