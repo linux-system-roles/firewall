@@ -15,93 +15,135 @@ argument_specs:
       This role will install and enable the firewalld service, optionally
       disable conflicting services such as iptables, nftables, and ufw,
       and apply the desired firewall configuration as specified in the
-      `firewall` variable.
+      O(firewall) variable.
     options:
       firewall:
         type: raw
         default: []
         description: >
           A list of firewall configuration dictionaries, a single
-          dictionary, or `null`.
-          When set to `null` or an empty list, the role gathers firewall
+          dictionary, or V(null).
+          When set to V(null) or an empty list, the role gathers firewall
           facts without making changes.
           Each dictionary describes a desired firewall state
           using one or more of the following keys:
-          `service` - list of firewalld service name strings to add or
+          C(service) - list of firewalld service name strings to add or
           remove from a zone. Service names must be defined in the
           firewalld configuration. A service can be created by setting
-          this to a single service name with `state` set to `present`;
-          `port` - list of port or port range strings in
-          `<port>[-<port>]/<protocol>` format;
-          `source_port` - list of source port or port range strings in
-          `<port>[-<port>]/<protocol>` format;
-          `forward_port` - list of forward port strings or dicts, or a
+          this to a single service name with C(state) set to V(present);
+          C(port) - list of port or port range strings in
+          C(<port>[-<port>]/<protocol>) format;
+          C(source_port) - list of source port or port range strings in
+          C(<port>[-<port>]/<protocol>) format;
+          C(forward_port) - list of forward port strings or dicts, or a
           single string or dict, in
-          `<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>]` format
-          (alias `port_forward`);
-          `masquerade` - boolean to enable or disable IP masquerading in
+          C(<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>]) format
+          (alias C(port_forward)). Older firewalld versions, including 0.9.11
+          shipped with CentOS 8, reject policy forwarding with C(ingress_zone)
+          set to V(HOST). For compatibility, use a regular ingress zone such
+          as V(internal), C(egress_zone) set to V(ANY), and a destination
+          address (C(toaddr));
+          C(masquerade) - boolean to enable or disable IP masquerading in
           the zone;
-          `rich_rule` - list of rich language rule strings as described in
+          C(rich_rule) - list of rich language rule strings as described in
           firewalld.richlanguage(5);
-          `source` - list of source address or address range strings, or
-          IPSet references prefixed with `ipset:`. A source address is an
+          C(source) - list of source address or address range strings, or
+          IPSet references prefixed with C(ipset:). A source address is an
           IP address or a network address with a mask for IPv4 or IPv6;
-          `interface` - list of network interface name strings to bind to
+          C(interface) - list of network interface name strings to bind to
           a zone;
-          `interface_pci_id` - list of PCI device ID strings that
+          C(interface_pci_id) - list of PCI device ID strings that
           correspond to named network interfaces;
-          `icmp_block` - list of ICMP type name strings to block. The ICMP
+          C(icmp_block) - list of ICMP type name strings to block. The ICMP
           type names must be defined in the firewalld configuration;
-          `icmp_block_inversion` - boolean to enable or disable ICMP block
+          C(icmp_block_inversion) - boolean to enable or disable ICMP block
           inversion for the zone;
-          `timeout` - integer number of seconds a runtime setting remains
+          C(timeout) - integer number of seconds a runtime setting remains
           in effect, usable for services, ports, source ports, forward
           ports, masquerade, rich rules, or ICMP blocks;
-          `target` - the firewalld zone target, one of `default`, `ACCEPT`,
-          `DROP`, or `%%REJECT%%`. Setting `state` to `absent` resets the
-          target to `default`;
-          `zone` - the zone name to operate on. If not specified, the
+          C(target) - the firewalld zone target, one of V(default), V(ACCEPT),
+          V(DROP), or V(%%REJECT%%). Setting C(state) to V(absent) resets the
+          target to V(default);
+          C(zone) - the zone name to operate on. If not specified, the
           default zone is used;
-          `set_default_zone` - sets the default firewalld zone to the given
+          C(policy) - policy name, requiring firewalld 0.9.0 or later.
+          Names are limited to 18 characters before firewalld 2.4.0 and
+          128 characters with firewalld 2.4.0 or later. The role validates
+          this limit using the installed version, including in check mode.
+          Use instead of C(zone), with C(ingress_zone), C(egress_zone),
+          C(service), C(port), C(source_port), C(protocol), C(icmp_block),
+          C(masquerade), C(forward_port), C(rich_rule), C(target), and C(is_disabled). State V(present) creates the policy
+          if needed and adds settings; V(absent) with only the name deletes
+          it, or removes supplied settings. States V(enabled) and V(disabled)
+          add or remove settings on an existing policy. Creation, deletion,
+          and target changes require C(permanent: true); with C(runtime: true)
+          they reload firewalld and discard runtime-only changes.
+          Policy primitives add entries for V(present)/V(enabled) and remove entries
+          for V(absent)/V(disabled). Services must already exist. Masquerade accepts
+          a boolean and cannot be used with V(HOST). Forward ports require C(toaddr)
+          unless the egress zone is V(HOST). Symbolic zones cannot be mixed with
+          other zones in the same set. Other policy settings support either
+          scope. Offline mode supports
+          permanent configuration only. A policy affects traffic only when active
+          at runtime: its disable flag must be clear, both zone sets must be
+          nonempty, and each side must contain an active regular zone or V(HOST)/V(ANY).
+          Regular zones need interface or source bindings; symbolic zones do not.
+          Creating a policy or using C(state=enabled) does not guarantee activation.
+          Gather facts and inspect C(firewall_config.active_policies) for activation;
+          C(is_disabled) - boolean for the policy disable flag. Requires C(policy).
+          Omitted leaves an existing flag unchanged. V(true) sets the flag like
+          C(--add-disable); V(false) removes it like C(--remove-disable).
+          C(state: absent) with C(is_disabled: true) sets the flag and keeps the
+          policy. Independent of C(state), which controls adding/removing settings
+          or creating/deleting policies. Applies to the requested permanent and
+          runtime scopes without reloading an existing policy. V(true) requires
+          firewalld support for the policy disable flag;
+          C(ingress_zone) - one ingress zone name, or V(HOST) or V(ANY),
+          requiring C(policy);
+          C(egress_zone) - one egress zone name, or V(HOST) or V(ANY),
+          requiring C(policy);
+          Policy C(target) accepts V(CONTINUE), V(ACCEPT), V(DROP), or V(REJECT).
+          State V(absent) or V(disabled) resets it to V(CONTINUE);
+          C(set_default_zone) - sets the default firewalld zone to the given
           zone name;
-          `ipset` - name of the IPSet to create, modify, or remove.
-          Requires `state` set to `present` or `absent` and `permanent`
-          set to `true`;
-          `ipset_type` - type of the IPSet being created. Required when
-          creating a new IPSet. Use `firewall-cmd --get-ipset-types` to
+          C(ipset) - name of the IPSet to create, modify, or remove.
+          Requires C(state) set to V(present) or V(absent) and C(permanent)
+          set to V(true);
+          C(ipset_type) - type of the IPSet being created. Required when
+          creating a new IPSet. Use C(firewall-cmd --get-ipset-types) to
           list supported types;
-          `ipset_entries` - list of addresses to add to or remove from the
+          C(ipset_entries) - list of addresses to add to or remove from the
           IPSet. Entries must be compatible with the IPSet type;
-          `ipset_options` - dictionary of key/value pairs of IPSet options;
-          `permanent` - boolean to persist settings across system reboots
+          C(ipset_options) - dictionary of key/value pairs of IPSet options;
+          C(permanent) - boolean to persist settings across system reboots
           and firewalld service restarts. If not set, runtime is assumed;
-          `runtime` - boolean to apply settings to the runtime environment
-          only, not persistent across reboots (alias `immediate`);
-          `state` - one of `enabled`, `disabled`, `present`, or `absent`.
-          Use `present` and `absent` for zone, service, or target
+          C(runtime) - boolean to apply settings to the runtime environment
+          only, not persistent across reboots (alias C(immediate));
+          C(state) - one of V(enabled), V(disabled), V(present), or V(absent).
+          Use V(present) and V(absent) for zone, service, target, or policy
           operations;
-          `description` - description string for a custom service or
-          IPSet. Requires `state` set to `present`;
-          `short` - short description string, generally a full name, for a
-          custom service or IPSet. Requires `state` set to `present`;
-          `protocol` - list of protocol strings for service configuration
-          only;
-          `helper_module` - list of netfilter kernel helper module names
+          C(description) - description string for a custom service or
+          IPSet. Requires C(state) set to V(present);
+          C(short) - short description string, generally a full name, for a
+          custom service or IPSet. Requires C(state) set to V(present);
+          C(protocol) - list of protocol strings for service configuration
+          or policy rules;
+          C(helper_module) - list of netfilter kernel helper module names
           for service configuration;
-          `destination` - list of IPv4 or IPv6 addresses with optional
-          mask in `address[/mask]` format for service configuration. Only
+          C(destination) - list of IPv4 or IPv6 addresses with optional
+          mask in C(address[/mask]) format for service configuration. Only
           one IPv4 and one IPv6 address are allowed;
-          `previous` - set to `replaced` to replace the entire firewall
-          configuration with the new configuration, or `kept` to preserve
+          C(previous) - set to V(replaced) to replace the entire firewall
+          configuration with the new configuration, or V(kept) to preserve
           existing settings;
-          `includes` - list of service names to include in a custom
+          C(includes) - list of service names to include in a custom
           service definition;
-          `detailed` - boolean to request detailed firewall facts. When
-          set to `true` with no other keys, the role gathers and returns
+          C(detailed) - boolean to request detailed firewall facts. When
+          set to V(true) with no other keys, the role gathers and returns
           extended firewall configuration information in the
-          `firewall_config` fact;
-          `firewalld_conf` - dictionary of firewalld.conf directives.
-          Currently supports `allow_zone_drifting` (boolean) to set the
+          C(firewall_config) fact;
+          C(firewalld_conf) - dictionary of firewalld.conf directives.
+          Currently supports C(allow_zone_drifting) (boolean) to set the
           AllowZoneDrifting directive.
       firewall_disable_conflicting_services:
         type: bool
@@ -114,6 +156,6 @@ argument_specs:
         default: null
         description: >
           Whether to permit reboots required by transactional updates. Set
-          to `true` to allow reboots, `false` to disallow reboots, or
+          to V(true) to allow reboots, V(false) to disallow reboots, or
           leave unset so that the role will fail to ensure the reboot
-          requirement is not overlooked. Accepts a boolean value or `null`.
+          requirement is not overlooked. Accepts a boolean value or V(null).

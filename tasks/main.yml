@@ -8,6 +8,9 @@
 - name: Setup firewalld
   include_tasks: firewalld.yml
 
+- name: Validate version-dependent role parameters
+  ansible.builtin.include_tasks: assert_role_vars_version.yml
+
 - name: Check which conflicting services are enabled
   # noqa command-instead-of-module
   command: systemctl is-enabled "{{ item }}"
@@ -56,7 +59,9 @@
   vars:
     firewall_config_list: "{{ firewall is mapping | ternary([firewall], firewall) | list
       if firewall is not none else [] }}"
-    firewall_lib_config_list: "{{ firewall_config_list | map('dict2items') | map('rejectattr', 'key', 'match', '^detailed$') | map('list') | select | map('items2dict') | list }}"
+    firewall_lib_config_list: "{{ firewall_config_list | map('dict2items')
+      | map('rejectattr', 'key', 'match', '^detailed$') | map('list')
+      | select | map('items2dict') | list }}"
     _detailed:
       detailed: true
     firewall_detailed_facts: "{{ firewall == _detailed or firewall == [_detailed] }}"

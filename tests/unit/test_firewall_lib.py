@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2020, Rich Megginson <rmeggins@redhat.com>
-# SPDX-License-Identifier: GPL-2.0-or-later
 #
 """Unit tests for kernel_settings module"""
 
@@ -10,6 +10,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 __metaclass__ = type
 
 import unittest
+import copy
 import pytest
 
 try:
@@ -1735,3 +1736,990 @@ class FirewallVersionTest(unittest.TestCase):
         assert ver_b < ver
         ver_b = firewall_lib.lsr_parse_version("1.2.4")
         assert ver_b > ver
+
+
+class TestPolicies:
+    """Exercise policy scopes with real firewalld settings and mocked I/O."""
+
+    @pytest.fixture(autouse=True)
+    def policy_api(self, monkeypatch):
+        # Most unit-test hosts do not have python-firewall and D-Bus bindings.
+        # Use small settings objects there; run the same tests against the real
+        # classes automatically when those libraries are installed.
+        if firewall_lib.HAS_POLICIES:
+            return
+
+        class Settings:
+            def __init__(self, settings=None):
+                self.settings = {
+                    "target": "CONTINUE",
+                    "rich_rules": [],
+                    "ingress_zones": [],
+                    "egress_zones": [],
+                }
+                self.settings.update(copy.deepcopy(settings or {}))
+
+            def getSettingsDict(self):
+                return self.settings
+
+            def getDisable(self):
+                return self.settings.get("disable", False)
+
+            def getIngressZones(self):
+                return self.settings["ingress_zones"]
+
+            def getEgressZones(self):
+                return self.settings["egress_zones"]
+
+        monkeypatch.setattr(firewall_lib, "HAS_POLICIES", True)
+        monkeypatch.setattr(firewall_lib, "FirewallClient", Mock(), raising=False)
+        monkeypatch.setattr(
+            firewall_lib, "FirewallClientPolicySettings", Settings, raising=False
+        )
+        monkeypatch.setattr(firewall_lib, "Policy", Mock(), raising=False)
+        monkeypatch.setattr(
+            firewall_lib,
+            "export_config_dict",
+            lambda obj: {"target": "CONTINUE", "disable": False},
+        )
+        monkeypatch.setattr(
+            firewall_lib, "Rich_Rule", lambda rule_str: rule_str, raising=False
+        )
+
+    @staticmethod
+    def module(check_mode=False):
+        module = Mock()
+        module.check_mode = check_mode
+
+        def fail_json(**kwargs):
+            raise ValueError(kwargs["msg"])
+
+        module.fail_json.side_effect = fail_json
+        return module
+
+    @staticmethod
+    def params(**kwargs):
+        params = dict(
+            policy="test-policy",
+            state="present",
+            permanent=True,
+            runtime=False,
+            rich_rule=[],
+        )
+        params.update(kwargs)
+        return params
+
+    def run_config(self, module, params, backend=None, online=True):
+        return firewall_lib.process_single_config(
+            module,
+            [],
+            config_params=params,
+            backend=backend,
+            online_param=online,
+            __called_from_role_param=True,
+        )
+
+    def memory(self, module, online=True):
+        config = {
+            "default_zone": "public",
+            "default": {"zones": {"public": {}}},
+            "custom_permanent_with_defaults": {"zones": {"public": {}}},
+            "custom_runtime_with_defaults": {"zones": {"public": {}}},
+        }
+        with patch.object(firewall_lib, "config_to_dict", return_value=config):
+            return firewall_lib.InMemoryBackend(module, online)
+
+    @pytest.mark.parametrize("online", [True, False])
+    def test_memory_lifecycle_and_idempotence(self, online):
+        module = self.module(True)
+        backend = self.memory(module, online)
+        params = self.params(
+            runtime=online,
+            ingress_zone="HOST",
+            egress_zone="ANY",
+            target="ACCEPT",
+            rich_rule=['rule family="ipv4" source address="192.0.2.0/24" accept'],
+        )
+        assert self.run_config(module, params, backend, online)
+        policy = backend.working_config_permanent["policies"]["test-policy"]
+        assert policy["ingress_zones"] == ["HOST"]
+        assert policy["egress_zones"] == ["ANY"]
+        assert policy["target"] == "ACCEPT"
+        assert policy["rich_rule"] == [
+            'rule family="ipv4" source address="192.0.2.0/24" accept'
+        ]
+        backend.changed = False
+        assert not self.run_config(module, params, backend, online)
+        # Remove settings without deleting the object.
+        params["state"] = "absent"
+        assert self.run_config(module, params, backend, online)
+        policy = backend.working_config_permanent["policies"]["test-policy"]
+        assert not policy["ingress_zones"]
+        assert policy["target"] == "CONTINUE"
+        assert self.run_config(
+            module, self.params(state="absent", runtime=online), backend, online
+        )
+        assert "test-policy" not in backend.working_config_permanent["policies"]
+        backend.changed = False
+        assert not self.run_config(
+            module, self.params(state="absent", runtime=online), backend, online
+        )
+
+    def test_memory_runtime_and_permanent_are_independent(self):
+        module = self.module()
+        backend = self.memory(module)
+        self.run_config(module, self.params(runtime=True), backend)
+        rule = 'rule family="ipv4" source address="192.0.2.0/24" accept'
+        self.run_config(
+            module,
+            self.params(
+                state="enabled", permanent=False, runtime=True, rich_rule=[rule]
+            ),
+            backend,
+        )
+        assert (
+            "rich_rule"
+            not in backend.working_config_permanent["policies"]["test-policy"]
+        )
+        assert backend.working_config_runtime["policies"]["test-policy"][
+            "rich_rule"
+        ] == [rule]
+        self.run_config(
+            module, self.params(state="enabled", ingress_zone="HOST"), backend
+        )
+        assert (
+            "ingress_zones"
+            not in backend.working_config_runtime["policies"]["test-policy"]
+        )
+        # A target change with runtime requested reloads permanent configuration.
+        self.run_config(
+            module, self.params(state="enabled", runtime=True, target="ACCEPT"), backend
+        )
+        assert (
+            "rich_rule" not in backend.working_config_runtime["policies"]["test-policy"]
+        )
+
+    @pytest.mark.parametrize("check_mode", [True, False])
+    def test_online_create(self, check_mode):
+        module = self.module(check_mode)
+        with patch.object(firewall_lib, "FirewallClient") as client:
+            fw = client.return_value
+            fw.config().getPolicyNames.return_value = []
+            fw.getPolicies.return_value = []
+            params = self.params(runtime=True, ingress_zone="HOST", egress_zone="ANY")
+            assert self.run_config(module, params)
+            assert fw.config().addPolicy.call_count == (0 if check_mode else 1)
+            assert fw.reload.call_count == (0 if check_mode else 1)
+            fw.setPolicySettings.assert_not_called()
+            fw.config().getZoneByName.assert_not_called()
+            if not check_mode:
+                settings = fw.config().addPolicy.call_args[0][1]
+                assert settings.getIngressZones() == ["HOST"]
+                assert settings.getEgressZones() == ["ANY"]
+
+    @pytest.mark.parametrize(
+        "permanent,runtime", [(True, False), (False, True), (True, True)]
+    )
+    @pytest.mark.parametrize("check_mode", [True, False])
+    def test_online_update_scopes(self, permanent, runtime, check_mode):
+        module = self.module(check_mode)
+        with patch.object(firewall_lib, "FirewallClient") as client:
+            fw = client.return_value
+            fw.config().getPolicyNames.return_value = ["test-policy"]
+            fw.getPolicies.return_value = ["test-policy"]
+            fw.config().getPolicyByName().getSettings.return_value = (
+                firewall_lib.FirewallClientPolicySettings()
+            )
+            fw.getPolicySettings.return_value = (
+                firewall_lib.FirewallClientPolicySettings()
+            )
+            assert self.run_config(
+                module,
+                self.params(
+                    state="enabled",
+                    permanent=permanent,
+                    runtime=runtime,
+                    ingress_zone="HOST",
+                ),
+            )
+            assert fw.config().getPolicyByName().update.call_count == int(
+                permanent and not check_mode
+            )
+            assert fw.setPolicySettings.call_count == int(runtime and not check_mode)
+            fw.reload.assert_not_called()
+
+    @pytest.mark.parametrize("check_mode", [True, False])
+    def test_online_delete(self, check_mode):
+        with patch.object(firewall_lib, "FirewallClient") as client:
+            fw = client.return_value
+            fw.config().getPolicyNames.return_value = ["test-policy"]
+            fw.getPolicies.return_value = ["test-policy"]
+            assert self.run_config(
+                self.module(check_mode), self.params(state="absent", runtime=True)
+            )
+            assert fw.config().getPolicyByName().remove.call_count == int(
+                not check_mode
+            )
+            assert fw.reload.call_count == int(not check_mode)
+            fw.config().getPolicyByName().update.assert_not_called()
+
+    def test_online_idempotence_and_policy_switch(self):
+        with patch.object(firewall_lib, "FirewallClient") as client:
+            fw = client.return_value
+            fw.config().getPolicyNames.return_value = ["first", "second"]
+            fw.getPolicies.return_value = ["first", "second"]
+            settings = firewall_lib.FirewallClientPolicySettings(
+                {"ingress_zones": ["HOST"]}
+            )
+            fw.config().getPolicyByName().getSettings.return_value = settings
+            fw.getPolicySettings.return_value = settings
+            for policy in ("first", "second"):
+                assert not self.run_config(
+                    self.module(),
+                    self.params(policy=policy, runtime=True, ingress_zone="HOST"),
+                )
+                fw.config().getPolicyByName.assert_called_with(policy)
+            fw.config().getPolicyByName().update.assert_not_called()
+            fw.setPolicySettings.assert_not_called()
+            fw.reload.assert_not_called()
+
+    @pytest.mark.parametrize("check_mode", [True, False])
+    def test_offline_create(self, check_mode):
+        module = self.module(check_mode)
+        module.run_command.return_value = (0, "", "")
+        assert self.run_config(
+            module,
+            self.params(ingress_zone="HOST", egress_zone="ANY", target="ACCEPT"),
+            online=False,
+        )
+        commands = [c[0][0][1:] for c in module.run_command.call_args_list]
+        assert commands[0] == ["--get-policies"]
+        if check_mode:
+            assert len(commands) == 1
+        else:
+            assert ["--new-policy=test-policy"] in commands
+            assert ["--policy=test-policy", "--add-ingress-zone=HOST"] in commands
+            assert ["--policy=test-policy", "--add-egress-zone=ANY"] in commands
+            assert ["--policy=test-policy", "--set-target=ACCEPT"] in commands
+
+    def test_offline_remove_setting_and_delete(self):
+        module = self.module()
+        module.run_command.side_effect = lambda cmd, check_rc=True: (
+            (1, "no", "") if cmd[-1] == "--query-disable" else (0, "test-policy", "")
+        )
+        assert self.run_config(
+            module, self.params(state="disabled", ingress_zone="HOST"), online=False
+        )
+        module.run_command.assert_called_with(
+            [
+                "firewall-offline-cmd",
+                "--policy=test-policy",
+                "--remove-ingress-zone=HOST",
+            ],
+            check_rc=True,
+        )
+        assert self.run_config(module, self.params(state="absent"), online=False)
+        module.run_command.assert_called_with(
+            ["firewall-offline-cmd", "--delete-policy=test-policy"], check_rc=True
+        )
+
+    @pytest.mark.parametrize(
+        "options,message",
+        [
+            ({"zone": "public"}, "cannot be used with policy"),
+            ({"interface": ["eth0"]}, "cannot be used with policy"),
+            ({"state": None}, "require state"),
+            ({"permanent": False, "runtime": True}, "require permanent"),
+            ({"target": "default"}, "Policy target must"),
+            ({"target": "%%REJECT%%"}, "Policy target must"),
+        ],
+    )
+    def test_invalid_policy_options(self, options, message):
+        with pytest.raises(ValueError, match=message):
+            self.run_config(self.module(), self.params(**options))
+
+    def test_unsupported_policies(self):
+        with patch.object(firewall_lib, "HAS_POLICIES", False):
+            with pytest.raises(ValueError, match="requires firewalld"):
+                self.run_config(self.module(), self.params())
+
+    def test_orphan_policy_options_and_zone_targets(self):
+        for params in (
+            {"ingress_zone": "HOST"},
+            {"egress_zone": "ANY"},
+            {"target": "CONTINUE"},
+        ):
+            with pytest.raises(ValueError, match="require policy"):
+                self.run_config(self.module(), params)
+
+    def test_missing_policy_and_offline_runtime(self):
+        with pytest.raises(ValueError, match="does not exist"):
+            self.run_config(
+                self.module(), self.params(state="enabled"), self.memory(self.module())
+            )
+        with pytest.raises(ValueError, match="offline environments"):
+            self.run_config(self.module(), self.params(runtime=True), online=False)
+
+    def test_invalid_rich_rule(self):
+        with patch.object(
+            firewall_lib, "Rich_Rule", side_effect=ValueError("invalid rule")
+        ):
+            with pytest.raises(ValueError, match="is not valid"):
+                self.run_config(self.module(), self.params(rich_rule=["not a rule"]))
+
+    @pytest.mark.parametrize("check_mode", [True, False])
+    def test_online_target_drift_reloads(self, check_mode):
+        with patch.object(firewall_lib, "FirewallClient") as client:
+            fw = client.return_value
+            fw.config().getPolicyNames.return_value = ["test-policy"]
+            fw.getPolicies.return_value = ["test-policy"]
+            fw.config().getPolicyByName().getSettings.return_value = (
+                firewall_lib.FirewallClientPolicySettings({"target": "ACCEPT"})
+            )
+            fw.getPolicySettings.return_value = (
+                firewall_lib.FirewallClientPolicySettings()
+            )
+            assert self.run_config(
+                self.module(check_mode), self.params(runtime=True, target="ACCEPT")
+            )
+            fw.config().getPolicyByName().update.assert_not_called()
+            fw.setPolicySettings.assert_not_called()
+            assert fw.reload.call_count == int(not check_mode)
+
+    def test_delete_runtime_policy_after_permanent_deletion(self):
+        module = self.module()
+        backend = self.memory(module)
+        self.run_config(module, self.params(runtime=True), backend)
+        self.run_config(module, self.params(state="absent"), backend)
+        assert "test-policy" in backend.working_config_runtime["policies"]
+        backend.changed = False
+        assert self.run_config(
+            module, self.params(state="absent", runtime=True), backend
+        )
+        assert "test-policy" not in backend.working_config_runtime["policies"]
+        with patch.object(firewall_lib, "FirewallClient") as client:
+            fw = client.return_value
+            fw.config().getPolicyNames.return_value = []
+            fw.getPolicies.return_value = ["test-policy"]
+            assert self.run_config(module, self.params(state="absent", runtime=True))
+            fw.config().getPolicyByName.assert_not_called()
+            fw.reload.assert_called_once_with()
+
+    def test_activate_existing_permanent_policy(self):
+        module = self.module()
+        backend = self.memory(module)
+        self.run_config(module, self.params(), backend)
+        backend.changed = False
+        assert self.run_config(module, self.params(runtime=True), backend)
+        assert "test-policy" in backend.working_config_runtime["policies"]
+        with patch.object(firewall_lib, "FirewallClient") as client:
+            fw = client.return_value
+            fw.config().getPolicyNames.return_value = ["test-policy"]
+            fw.getPolicies.return_value = []
+            fw.config().getPolicyByName().getSettings.return_value = (
+                firewall_lib.FirewallClientPolicySettings()
+            )
+            assert self.run_config(module, self.params(runtime=True))
+            fw.config().getPolicyByName().update.assert_not_called()
+            fw.reload.assert_called_once_with()
+
+    @pytest.mark.parametrize(
+        "option,value,key,expected",
+        [
+            ("service", ["http"], "services", ["http"]),
+            ("port", ["8080/tcp"], "ports", [("8080", "tcp")]),
+            ("source_port", ["1024-2048/udp"], "source_ports", [("1024-2048", "udp")]),
+            ("protocol", ["icmp"], "protocols", ["icmp"]),
+            ("icmp_block", ["echo-request"], "icmp_blocks", ["echo-request"]),
+            (
+                "forward_port",
+                ["8080/tcp;;192.0.2.1"],
+                "forward_ports",
+                [("8080", "tcp", None, "192.0.2.1")],
+            ),
+            ("masquerade", True, "masquerade", True),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "permanent,runtime", [(True, False), (False, True), (True, True)]
+    )
+    def test_memory_policy_primitives(
+        self, option, value, key, expected, permanent, runtime
+    ):
+        module = self.module(True)
+        backend = self.memory(module)
+        self.run_config(module, self.params(runtime=True), backend)
+        params = self.params(
+            state="enabled", permanent=permanent, runtime=runtime, **{option: value}
+        )
+        backend.changed = False
+        assert self.run_config(module, params, backend)
+        for selected, config in (
+            (permanent, backend.working_config_permanent),
+            (runtime, backend.working_config_runtime),
+        ):
+            actual = config["policies"]["test-policy"].get(key)
+            assert actual == expected if selected else not actual
+        backend.changed = False
+        assert not self.run_config(module, params, backend)
+        # absent with primitives must remove settings, never delete the policy.
+        params["state"] = "absent"
+        assert self.run_config(module, params, backend)
+        for config in (
+            backend.working_config_permanent,
+            backend.working_config_runtime,
+        ):
+            assert "test-policy" in config["policies"]
+            assert not config["policies"]["test-policy"].get(key)
+        backend.changed = False
+        assert not self.run_config(module, params, backend)
+
+    @pytest.mark.parametrize("check_mode", [True, False])
+    @pytest.mark.parametrize(
+        "permanent,runtime", [(True, False), (False, True), (True, True)]
+    )
+    def test_online_policy_primitives(self, check_mode, permanent, runtime):
+        with patch.object(firewall_lib, "FirewallClient") as client:
+            fw = client.return_value
+            fw.config().getPolicyNames.return_value = ["test-policy"]
+            fw.getPolicies.return_value = ["test-policy"]
+            settings = firewall_lib.FirewallClientPolicySettings()
+            fw.config().getPolicyByName().getSettings.return_value = settings
+            fw.getPolicySettings.return_value = settings
+            params = self.params(
+                state="enabled",
+                permanent=permanent,
+                runtime=runtime,
+                service=["http"],
+                port=["8080/tcp"],
+                source_port=["1024/udp"],
+                protocol=["icmp"],
+                icmp_block=["echo-request"],
+                masquerade=True,
+                forward_port=["8080/tcp;;192.0.2.1"],
+            )
+            assert self.run_config(self.module(check_mode), params)
+            fw.reload.assert_not_called()
+            assert fw.config().getPolicyByName().update.call_count == int(
+                permanent and not check_mode
+            )
+            assert fw.setPolicySettings.call_count == int(runtime and not check_mode)
+            if not check_mode:
+                args = (
+                    fw.config().getPolicyByName().update.call_args[0][0]
+                    if permanent
+                    else fw.setPolicySettings.call_args[0][1]
+                )
+                desired = args.getSettingsDict()
+                assert desired["services"] == ["http"]
+                assert desired["ports"] == [("8080", "tcp")]
+                assert desired["source_ports"] == [("1024", "udp")]
+                assert desired["protocols"] == ["icmp"]
+                assert desired["icmp_blocks"] == ["echo-request"]
+                assert desired["masquerade"] is True
+                assert desired["forward_ports"] == [("8080", "tcp", "", "192.0.2.1")]
+
+    @pytest.mark.parametrize("check_mode", [True, False])
+    @pytest.mark.parametrize(
+        "state,verb,rc", [("enabled", "add", 1), ("disabled", "remove", 0)]
+    )
+    def test_offline_policy_primitives(self, check_mode, state, verb, rc):
+        module = self.module(check_mode)
+
+        def command(cmd, check_rc=True):
+            if cmd[-1] == "--get-policies":
+                return 0, "test-policy", ""
+            if cmd[-1] == "--query-disable":
+                return 1, "no", ""
+            return (rc if "--query-" in cmd[-1] else 0), "", ""
+
+        module.run_command.side_effect = command
+        params = self.params(
+            state=state,
+            service=["http"],
+            port=["8080/tcp"],
+            source_port=["1024/udp"],
+            protocol=["icmp"],
+            icmp_block=["echo-request"],
+            masquerade=True,
+            forward_port=[{"port": "8080", "proto": "tcp", "toaddr": "192.0.2.1"}],
+        )
+        assert self.run_config(module, params, online=False)
+        mutations = [
+            entry[0][0][-1]
+            for entry in module.run_command.call_args_list
+            if entry[0][0][-1].startswith(("--add-", "--remove-"))
+        ]
+        assert mutations == (
+            []
+            if check_mode
+            else (["--remove-masquerade"] if state == "disabled" else [])
+            + [
+                "--%s-service=http" % verb,
+                "--%s-port=8080/tcp" % verb,
+                "--%s-source-port=1024/udp" % verb,
+                "--%s-protocol=icmp" % verb,
+                "--%s-icmp-block=echo-request" % verb,
+                "--%s-forward-port=port=8080:proto=tcp:toaddr=192.0.2.1" % verb,
+            ]
+            + (["--add-masquerade"] if state == "enabled" else [])
+        )
+
+    def test_false_masquerade_does_not_delete_policy(self):
+        module = self.module()
+        backend = self.memory(module)
+        self.run_config(module, self.params(masquerade=True), backend)
+        self.run_config(module, self.params(state="absent", masquerade=False), backend)
+        assert (
+            backend.working_config_permanent["policies"]["test-policy"]["masquerade"]
+            is False
+        )
+
+    @pytest.mark.parametrize(
+        "first,second,message",
+        [
+            ({"ingress_zone": "HOST"}, {"ingress_zone": "public"}, "cannot mix"),
+            ({"egress_zone": "ANY"}, {"egress_zone": "public"}, "cannot mix"),
+            ({"ingress_zone": "HOST"}, {"egress_zone": "HOST"}, "both"),
+            ({"ingress_zone": "HOST"}, {"masquerade": True}, "masquerade"),
+            (
+                {"egress_zone": "ANY"},
+                {"forward_port": ["8080/tcp;80;"]},
+                "requires toaddr",
+            ),
+        ],
+    )
+    def test_accumulated_policy_constraints(self, first, second, message):
+        module = self.module(True)
+        backend = self.memory(module)
+        self.run_config(module, self.params(**first), backend)
+        with pytest.raises(ValueError, match=message):
+            self.run_config(module, self.params(state="enabled", **second), backend)
+
+    @pytest.mark.parametrize("side", ["ingress", "egress"])
+    @pytest.mark.parametrize(
+        "existing,added",
+        [
+            ("HOST", "public"),
+            ("ANY", "public"),
+            ("public", "HOST"),
+            ("public", "ANY"),
+            ("HOST", "ANY"),
+            ("ANY", "HOST"),
+        ],
+    )
+    @pytest.mark.parametrize("backend_type", ["memory", "online", "offline"])
+    @pytest.mark.parametrize("check_mode", [True, False])
+    def test_symbolic_zones_are_exclusive(
+        self, side, existing, added, backend_type, check_mode
+    ):
+        module = self.module(check_mode)
+        params = self.params(state="enabled", **{side + "_zone": added})
+        memberships = {side + "_zones": [existing], "target": "CONTINUE"}
+        if backend_type == "memory":
+            backend = self.memory(module)
+            backend.working_config_permanent["policies"] = {"test-policy": memberships}
+            with pytest.raises(ValueError, match="cannot mix"):
+                self.run_config(module, params, backend)
+            assert backend.working_config_permanent["policies"]["test-policy"][
+                side + "_zones"
+            ] == [existing]
+            assert not backend.changed
+        elif backend_type == "online":
+            with patch.object(firewall_lib, "FirewallClient") as client:
+                fw = client.return_value
+                fw.config().getPolicyNames.return_value = ["test-policy"]
+                fw.config().getPolicyByName().getSettings.return_value = (
+                    firewall_lib.FirewallClientPolicySettings(memberships)
+                )
+                with pytest.raises(ValueError, match="cannot mix"):
+                    self.run_config(module, params)
+                fw.config().getPolicyByName().update.assert_not_called()
+                fw.config().addPolicy.assert_not_called()
+                fw.setPolicySettings.assert_not_called()
+                fw.reload.assert_not_called()
+        else:
+
+            def command(cmd, check_rc=True):
+                if cmd[-1] == "--get-policies":
+                    return 0, "test-policy", ""
+                if cmd[-1] == "--list-%s-zones" % side:
+                    return 0, existing, ""
+                if cmd[-1] == "--query-masquerade":
+                    return 1, "no", ""
+                return 0, "", ""
+
+            module.run_command.side_effect = command
+            with pytest.raises(ValueError, match="cannot mix"):
+                self.run_config(module, params, online=False)
+            for entry in module.run_command.call_args_list:
+                assert not any(
+                    arg.startswith(("--add-", "--remove-", "--new-", "--set-"))
+                    for arg in entry[0][0]
+                )
+
+    @pytest.mark.parametrize("backend_type", ["memory", "online"])
+    def test_runtime_symbolic_conflict_does_not_change_permanent(self, backend_type):
+        module = self.module()
+        params = self.params(state="enabled", runtime=True, ingress_zone="public")
+        permanent = {"target": "CONTINUE", "ingress_zones": []}
+        runtime = {"target": "CONTINUE", "ingress_zones": ["HOST"]}
+        if backend_type == "memory":
+            backend = self.memory(module)
+            backend.working_config_permanent["policies"] = {"test-policy": permanent}
+            backend.working_config_runtime["policies"] = {"test-policy": runtime}
+            with pytest.raises(ValueError, match="cannot mix"):
+                self.run_config(module, params, backend)
+            assert (
+                backend.working_config_permanent["policies"]["test-policy"] == permanent
+            )
+            assert not backend.changed
+        else:
+            with patch.object(firewall_lib, "FirewallClient") as client:
+                fw = client.return_value
+                fw.config().getPolicyNames.return_value = ["test-policy"]
+                fw.getPolicies.return_value = ["test-policy"]
+                fw.config().getPolicyByName().getSettings.return_value = (
+                    firewall_lib.FirewallClientPolicySettings(permanent)
+                )
+                fw.getPolicySettings.return_value = (
+                    firewall_lib.FirewallClientPolicySettings(runtime)
+                )
+                with pytest.raises(ValueError, match="cannot mix"):
+                    self.run_config(module, params)
+                fw.config().getPolicyByName().update.assert_not_called()
+                fw.setPolicySettings.assert_not_called()
+                fw.reload.assert_not_called()
+
+    @pytest.mark.parametrize("side", ["ingress", "egress"])
+    @pytest.mark.parametrize("symbol", ["HOST", "ANY"])
+    def test_remove_symbol_before_adding_regular_zones(self, side, symbol):
+        module = self.module(True)
+        backend = self.memory(module)
+        self.run_config(module, self.params(**{side + "_zone": symbol}), backend)
+        backend.changed = False
+        assert not self.run_config(
+            module, self.params(**{side + "_zone": symbol}), backend
+        )
+        self.run_config(
+            module, self.params(state="disabled", **{side + "_zone": symbol}), backend
+        )
+        for zone in ("public", "internal"):
+            self.run_config(
+                module, self.params(state="enabled", **{side + "_zone": zone}), backend
+            )
+        assert backend.working_config_permanent["policies"]["test-policy"][
+            side + "_zones"
+        ] == ["public", "internal"]
+
+    @pytest.mark.parametrize("desired", [True, False])
+    @pytest.mark.parametrize(
+        "permanent,runtime", [(True, False), (False, True), (True, True)]
+    )
+    @pytest.mark.parametrize("state", ["enabled", "disabled"])
+    def test_is_disabled_memory_scopes(self, desired, permanent, runtime, state):
+        module = self.module(True)
+        backend = self.memory(module)
+        self.run_config(
+            module, self.params(runtime=True, is_disabled=not desired), backend
+        )
+        backend.changed = False
+        params = self.params(
+            state=state, permanent=permanent, runtime=runtime, is_disabled=desired
+        )
+        assert self.run_config(module, params, backend)
+        for selected, config in (
+            (permanent, backend.working_config_permanent),
+            (runtime, backend.working_config_runtime),
+        ):
+            assert config["policies"]["test-policy"]["disable"] == (
+                desired if selected else not desired
+            )
+        backend.changed = False
+        assert not self.run_config(module, params, backend)
+
+    def test_omitted_is_disabled_leaves_flag(self):
+        assert firewall_lib.get_base_argument_spec()["is_disabled"]["default"] is None
+        module = self.module(True)
+        backend = self.memory(module)
+        self.run_config(module, self.params(is_disabled=True), backend)
+        backend.changed = False
+        assert not self.run_config(module, self.params(state="enabled"), backend)
+        assert (
+            backend.working_config_permanent["policies"]["test-policy"]["disable"]
+            is True
+        )
+        assert self.run_config(
+            module, self.params(state="enabled", is_disabled=False), backend
+        )
+        assert (
+            backend.working_config_permanent["policies"]["test-policy"]["disable"]
+            is False
+        )
+
+    @pytest.mark.parametrize("desired", [True, False])
+    @pytest.mark.parametrize("check_mode", [True, False])
+    @pytest.mark.parametrize(
+        "permanent,runtime", [(True, False), (False, True), (True, True)]
+    )
+    def test_is_disabled_online(self, desired, check_mode, permanent, runtime):
+        with patch.object(firewall_lib, "FirewallClient") as client:
+            fw = client.return_value
+            fw.config().getPolicyNames.return_value = ["test-policy"]
+            fw.getPolicies.return_value = ["test-policy"]
+            old = firewall_lib.FirewallClientPolicySettings({"disable": not desired})
+            fw.config().getPolicyByName().getSettings.return_value = old
+            fw.getPolicySettings.return_value = old
+            params = self.params(
+                state="enabled",
+                is_disabled=desired,
+                permanent=permanent,
+                runtime=runtime,
+            )
+            assert self.run_config(self.module(check_mode), params)
+            fw.reload.assert_not_called()
+            assert fw.config().getPolicyByName().update.call_count == int(
+                permanent and not check_mode
+            )
+            assert fw.setPolicySettings.call_count == int(runtime and not check_mode)
+            if permanent and not check_mode:
+                assert (
+                    fw.config()
+                    .getPolicyByName()
+                    .update.call_args[0][0]
+                    .getSettingsDict()["disable"]
+                    == desired
+                )
+            if runtime and not check_mode:
+                assert (
+                    fw.setPolicySettings.call_args[0][1].getSettingsDict()["disable"]
+                    == desired
+                )
+            current = firewall_lib.FirewallClientPolicySettings({"disable": desired})
+            fw.config().getPolicyByName().getSettings.return_value = current
+            fw.getPolicySettings.return_value = current
+            fw.reset_mock()
+            assert not self.run_config(self.module(check_mode), params)
+            fw.config().getPolicyByName().update.assert_not_called()
+            fw.setPolicySettings.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "desired,explicit", [(True, True), (False, True), (False, False)]
+    )
+    @pytest.mark.parametrize("check_mode", [True, False])
+    def test_is_disabled_offline(self, desired, check_mode, explicit):
+        module = self.module(check_mode)
+        current = not desired
+
+        def command(cmd, check_rc=True):
+            if cmd[-1] == "--get-policies":
+                return 0, "test-policy", ""
+            if cmd[-1] == "--query-disable":
+                return (0, "yes", "") if current else (1, "no", "")
+            if cmd[-1] == "--query-masquerade":
+                return 1, "no", ""
+            return 0, "", ""
+
+        module.run_command.side_effect = command
+        params = self.params(state="enabled")
+        if explicit:
+            params["is_disabled"] = desired
+        changed = self.run_config(module, params, online=False)
+        mutations = [
+            entry[0][0][-1]
+            for entry in module.run_command.call_args_list
+            if entry[0][0][-1] in ("--add-disable", "--remove-disable")
+        ]
+        if explicit:
+            assert changed
+            assert mutations == (
+                []
+                if check_mode
+                else ["--add-disable" if desired else "--remove-disable"]
+            )
+        else:
+            assert not changed
+            assert mutations == []
+        current = desired if explicit else current
+        module.run_command.reset_mock()
+        assert not self.run_config(module, params, online=False)
+        repeat = [
+            entry[0][0][-1]
+            for entry in module.run_command.call_args_list
+            if entry[0][0][-1] in ("--add-disable", "--remove-disable")
+        ]
+        assert repeat == []
+
+    @pytest.mark.parametrize("check_mode", [True, False])
+    def test_create_disabled_policy_offline(self, check_mode):
+        module = self.module(check_mode)
+        module.run_command.return_value = (0, "", "")
+        assert self.run_config(module, self.params(is_disabled=True), online=False)
+        commands = [entry[0][0][-1] for entry in module.run_command.call_args_list]
+        assert commands == (
+            ["--get-policies"]
+            if check_mode
+            else ["--get-policies", "--new-policy=test-policy", "--add-disable"]
+        )
+
+    def test_is_disabled_unsupported_firewalld(self):
+        with patch.object(firewall_lib, "FirewallClientPolicySettings", object):
+            with pytest.raises(ValueError, match="does not support"):
+                self.run_config(self.module(), self.params(is_disabled=True))
+            module = self.module()
+            module.run_command.return_value = (0, "test-policy", "")
+            assert not self.run_config(
+                module, self.params(state="enabled"), online=False
+            )
+            assert not any(
+                arg.startswith(("--add-", "--remove-", "--new-", "--set-"))
+                for entry in module.run_command.call_args_list
+                for arg in entry[0][0]
+            )
+        assert "disable" not in firewall_lib.policy_settings(
+            {"target": "CONTINUE"}, {"state": "enabled", "is_disabled": False}
+        )
+
+    @pytest.mark.parametrize("value", ["yes", 1, [], {}])
+    def test_is_disabled_invalid_values(self, value):
+        with pytest.raises(ValueError, match="must be a boolean"):
+            self.run_config(self.module(), self.params(is_disabled=value))
+
+    def test_is_disabled_requires_policy(self):
+        with pytest.raises(ValueError, match="requires policy"):
+            self.run_config(self.module(), {"is_disabled": True, "state": "enabled"})
+
+    def test_absent_is_disabled_sets_flag_without_deleting(self):
+        module = self.module(True)
+        backend = self.memory(module)
+        self.run_config(module, self.params(), backend)
+        assert self.run_config(
+            module, self.params(state="absent", is_disabled=True), backend
+        )
+        policy = backend.working_config_permanent["policies"]["test-policy"]
+        assert policy["disable"] is True
+        assert self.run_config(
+            module, self.params(state="absent", is_disabled=False), backend
+        )
+        assert "test-policy" not in backend.working_config_permanent["policies"]
+
+    def test_reload_discards_runtime_sources_and_preserves_interfaces(self):
+        module = self.module()
+        backend = self.memory(module)
+        backend.working_config_runtime["zones"]["public"]["interfaces"] = ["eth0"]
+        backend.working_config_permanent["zones"]["public"]["sources"] = [
+            "198.51.100.0/24"
+        ]
+        backend.working_config_runtime["zones"]["public"]["sources"] = ["192.0.2.10"]
+        backend.working_config_runtime["zones"]["public"]["services"] = ["http"]
+        backend.working_config_runtime["zones"]["custom"] = {"interfaces": ["eth1"]}
+        before_permanent = copy.deepcopy(backend.working_config_permanent)
+        before_runtime = copy.deepcopy(backend.working_config_runtime)
+        self.run_config(module, self.params(runtime=True, target="ACCEPT"), backend)
+        diff = firewall_lib.get_diffs(
+            before_permanent,
+            before_runtime,
+            "public",
+            {},
+            backend.working_config_permanent,
+            backend.working_config_runtime,
+            "public",
+            {},
+            False,
+        )
+        assert diff["runtime"]["removed"]["zones"]["public"]["sources"] == [
+            "192.0.2.10"
+        ]
+        assert diff["runtime"]["added"]["zones"]["public"]["sources"] == [
+            "198.51.100.0/24"
+        ]
+        public = backend.working_config_runtime["zones"]["public"]
+        assert sorted(public["interfaces"]) == ["eth0", "eth1"]
+        assert public["sources"] == ["198.51.100.0/24"]
+        assert "services" not in public
+        assert "custom" not in backend.working_config_runtime["zones"]
+        assert (
+            backend.working_config_runtime["policies"]["test-policy"]["target"]
+            == "ACCEPT"
+        )
+
+    @pytest.mark.parametrize(
+        "lists,params,message",
+        [
+            (
+                {"--list-egress-zones": "HOST"},
+                {"masquerade": True},
+                "masquerade",
+            ),
+            (
+                {"--list-egress-zones": "ANY"},
+                {"forward_port": ["8080/tcp;80;"]},
+                "requires toaddr",
+            ),
+            (
+                {
+                    "--list-egress-zones": "ANY",
+                    "--list-forward-ports": "port=8080:proto=tcp:toport=80:toaddr=",
+                },
+                {"service": ["http"]},
+                "requires toaddr",
+            ),
+        ],
+    )
+    def test_offline_constraints_run_before_changes(self, lists, params, message):
+        module = self.module()
+
+        def command(cmd, check_rc=True):
+            if cmd[-1] == "--get-policies":
+                return 0, "test-policy", ""
+            if cmd[-1] == "--query-masquerade":
+                return 1, "no", ""
+            if cmd[-1] in lists:
+                return 0, lists[cmd[-1]], ""
+            return 0, "", ""
+
+        module.run_command.side_effect = command
+        with pytest.raises(ValueError, match=message):
+            self.run_config(
+                module, self.params(state="enabled", **params), online=False
+            )
+        for entry in module.run_command.call_args_list:
+            assert not any(
+                arg.startswith(("--add-", "--remove-", "--new-", "--set-"))
+                for arg in entry[0][0]
+            )
+
+    @pytest.mark.parametrize("zone_key", ["ingress_zone", "egress_zone"])
+    @pytest.mark.parametrize("check_mode", [False, True])
+    def test_offline_clears_masquerade_before_adding_host(self, zone_key, check_mode):
+        module = self.module(check_mode)
+        current = {"masquerade": True, "zones": []}
+        flag = zone_key.replace("_", "-")
+
+        def command(cmd, check_rc=True):
+            arg = cmd[-1]
+            if arg == "--get-policies":
+                return 0, "test-policy", ""
+            if arg == "--query-masquerade":
+                return (0 if current["masquerade"] else 1), "", ""
+            if arg == "--list-" + flag + "s":
+                return 0, " ".join(current["zones"]), ""
+            if arg == "--query-" + flag + "=HOST":
+                return (0 if "HOST" in current["zones"] else 1), "", ""
+            if arg == "--remove-masquerade":
+                current["masquerade"] = False
+            if arg == "--add-" + flag + "=HOST":
+                # firewalld rejects this intermediate state even if a later
+                # command would clear masquerading.
+                assert not current["masquerade"]
+                current["zones"].append("HOST")
+            return 0, "", ""
+
+        module.run_command.side_effect = command
+        params = self.params(state="enabled", masquerade=False, **{zone_key: "HOST"})
+        assert self.run_config(module, params, online=False)
+        if check_mode:
+            assert current == {"masquerade": True, "zones": []}
+        else:
+            assert current == {"masquerade": False, "zones": ["HOST"]}
+            assert not self.run_config(module, params, online=False)
