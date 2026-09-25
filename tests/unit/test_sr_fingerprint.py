@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: MIT
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2026, Red Hat, Inc.
-# SPDX-License-Identifier: MIT
 """Unit tests for sr_fingerprint module helpers."""
 
 from __future__ import absolute_import, division, print_function

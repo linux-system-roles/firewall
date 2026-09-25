@@ -32,6 +32,28 @@ __firewall_conflicting_services:
 
 __firewall_write_log_file: false
 
+__firewall_policy_keys:
+  - policy
+  - is_disabled
+  - ingress_zone
+  - egress_zone
+  - rich_rule
+  - service
+  - port
+  - source_port
+  - protocol
+  - icmp_block
+  - forward_port
+  - port_forward
+  - masquerade
+  - target
+  - state
+  - permanent
+  - runtime
+  - immediate
+  - previous
+  - detailed
+
 # BEGIN - DO NOT EDIT THIS BLOCK - rh distros variables
 # Ansible distribution identifiers that the role treats like RHEL
 __firewall_rh_distros:

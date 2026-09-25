@@ -81,6 +81,9 @@ dictionary format. The top level of the fact is made up of the following keys:
 * `custom_runtime_with_defaults`, `current` (deprecated) - the runtime settings
   including the defaults
 * `runtime_only` - the runtime settings not including the defaults
+* `active_policies` - sorted list of active runtime policy names, in both
+  detailed and non-detailed facts. Available only when firewalld is running
+  and supports policies; an empty list means no policies are active.
 * `default_zone` - the default zone
 * `firewalld_conf` - the firewalld.conf settings
 * `fallback_default_zone`- the built-in default zone if there is no
@@ -242,6 +245,132 @@ add, then attach the service to the zone. e.g:
 - zone: myzone
   service: ["custom-ospfv3"]
 ```
+
+### policy
+
+Manage firewalld policies (requires firewalld 0.9.0 or later) by specifying a
+`policy` name instead of a `zone`. Supported policy settings are `ingress_zone`,
+`egress_zone`, `service`, `port`, `source_port`, `protocol`, `icmp_block`,
+`masquerade`, `forward_port`, `rich_rule`, `target`, and `is_disabled`. Primitive values use
+the same formats as zone rules and service definitions.
+
+Policy names may contain at most 18 characters with firewalld versions before
+2.4.0, or 128 characters with firewalld 2.4.0 and later. The role validates this
+limit using the installed firewalld version, including in check mode.
+
+* `state: present` creates the policy if needed and adds the supplied settings.
+* `state: absent` with only a policy name deletes the policy. With policy
+  settings, it removes those settings instead.
+* `state: enabled` and `state: disabled` add and remove settings on an existing
+  policy.
+* `ingress_zone` and `egress_zone` each accept one zone name, or the symbolic
+  zones `HOST` and `ANY`. Use multiple entries to configure multiple regular
+  zones. A symbolic zone must be the only member of its set; `ANY` excludes
+  `HOST`, and `HOST` cannot be used on both sides.
+* `service`, `port`, `source_port`, `protocol`, `icmp_block`, `forward_port`,
+  and `rich_rule` add entries with `state: present` or `state: enabled` and
+  remove entries with `state: absent` or `state: disabled`. Services must
+  already exist; `state: present` with a policy does not create services.
+* `masquerade` sets masquerading when state is present or enabled, and removes
+  it when state is absent or disabled. An explicit `false` changes the setting
+  without deleting the policy. Masquerading cannot be used with `HOST`.
+* Forwarding requires `toaddr` unless the egress zone is `HOST`.
+* `is_disabled` is a boolean. Omitting it leaves an existing disable flag
+  unchanged. `true` sets the flag (equivalent to `--add-disable`), preventing
+  policy activation. `false` removes that flag (`--remove-disable`).
+  This is independent of `state: enabled`/`disabled`, which add/remove settings.
+  The flag is managed in the requested `permanent` and `runtime` scopes, without
+  a reload for an existing policy. `true` requires a firewalld version that
+  supports the policy disable flag; older versions still accept an omitted flag.
+  `state: absent` with no settings still deletes the policy. `is_disabled: true`
+  counts as a setting, so that combination sets the flag and keeps the policy.
+  `is_disabled: false` does not count as a setting.
+* `target` accepts `CONTINUE` (the policy default), `ACCEPT`, `DROP`, or
+  `REJECT`. With `state: absent` or `state: disabled`, it resets to `CONTINUE`.
+
+Creation, deletion, and target changes require `permanent: true`. When
+`runtime: true` is also requested, these operations reload firewalld to apply
+changes to runtime. A reload replaces runtime configuration with permanent
+configuration, discarding runtime-only changes. Put runtime-only settings
+later in the configuration list. Existing policy zone memberships and primitives
+support permanent-only, runtime-only, or both scopes without a reload.
+Offline mode supports permanent configuration only. Across a reload, runtime
+interface assignments are retained, while runtime-only source assignments are
+discarded and replaced by permanent sources. Check mode predicts this same
+outcome without modifying firewalld.
+`previous: replaced` must be its own list item, as in
+[previous](#previous). A policy entry that includes it is dropped, and only
+the reset is applied.
+
+```yaml
+firewall:
+  - policy: host-egress
+    ingress_zone: HOST
+    egress_zone: ANY
+    target: CONTINUE
+    service: [http, https]
+    port: [8443/tcp]
+    protocol: [icmp]
+    rich_rule:
+      - 'rule family="ipv4" destination address="192.0.2.0/24" accept'
+    state: present
+  - policy: host-egress
+    rich_rule:
+      - 'rule family="ipv4" destination address="198.51.100.0/24" accept'
+    permanent: false
+    runtime: true
+    state: enabled
+```
+
+#### Policy activation
+
+A configured policy only affects traffic when it is active at runtime. Both
+its ingress and egress sets must be nonempty, and each side must contain an
+active regular zone or a symbolic zone (`HOST` or `ANY`). A regular zone becomes
+active when an interface or source is assigned to it; merely creating the zone
+or naming it in a policy does not activate it. Symbolic zones do not need an
+interface or source binding. The policy must also have its disable flag cleared.
+
+`state: present` creates configuration, and `state: enabled` adds settings;
+neither guarantees activation. Likewise, clearing the disable flag permits
+activation but does not supply missing zones or bindings. Permanent-only and offline changes
+take effect after they are loaded into runtime. An inactive policy has no effect
+on traffic. Gather facts and check membership in `firewall_config.active_policies` for
+runtime activation. A policy appearing in the configuration dictionaries alone
+does not establish that it is active.
+
+For example, these source bindings activate the regular zones used by the policy:
+
+```yaml
+firewall:
+  - zone: internal
+    source: 192.0.2.0/24
+    state: enabled
+  - zone: external
+    source: 198.51.100.0/24
+    state: enabled
+  - policy: internal-to-external
+    ingress_zone: internal
+    egress_zone: external
+    service: https
+    state: present
+```
+
+Choose source networks or interfaces appropriate for your system. Policies apply
+from ingress to egress; this example does not configure the reverse direction.
+See the [firewalld activation rules](https://firewalld.org/documentation/man-pages/firewalld.policies.html).
+
+To temporarily disable an existing policy in both scopes:
+
+```yaml
+firewall:
+  - policy: host-egress
+    is_disabled: true
+    state: enabled
+```
+
+Set `is_disabled: false` to remove the flag. Later entries that omit
+`is_disabled` leave the flag as it is.
 
 ### service
 
@@ -498,8 +627,13 @@ source_port: ['443/tcp','443/udp']
 
 ### forward_port
 
-Add or remove port forwarding for ports or port ranges for a zone. It takes two
-different formats:
+Add or remove port forwarding for ports or port ranges for a zone or policy.
+Older firewalld versions, including 0.9.11 shipped with CentOS 8, reject policy
+forwarding with `ingress_zone: HOST`. For compatibility, use a regular ingress
+zone, such as `internal`, and `egress_zone: ANY`, with a destination address
+(`toaddr`).
+
+It takes two different formats:
 
 * string or a list of strings in the format like `firewall-cmd --add-forward-port` e.g. `<port>[-<port>]/<protocol>;[<to-port>];[<to-addr>]`
 * dict or list of dicts in the format like `ansible.posix.firewalld`:
@@ -740,8 +874,9 @@ Enable or disable the entry.
 state: 'enabled' | 'disabled' | 'present' | 'absent'
 ```
 
-NOTE: `present` and `absent` are only used for `zone`, `target`, and `service` operations,
-and cannot be used for any other operation.
+NOTE: `present` and `absent` are used for `zone`, `target`, `service`, `ipset`,
+and `policy` operations. With a policy, these states can also add or remove
+primitive settings; see [policy](#policy).
 
 NOTE: `zone` - use `state: present` to add a zone, and `state: absent` to remove
 a zone, when zone is the only variable e.g.
@@ -941,6 +1076,31 @@ For example:
 ```
 
 ## Example Playbooks
+
+Create a policy allowing HTTP and HTTPS traffic originating from this host toward
+any regular zone. `CONTINUE` leaves other traffic to the remaining firewall rules;
+it does not restrict outbound traffic to these services.
+
+```yaml
+---
+- name: Configure a host outbound policy
+  hosts: myhost
+  become: true
+  vars:
+    firewall:
+      - policy: host-web
+        ingress_zone: HOST
+        egress_zone: ANY
+        service: [http, https]
+        target: CONTINUE
+        state: present
+  roles:
+    - linux-system-roles.firewall
+```
+
+Policies require firewalld 0.9.0 or later. For zone activation, additional
+primitives, and the disable flag, see the
+[comprehensive policy playbook](examples/configure-policies.yml).
 
 Erase all existing configuration, and enable ssh service:
 

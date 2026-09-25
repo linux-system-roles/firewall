@@ -40,6 +40,10 @@
       - timeout
       - target
       - zone
+      - policy
+      - is_disabled
+      - ingress_zone
+      - egress_zone
       - set_default_zone
       - ipset
       - ipset_type
@@ -68,6 +72,91 @@
   when:
     - firewall is not none
     - firewall | length > 0
+
+- name: Assert firewall policy values
+  ansible.builtin.assert:
+    that:
+      - item.policy is defined and item.policy is string and item.policy | length > 0
+      - item.policy is match('^[A-Za-z0-9_/-]+$')
+      - >-
+        item.is_disabled is not defined or item.is_disabled is sameas true
+        or item.is_disabled is sameas false
+      - >-
+        item.ingress_zone is not defined or item.ingress_zone is none
+        or (item.ingress_zone is string
+            and item.ingress_zone is match('^[A-Za-z0-9_/-]+$'))
+      - >-
+        item.egress_zone is not defined or item.egress_zone is none
+        or (item.egress_zone is string
+            and item.egress_zone is match('^[A-Za-z0-9_/-]+$'))
+      - item.target | default(none) in [none, 'CONTINUE', 'ACCEPT', 'DROP', 'REJECT']
+      - item.state | default(none) in ['present', 'absent', 'enabled', 'disabled']
+      - >-
+        item.rich_rule is not defined or item.rich_rule is string
+        or (item.rich_rule is sequence and item.rich_rule is not mapping
+            and item.rich_rule | reject('string') | list | length == 0)
+      - >-
+        item.permanent is not defined or item.permanent is none
+        or item.permanent is sameas true or item.permanent is sameas false
+      - >-
+        item.runtime is not defined or item.runtime is none
+        or item.runtime is sameas true or item.runtime is sameas false
+      - >-
+        item.permanent | default(none) is not sameas false
+        or (item.state != 'present' and item.target | default(none) is none
+            and (item.state != 'absent' or item.ingress_zone | default(none) is not none
+                 or item.egress_zone | default(none) is not none
+                 or item.rich_rule | default([]) | length > 0
+                 or item.service | default([]) | length > 0
+                 or item.port | default([]) | length > 0
+                 or item.source_port | default([]) | length > 0
+                 or item.protocol | default([]) | length > 0
+                 or item.icmp_block | default([]) | length > 0
+                 or item.forward_port | default([]) | length > 0
+                 or item.masquerade | default(none) is not none
+                 or item.is_disabled | default(none) is sameas true))
+      - >-
+        item.service is not defined or item.service is string
+        or (item.service is sequence and item.service is not mapping
+            and item.service | reject('string') | list | length == 0)
+      - >-
+        item.port is not defined or item.port is string
+        or (item.port is sequence and item.port is not mapping
+            and item.port | reject('string') | list | length == 0)
+      - >-
+        item.source_port is not defined or item.source_port is string
+        or (item.source_port is sequence and item.source_port is not mapping
+            and item.source_port | reject('string') | list | length == 0)
+      - >-
+        item.protocol is not defined or item.protocol is string
+        or (item.protocol is sequence and item.protocol is not mapping
+            and item.protocol | reject('string') | list | length == 0)
+      - >-
+        item.icmp_block is not defined or item.icmp_block is string
+        or (item.icmp_block is sequence and item.icmp_block is not mapping
+            and item.icmp_block | reject('string') | list | length == 0)
+      - >-
+        item.masquerade is not defined or item.masquerade is none
+        or item.masquerade is sameas true or item.masquerade is sameas false
+      - >-
+        item.forward_port is not defined or item.forward_port is string
+        or item.forward_port is mapping or item.forward_port is sequence
+      - item.keys() | list | difference(__firewall_policy_keys) | length == 0
+    fail_msg: >-
+      firewall[{{ idx }}] has invalid policy values. Policy and zone names must
+      be nonempty strings containing letters, digits, underscores, hyphens, or slashes.
+      Policy target must be CONTINUE, ACCEPT, DROP, or REJECT, and state must be
+      present, absent, enabled, or disabled. rich_rule must be a string or a list
+      of strings. is_disabled must be a boolean. permanent and runtime must be booleans or null; creation,
+      deletion, and target changes require permanent. Only policy settings
+      may be combined with policy.
+  loop: "{{ [firewall] if firewall is mapping else (firewall | default([], true)) }}"
+  loop_control:
+    index_var: idx
+    label: "{{ idx }}"
+  when: >-
+    'policy' in item or 'ingress_zone' in item or 'egress_zone' in item
+    or 'is_disabled' in item
 
 - name: Assert firewall_transactional_update_reboot_ok is null or a boolean
   ansible.builtin.assert:
