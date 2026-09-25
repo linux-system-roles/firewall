@@ -53,7 +53,7 @@ try:
         firewall.config.FIREWALLD_POLICIES
         from firewall.core.io.policy import policy_reader
 
-    HAS_POLICIES = True
+    HAS_POLICIES = HAS_FIREWALLD
 except AttributeError:
     HAS_POLICIES = False
 except ImportError:
@@ -102,9 +102,26 @@ def export_config_dict(io_object):
                     str(Rich_Rule(rule_str=rule)) for rule in object_dict["rules_str"]
                 ]
                 del object_dict["rules_str"]
-        return object_dict
+        return (
+            normalize_policy_settings(object_dict)
+            if HAS_POLICIES and isinstance(io_object, firewall.core.io.policy.Policy)
+            else object_dict
+        )
     else:
         return {}
+
+
+def normalize_policy_settings(settings):
+    """Use the same policy keys for XML, permanent API, and runtime API data."""
+    settings = copy.deepcopy(settings)
+    for key in ("rules_str", "rich_rules"):
+        if key in settings:
+            settings["rich_rule"] = [
+                str(Rich_Rule(rule_str=rule)) for rule in settings.pop(key)
+            ]
+    if "forward_ports" in settings:
+        settings["forward_ports"] = normalize_forward_ports(settings["forward_ports"])
+    return settings
 
 
 def normalize_settings(settings):
@@ -185,7 +202,7 @@ def fetch_settings_using_offline_cmd(module, setting_name):
                     str(Rich_Rule(rule_str=rule))
                     for rule in offline_cmd(
                         module, ["--zone=" + item, "--list-rich-rules"], defaults=True
-                    ).split("\n")
+                    ).splitlines()
                 ]
                 element_settings["rich_rule"] = rich_rules
 
@@ -393,7 +410,7 @@ def fetch_settings_using_offline_cmd(module, setting_name):
                     str(Rich_Rule(rule_str=rule))
                     for rule in offline_cmd(
                         module, ["--policy=" + item, "--list-rich-rules"], defaults=True
-                    ).split("\n")
+                    ).splitlines()
                 ]
                 element_settings["rich_rule"] = rich_rules
 
@@ -485,6 +502,9 @@ def config_to_dict(module, detailed=None, online=None):
     config["firewalld_conf"] = {"allow_zone_drifting": fc.get("AllowZoneDrifting")}
     if online:
         fw = FirewallClient()
+        if HAS_POLICIES:
+            # Activation is runtime status, not a permanent setting or diff.
+            config["active_policies"] = sorted(fw.getActivePolicies())
 
         current_settings = fetch_online_settings(fw, setting_list, detailed)
         # NOTE: In some cases, the current settings may not include the default settings read from the XML files,
@@ -965,7 +985,9 @@ def fetch_online_settings(fw, setting_list, detailed=False):
                     element_settings["type"] = element.getType()
                 elif setting_name == "policies":
                     element = fw.getPolicySettings(_item)
-                    element_settings = element.getSettingsDict()
+                    element_settings = normalize_policy_settings(
+                        element.getSettingsDict()
+                    )
                 settings[_item] = normalize_settings(element_settings)
             all_settings[setting_name] = settings
 
@@ -1141,6 +1163,6 @@ def fetch_settings_from_dir(directory, detailed=False, fw=None):
                 element_settings["type"] = element.getType()
             elif setting_name == "policies":
                 element = fw.config().getPolicyByName(_item).getSettings()
-                element_settings = element.getSettingsDict()
+                element_settings = normalize_policy_settings(element.getSettingsDict())
             settings[_item] = normalize_settings(element_settings)
         return settings

@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2024, Rich Megginson <rmeggins@redhat.com>
-# SPDX-License-Identifier: GPL-2.0-or-later
 #
 """Unit tests for get_config module"""
 
@@ -467,3 +467,123 @@ class TestMergeWithDefaults(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPolicyNormalization(unittest.TestCase):
+    """Policy API and XML representations must produce matching facts/diffs."""
+
+    def test_policy_xml_and_api_settings(self):
+        from get_config import (
+            HAS_POLICIES,
+            export_config_dict,
+            normalize_policy_settings,
+            normalize_settings,
+            fetch_online_settings,
+        )
+
+        if not HAS_POLICIES:
+            self.skipTest("firewalld policies unavailable")
+        from firewall.core.io.policy import Policy
+        from firewall.client import FirewallClientPolicySettings
+
+        try:
+            from unittest.mock import Mock
+        except ImportError:
+            from mock import Mock
+        rule = 'rule family="ipv4" source address="192.0.2.0/24" accept'
+        policy = Policy()
+        policy.rich_rules = [rule]
+        policy.ingress_zones = ["HOST"]
+        policy.egress_zones = ["ANY"]
+        xml = normalize_settings(export_config_dict(policy))
+        api = FirewallClientPolicySettings(
+            {
+                "rich_rules": [rule],
+                "ingress_zones": ["HOST"],
+                "egress_zones": ["ANY"],
+            }
+        )
+        fw = Mock()
+        fw.getPolicies.return_value = ["test-policy"]
+        fw.getPolicySettings.return_value = api
+        runtime = fetch_online_settings(fw, ["policies"], detailed=True)
+        self.assertEqual(xml, runtime["policies"]["test-policy"])
+        self.assertEqual(xml["rich_rule"], [rule])
+        self.assertNotIn("rules_str", xml)
+        self.assertNotIn("rich_rules", xml)
+        self.assertEqual(
+            normalize_policy_settings({"rules_str": []}), {"rich_rule": []}
+        )
+
+    def test_policy_rule_keys_are_canonical(self):
+        import get_config
+
+        try:
+            from unittest.mock import patch
+        except ImportError:
+            from mock import patch
+        for key in ("rules_str", "rich_rules"):
+            settings = {
+                key: ["rule text"],
+                "target": "CONTINUE",
+                "ingress_zones": ["HOST"],
+            }
+            with patch.object(
+                get_config,
+                "Rich_Rule",
+                create=True,
+                side_effect=lambda rule_str: rule_str,
+            ):
+                actual = get_config.normalize_policy_settings(settings)
+            self.assertEqual(actual["rich_rule"], ["rule text"])
+            self.assertEqual(actual["target"], "CONTINUE")
+            self.assertEqual(actual["ingress_zones"], ["HOST"])
+            self.assertNotIn(key, actual)
+            self.assertIn(key, settings)
+
+
+class TestActivePolicies(unittest.TestCase):
+    """Activation facts come from the daemon and stay outside configuration diffs."""
+
+    def test_active_policy_facts(self):
+        try:
+            from unittest.mock import MagicMock, patch
+        except ImportError:
+            from mock import MagicMock, patch
+        import get_config
+
+        for detailed in (False, True):
+            for online in (False, True):
+                for supported in (False, True):
+                    for active in ({}, {"z-policy": {}, "a-policy": {}}):
+                        with patch.multiple(
+                            get_config,
+                            create=True,
+                            HAS_POLICIES=supported,
+                            FALLBACK_ZONE="public",
+                            firewall=MagicMock(),
+                            firewalld_conf=MagicMock(),
+                            FirewallClient=MagicMock(),
+                            fetch_settings_from_xml_files=MagicMock(return_value={}),
+                            fetch_online_settings=MagicMock(return_value={}),
+                            offline_cmd=MagicMock(return_value="public"),
+                        ):
+                            fw = get_config.FirewallClient.return_value
+                            fw.getActivePolicies.return_value = active
+                            fw.getDefaultZone.return_value = "public"
+                            facts = get_config.config_to_dict(
+                                MagicMock(), detailed=detailed, online=online
+                            )
+                            if online and supported:
+                                self.assertEqual(
+                                    facts["active_policies"], sorted(active)
+                                )
+                                fw.getActivePolicies.assert_called_once_with()
+                            else:
+                                self.assertNotIn("active_policies", facts)
+                                fw.getActivePolicies.assert_not_called()
+                            self.assertNotIn("runtime_only", facts)
+                            self.assertNotIn(
+                                "active_policies",
+                                facts.get("custom_runtime_with_defaults", {}),
+                            )

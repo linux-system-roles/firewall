@@ -6,6 +6,7 @@
 # Authors:
 # Thomas Woerner <twoerner@redhat.com>
 # Martin Pitt <mpitt@redhat.com>
+# Policy support based on work by Roy Lenferink <lenferinkroy@gmail.com>.
 # Support for the InMemoryBackend, processing multiple configurations in a
 # single module call, reading config from xml, and doing config diffs, was added
 # by Claude 4.6 opus using Cursor, and reviewed and tweaked by Richard Megginson
@@ -57,7 +58,7 @@ options:
     type: dict
   service:
     description:
-      List of service name strings.
+      List of service name strings to add to a zone or policy.
       The service names needs to be defined in firewalld configuration.
       services in firewalld configuration can be defined by setting
       this option to a single service name and state to present.
@@ -154,10 +155,33 @@ options:
     default: 0
   target:
     description:
-      The firewalld Zone target.
-      If the state is set to C(absent), this will reset the target to default.
+      The firewalld zone or policy target. Policies use CONTINUE, ACCEPT, DROP, or REJECT.
+      If the state is set to C(absent), this resets a zone target to default or a policy target to CONTINUE.
+      Policy targets require permanent configuration.
     required: false
-    choices: ["default", "ACCEPT", "DROP", "%%REJECT%%"]
+    choices: ["default", "ACCEPT", "DROP", "%%REJECT%%", "CONTINUE", "REJECT"]
+    type: str
+  policy:
+    description:
+      - Policy name. Requires firewalld 0.9.0 or later.
+      - Use present to create, and absent without policy settings to delete.
+      - Creation and deletion require permanent; runtime also reloads firewalld.
+    type: str
+  is_disabled:
+    description:
+      - Whether the policy disable flag is set, independently of state.
+      - Omitted leaves an existing flag unchanged.
+      - C(false) removes the flag. C(true) sets it and requires firewalld support for the flag.
+      - C(state=absent) with C(is_disabled=true) sets the flag and does not delete the policy.
+      - Applies to the requested permanent and runtime scopes. Requires policy.
+    type: bool
+  ingress_zone:
+    description:
+      - Ingress zone to add or remove from the policy, including HOST or ANY.
+    type: str
+  egress_zone:
+    description:
+      - Egress zone to add or remove from the policy, including HOST or ANY.
     type: str
   zone:
     description:
@@ -221,7 +245,8 @@ options:
   state:
     description:
       Ensure presence or absence of entries.  Use C(present) and C(absent) only
-      for zone-only operations, service-only operations, or target operations.
+      for zone, service, target, or policy operations. With a policy, these states
+      also add or remove primitive settings.
     required: false
     type: str
     choices: ["enabled", "disabled", "present", "absent"]
@@ -242,7 +267,7 @@ options:
   protocol:
     description:
       list of protocols supported by managed system.
-      Supported for service configuration only
+      Supported for service configuration or policy rules
     required: false
     type: list
     elements: str
@@ -318,7 +343,7 @@ options:
         type: dict
       service:
         description:
-          List of service name strings.
+          List of service name strings to add to a zone or policy.
           The service names needs to be defined in firewalld configuration.
           services in firewalld configuration can be defined by setting
           this option to a single service name and state to present.
@@ -415,10 +440,33 @@ options:
         default: 0
       target:
         description:
-          The firewalld Zone target.
-          If the state is set to C(absent), this will reset the target to default.
+          The firewalld zone or policy target. Policies use CONTINUE, ACCEPT, DROP, or REJECT.
+          If the state is set to C(absent), this resets a zone target to default or a policy target to CONTINUE.
+          Policy targets require permanent configuration.
         required: false
-        choices: ["default", "ACCEPT", "DROP", "%%REJECT%%"]
+        choices: ["default", "ACCEPT", "DROP", "%%REJECT%%", "CONTINUE", "REJECT"]
+        type: str
+      policy:
+        description:
+          - Policy name. Requires firewalld 0.9.0 or later.
+          - Use present to create, and absent without policy settings to delete.
+          - Creation and deletion require permanent; runtime also reloads firewalld.
+        type: str
+      is_disabled:
+        description:
+          - Whether the policy disable flag is set, independently of state.
+          - Omitted leaves an existing flag unchanged.
+          - C(false) removes the flag. C(true) sets it and requires firewalld support for the flag.
+          - C(state=absent) with C(is_disabled=true) sets the flag and does not delete the policy.
+          - Applies to the requested permanent and runtime scopes. Requires policy.
+        type: bool
+      ingress_zone:
+        description:
+          - Ingress zone to add or remove from the policy, including HOST or ANY.
+        type: str
+      egress_zone:
+        description:
+          - Egress zone to add or remove from the policy, including HOST or ANY.
         type: str
       zone:
         description:
@@ -482,7 +530,8 @@ options:
       state:
         description:
           Ensure presence or absence of entries.  Use C(present) and C(absent) only
-          for zone-only operations, service-only operations, or target operations.
+          for zone, service, target, or policy operations. With a policy, these states
+          also add or remove primitive settings.
         required: false
         type: str
         choices: ["enabled", "disabled", "present", "absent"]
@@ -503,7 +552,7 @@ options:
       protocol:
         description:
           List of protocols supported by managed system.
-          Supported for service configuration only
+          Supported for service configuration or policy rules
         required: false
         type: list
         elements: str
@@ -627,10 +676,11 @@ except ImportError:
 
 try:
     if HAS_FIREWALLD:
-        firewall.config.FIREWALLD_POLICIES
+        from firewall.client import FirewallClientPolicySettings
+        from firewall.core.io.policy import Policy
 
-    HAS_POLICIES = True
-except AttributeError:
+    HAS_POLICIES = HAS_FIREWALLD
+except (AttributeError, ImportError):
     HAS_POLICIES = False
 
 try:
@@ -772,13 +822,97 @@ def check_and_normalize_ipset(module, ipset, ipset_entries, ipset_options):
 
 
 # Above: adapted from firewall-cmd source code
+def policy_settings(settings, params, rich_key="rich_rule"):
+    """Return policy settings with the requested additions or removals applied."""
+    result = copy.deepcopy(settings)
+    # Older firewalld versions have no disable setting. Do not introduce an
+    # unsupported key when the flag is omitted or explicitly false.
+    # None leaves an existing flag unchanged.
+    is_disabled = params.get("is_disabled")
+    if is_disabled is not None and ("disable" in result or is_disabled):
+        result["disable"] = is_disabled
+    enable = params["state"] in ("present", "enabled")
+    for option, key in (
+        ("ingress_zone", "ingress_zones"),
+        ("egress_zone", "egress_zones"),
+        ("rich_rule", rich_key),
+        ("service", "services"),
+        ("port", "ports"),
+        ("source_port", "source_ports"),
+        ("protocol", "protocols"),
+        ("icmp_block", "icmp_blocks"),
+        ("forward_port", "forward_ports"),
+    ):
+        values = params.get(option)
+        if not values:
+            continue
+        if option in ("ingress_zone", "egress_zone"):
+            values = [values]
+        if option == "forward_port" and rich_key == "rich_rules":
+            # The D-Bus API uses empty strings; facts/check mode use None.
+            values = [tuple(value or "" for value in entry) for entry in values]
+        current = list(result.get(key, []))
+        for value in values:
+            if enable and value not in current:
+                current.append(value)
+            elif not enable and value in current:
+                current.remove(value)
+        if current or key in result:
+            result[key] = current
+    if params.get("masquerade") is not None:
+        result["masquerade"] = params["masquerade"] if enable else False
+    for key in ("ingress_zones", "egress_zones"):
+        zones = result.get(key, [])
+        if len(zones) > 1 and set(zones).intersection(("HOST", "ANY")):
+            raise ValueError("Policy %s cannot mix HOST or ANY with other zones" % key)
+    ingress = result.get("ingress_zones", [])
+    egress = result.get("egress_zones", [])
+    if "HOST" in ingress and "HOST" in egress:
+        raise ValueError("Policy HOST cannot be both an ingress and egress zone")
+    if result.get("masquerade") and "HOST" in ingress + egress:
+        raise ValueError("Policy masquerade cannot be used with HOST")
+    if egress and "HOST" not in egress:
+        for entry in result.get("forward_ports", []):
+            if not entry[3]:
+                raise ValueError(
+                    "Policy forward_port requires toaddr unless egress is HOST"
+                )
+    if params.get("target") is not None:
+        result["target"] = params["target"] if enable else "CONTINUE"
+    return result
+
+
+def policy_object_operation(params):
+    """A bare policy with present/absent creates or deletes the object."""
+    return (
+        params["state"] in ("present", "absent")
+        and params.get("masquerade") is None
+        and params.get("is_disabled") is not True
+        and not any(
+            params.get(key)
+            for key in (
+                "ingress_zone",
+                "egress_zone",
+                "rich_rule",
+                "target",
+                "service",
+                "port",
+                "source_port",
+                "protocol",
+                "icmp_block",
+                "forward_port",
+            )
+        )
+    )
+
+
 class OnlineAPIBackend:
     """Implement operations with the FirewallClient() API.
 
     This requires firewalld to be running.
     """
 
-    def __init__(self, module, permanent, runtime, zone, state, timeout):
+    def __init__(self, module, permanent, runtime, zone, state, timeout, policy=None):
         self.module = module
         self.state = state
         self.permanent = permanent
@@ -797,6 +931,11 @@ class OnlineAPIBackend:
 
         self.changed = False
         self.need_reload = False
+
+        if policy is not None:
+            self.fw_zone = None
+            self.fw_settings = None
+            return
 
         # Get default zone, the permanent zone and settings
         zone_exists = False
@@ -817,6 +956,70 @@ class OnlineAPIBackend:
             zone_exists = False
 
         self.zone_exists = zone_exists
+
+    def set_policy(self, policy, params):
+        """Configure policy objects and settings independently in each scope."""
+        permanent_exists = policy in self.fw.config().getPolicyNames()
+        runtime_exists = policy in self.fw.getPolicies() if self.runtime else False
+        delete = policy_object_operation(params) and self.state == "absent"
+        create = self.state == "present" and not permanent_exists
+        if delete:
+            if permanent_exists:
+                self.changed = True
+                if not self.module.check_mode:
+                    self.fw.config().getPolicyByName(policy).remove()
+            if self.runtime and (permanent_exists or runtime_exists):
+                self.changed = True
+                if not self.module.check_mode:
+                    self.fw.reload()
+            return
+        if not create and (
+            (self.permanent and not permanent_exists)
+            or (self.runtime and not runtime_exists and self.state != "present")
+        ):
+            self.module.fail_json(
+                msg="Policy '%s' does not exist in the requested scope" % policy
+            )
+        reload_runtime = self.runtime and (
+            create or (self.state == "present" and not runtime_exists)
+        )
+        # Validate every requested scope before writing either one. Runtime
+        # memberships can differ from permanent memberships.
+        permanent_changed = False
+        runtime_changed = False
+        if self.permanent:
+            obj = None if create else self.fw.config().getPolicyByName(policy)
+            settings = FirewallClientPolicySettings() if create else obj.getSettings()
+            original = settings.getSettingsDict()
+            permanent_settings = policy_settings(original, params, "rich_rules")
+            permanent_changed = create or permanent_settings != original
+            reload_runtime = reload_runtime or (
+                self.runtime
+                and permanent_settings.get("target") != original.get("target")
+            )
+        if self.runtime and not reload_runtime:
+            original = self.fw.getPolicySettings(policy).getSettingsDict()
+            runtime_settings = policy_settings(original, params, "rich_rules")
+            runtime_changed = runtime_settings != original
+            reload_runtime = runtime_settings.get("target") != original.get("target")
+        if permanent_changed:
+            self.changed = True
+            if not self.module.check_mode:
+                settings = FirewallClientPolicySettings(permanent_settings)
+                if create:
+                    self.fw.config().addPolicy(policy, settings)
+                else:
+                    obj.update(settings)
+        if reload_runtime:
+            self.changed = True
+            if not self.module.check_mode:
+                self.fw.reload()
+        elif runtime_changed:
+            self.changed = True
+            if not self.module.check_mode:
+                self.fw.setPolicySettings(
+                    policy, FirewallClientPolicySettings(runtime_settings)
+                )
 
     def check_zone_exists(self):
         return self.zone_exists
@@ -1493,6 +1696,78 @@ class InMemoryBackend:
                 )
         self.original_default_zone = self.default_zone
 
+    def set_policy(self, policy, params):
+        """Simulate policy changes, including reload effects, for diff/check mode."""
+        permanent = self.working_config_permanent.setdefault("policies", {})
+        runtime = (
+            self.working_config_runtime.setdefault("policies", {})
+            if self.online
+            else {}
+        )
+        delete = policy_object_operation(params) and self.state == "absent"
+        create = self.state == "present" and policy not in permanent
+        if delete:
+            reload_runtime = self.runtime and (policy in permanent or policy in runtime)
+            if policy in permanent:
+                del permanent[policy]
+                self.changed = True
+            if reload_runtime:
+                self.changed = True
+                self._reload_runtime_from_permanent()
+            return
+        if not create and (
+            (self.permanent and policy not in permanent)
+            or (self.runtime and policy not in runtime and self.state != "present")
+        ):
+            self.module.fail_json(
+                msg="Policy '%s' does not exist in the requested scope" % policy
+            )
+        reload_runtime = self.runtime and (
+            create or (self.state == "present" and policy not in runtime)
+        )
+        permanent_changed = False
+        runtime_changed = False
+        if self.permanent:
+            original = export_config_dict(Policy()) if create else permanent[policy]
+            permanent_settings = policy_settings(original, params)
+            permanent_changed = create or permanent_settings != original
+            reload_runtime = reload_runtime or (
+                self.runtime
+                and permanent_settings.get("target") != original.get("target")
+            )
+        if self.runtime and not reload_runtime:
+            original = runtime[policy]
+            runtime_settings = policy_settings(original, params)
+            runtime_changed = runtime_settings != original
+            reload_runtime = runtime_settings.get("target") != original.get("target")
+        # Commit only after both scopes have passed validation.
+        if permanent_changed:
+            permanent[policy] = permanent_settings
+            self.changed = True
+        if reload_runtime:
+            self.changed = True
+            self._reload_runtime_from_permanent()
+        elif runtime_changed:
+            runtime[policy] = runtime_settings
+            self.changed = True
+
+    def _reload_runtime_from_permanent(self):
+        """Model reload, retaining interfaces but discarding runtime-only sources.
+
+        Sources are loaded from permanent configuration on reload; unlike
+        interfaces, runtime source assignments are not restored by firewalld.
+        """
+        previous = self.working_config_runtime
+        self.working_config_runtime = copy.deepcopy(self.working_config_permanent)
+        new_zones = self.working_config_runtime.setdefault("zones", {})
+        default_zone = new_zones.setdefault(self.default_zone, {})
+        for zone_name, zone_config in previous.get("zones", {}).items():
+            dest = new_zones.get(zone_name, default_zone)
+            for value in zone_config.get("interfaces", []):
+                values = dest.setdefault("interfaces", [])
+                if value not in values:
+                    values.append(value)
+
     def check_zone_exists(self):
         self.zone_exists = False
         # Check in permanent config first
@@ -2059,7 +2334,7 @@ class OfflineCLIBackend:
     This works during container builds and similar environments.
     """
 
-    def __init__(self, module, permanent, runtime, zone, state, timeout):
+    def __init__(self, module, permanent, runtime, zone, state, timeout, policy=None):
         self.module = module
         self.state = state
         self.timeout = timeout
@@ -2072,6 +2347,9 @@ class OfflineCLIBackend:
                 msg="runtime mode is not supported in offline environments"
             )
 
+        if policy is not None:
+            return
+
         # Get zone to operate on
         if zone is None:
             self.zone = self.cmd("--get-default-zone")
@@ -2080,6 +2358,111 @@ class OfflineCLIBackend:
             self.zone = zone
             zones = self.cmd("--get-zones").split()
             self.zone_exists = zone in zones
+
+    def set_policy(self, policy, params):
+        """Configure permanent policies with firewall-offline-cmd."""
+        exists = policy in self.cmd("--get-policies").split()
+        delete = policy_object_operation(params) and self.state == "absent"
+        create = self.state == "present" and not exists
+        if delete:
+            if exists:
+                self.change("--delete-policy=" + policy)
+            return
+        if not create and not exists:
+            self.module.fail_json(
+                msg="Policy '%s' does not exist in the requested scope" % policy
+            )
+        # Validate the resulting settings, including existing memberships,
+        # masquerade, and forward ports, before any CLI mutation.
+        original = self._policy_constraint_settings(policy, create)
+        desired = policy_settings(original, params)
+        if create:
+            self.change("--new-policy=" + policy)
+        wanted = params.get("is_disabled")
+        if wanted is not None and hasattr(FirewallClientPolicySettings, "getDisable"):
+            current = (
+                False if create else self.query("--policy=" + policy, "--query-disable")
+            )
+            if current != wanted:
+                self.change(
+                    "--policy=" + policy,
+                    "--%s-disable" % ("add" if wanted else "remove"),
+                )
+        # Remove masquerading before adding HOST to either zone set. Each CLI
+        # invocation validates the intermediate configuration independently.
+        if original["masquerade"] and not desired["masquerade"]:
+            self.change("--policy=" + policy, "--remove-masquerade")
+        enable = self.state in ("enabled", "present")
+        for option, flag in (
+            ("ingress_zone", "ingress-zone"),
+            ("egress_zone", "egress-zone"),
+            ("rich_rule", "rich-rule"),
+            ("service", "service"),
+            ("port", "port"),
+            ("source_port", "source-port"),
+            ("protocol", "protocol"),
+            ("icmp_block", "icmp-block"),
+            ("forward_port", "forward-port"),
+        ):
+            values = params.get(option)
+            if not values:
+                continue
+            if option in ("ingress_zone", "egress_zone"):
+                values = [values]
+            elif option in ("port", "source_port"):
+                values = ["%s/%s" % entry for entry in values]
+            elif option == "forward_port":
+                values = [
+                    format_forward_port_arg(entry[0], entry[1], entry[2], entry[3])
+                    for entry in values
+                ]
+            for value in values:
+                found = (
+                    False
+                    if create
+                    else self.query(
+                        "--policy=" + policy, "--query-%s=%s" % (flag, value)
+                    )
+                )
+                if found != enable:
+                    self.change(
+                        "--policy=" + policy,
+                        "--%s-%s=%s" % ("add" if enable else "remove", flag, value),
+                    )
+        if desired["masquerade"] and not original["masquerade"]:
+            self.change("--policy=" + policy, "--add-masquerade")
+        if params.get("target") is not None:
+            target = params["target"] if enable else "CONTINUE"
+            current = (
+                "CONTINUE" if create else self.cmd("--policy=" + policy, "--get-target")
+            )
+            if current != target:
+                self.change("--policy=" + policy, "--set-target=" + target)
+
+    def _policy_constraint_settings(self, policy, create):
+        """Read the settings policy_settings() validates, before any mutation."""
+        current = {
+            "ingress_zones": [],
+            "egress_zones": [],
+            "forward_ports": [],
+            "masquerade": False,
+        }
+        if create:
+            return current
+        current["ingress_zones"] = self.cmd(
+            "--policy=" + policy, "--list-ingress-zones"
+        ).split()
+        current["egress_zones"] = self.cmd(
+            "--policy=" + policy, "--list-egress-zones"
+        ).split()
+        current["masquerade"] = self.query("--policy=" + policy, "--query-masquerade")
+        listed = self.cmd("--policy=" + policy, "--list-forward-ports")
+        current["forward_ports"] = []
+        for line in listed.splitlines():
+            parsed = parse_listed_forward_port(line)
+            if parsed[0] and parsed[1]:
+                current["forward_ports"].append(parsed)
+        return current
 
     def check_zone_exists(self):
         return self.zone_exists
@@ -2454,11 +2837,7 @@ class OfflineCLIBackend:
     def set_forward_port(self, forward_port):
         enable = self.check_state(["enabled", "disabled"], "forward_port")
         for _port, _protocol, _to_port, _to_addr in forward_port:
-            spec = "port=%s:proto=%s" % (_port, _protocol)
-            if _to_port is not None:
-                spec += ":toport=%s" % _to_port
-            if _to_addr is not None:
-                spec += ":toaddr=%s" % _to_addr
+            spec = format_forward_port_arg(_port, _protocol, _to_port, _to_addr)
 
             cur = self.query("--zone", self.zone, "--query-forward-port=" + spec)
 
@@ -2754,6 +3133,40 @@ def get_forward_port(module):
         return [forward_port]
 
 
+def parse_listed_forward_port(value):
+    """Parse one firewall-offline-cmd --list-forward-ports line."""
+    port = protocol = to_port = to_addr = None
+    index = 0
+    while "=" in value[index:]:
+        opt = value[index:].split("=", 1)[0]
+        index += len(opt) + 1
+        if "=" in value[index:]:
+            field = value[index:].split(":", 1)[0]
+        else:
+            field = value[index:]
+        index += len(field) + 1
+        parsed = field or None
+        if opt == "port":
+            port = parsed
+        elif opt == "proto":
+            protocol = parsed
+        elif opt == "toport":
+            to_port = parsed
+        elif opt == "toaddr":
+            to_addr = parsed
+    return (port, protocol, to_port, to_addr)
+
+
+def format_forward_port_arg(port, protocol, to_port, to_addr):
+    """Format a forward port the way firewall-offline-cmd parses it."""
+    spec = "port=%s:proto=%s" % (port, protocol)
+    if to_port is not None:
+        spec += ":toport=%s" % to_port
+    if to_addr is not None:
+        spec += ":toaddr=%s" % to_addr
+    return spec
+
+
 def parse_forward_port(module, item):
     type_string = "forward_port"
 
@@ -2853,9 +3266,13 @@ def get_base_argument_spec():
         target=dict(
             required=False,
             type="str",
-            choices=["default", "ACCEPT", "DROP", "%%REJECT%%"],
+            choices=["default", "ACCEPT", "DROP", "%%REJECT%%", "CONTINUE", "REJECT"],
             default=None,
         ),
+        policy=dict(required=False, type="str", default=None),
+        is_disabled=dict(required=False, type="bool", default=None),
+        ingress_zone=dict(required=False, type="str", default=None),
+        egress_zone=dict(required=False, type="str", default=None),
         zone=dict(required=False, type="str", default=None),
         set_default_zone=dict(required=False, type="str", default=None),
         ipset=dict(required=False, type="str", default=None),
@@ -2902,6 +3319,100 @@ def get_full_argument_spec():
     return full_spec
 
 
+def process_policy_config(module, params, backend, online, called_from_role):
+    """Validate policy-only options before making any changes."""
+    if not HAS_POLICIES:
+        module.fail_json(msg="Policy support requires firewalld 0.9.0 or later")
+    allowed = (
+        "policy",
+        "is_disabled",
+        "ingress_zone",
+        "egress_zone",
+        "rich_rule",
+        "target",
+        "state",
+        "permanent",
+        "runtime",
+        "previous",
+        "service",
+        "port",
+        "source_port",
+        "protocol",
+        "icmp_block",
+        "forward_port",
+        "masquerade",
+    )
+    for key, spec in get_base_argument_spec().items():
+        if key not in allowed and params.get(key, spec.get("default")) != spec.get(
+            "default"
+        ):
+            module.fail_json(msg="Option '%s' cannot be used with policy" % key)
+    params = copy.deepcopy(params)
+    state = params.get("state")
+    if state not in ("present", "absent", "enabled", "disabled"):
+        module.fail_json(msg="Policy operations require state")
+    if params.get("is_disabled") is not None and not isinstance(
+        params.get("is_disabled"), bool
+    ):
+        module.fail_json(msg="is_disabled must be a boolean")
+    if params.get("is_disabled") and not hasattr(
+        FirewallClientPolicySettings, "getDisable"
+    ):
+        module.fail_json(
+            msg="This firewalld version does not support the policy disable flag"
+        )
+    permanent = params.get("permanent")
+    runtime = params.get("runtime")
+    if called_from_role:
+        permanent = True if permanent is None else permanent
+        runtime = online if runtime is None else runtime
+    elif permanent is None:
+        runtime = True
+    if not (permanent or runtime):
+        module.fail_json(msg="One of permanent, runtime needs to be enabled")
+    if not online and (runtime or not permanent):
+        module.fail_json(msg="runtime mode is not supported in offline environments")
+    if (
+        state == "present"
+        or policy_object_operation(params)
+        or params.get("target") is not None
+    ) and not permanent:
+        module.fail_json(
+            msg="Policy creation, deletion, and target changes require permanent: true"
+        )
+    if params.get("target") not in (None, "CONTINUE", "ACCEPT", "DROP", "REJECT"):
+        module.fail_json(msg="Policy target must be CONTINUE, ACCEPT, DROP, or REJECT")
+    rules = []
+    for item in params.get("rich_rule", []):
+        try:
+            rules.append(str(Rich_Rule(rule_str=item)))
+        except Exception as exc:
+            module.fail_json(msg="Rich Rule '%s' is not valid: %s" % (item, str(exc)))
+    params["rich_rule"] = rules
+    for key in ("port", "source_port"):
+        params[key] = [parse_port(module, item) for item in params.get(key, [])]
+    forward_ports = params.get("forward_port", [])
+    if not isinstance(forward_ports, list):
+        forward_ports = [forward_ports] if forward_ports else []
+    params["forward_port"] = [
+        parse_forward_port(module, item) for item in forward_ports
+    ]
+    if backend is None:
+        backend_class = OnlineAPIBackend if online else OfflineCLIBackend
+        backend = backend_class(
+            module, permanent, runtime, None, state, 0, policy=params["policy"]
+        )
+    else:
+        backend.permanent = permanent
+        backend.runtime = runtime
+        backend.state = state
+    try:
+        backend.set_policy(params["policy"], params)
+    except ValueError as exc:
+        module.fail_json(msg=str(exc))
+    return backend.changed
+
+
 def process_single_config(
     module,
     warnings,
@@ -2929,6 +3440,25 @@ def process_single_config(
         base_spec = get_base_argument_spec()
         for key, spec in base_spec.items():
             params[key] = config_params.get(key, spec.get("default"))
+
+    if params.get("policy") is not None:
+        return process_policy_config(
+            module,
+            params,
+            backend,
+            params.get("online", True) if online_param is None else online_param,
+            (
+                params.get("__called_from_role", False)
+                if __called_from_role_param is None
+                else __called_from_role_param
+            ),
+        )
+    if params.get("is_disabled", False):
+        module.fail_json(msg="is_disabled requires policy")
+    if params.get("ingress_zone") is not None or params.get("egress_zone") is not None:
+        module.fail_json(msg="ingress_zone and egress_zone require policy")
+    if params.get("target") in ("CONTINUE", "REJECT"):
+        module.fail_json(msg="Targets CONTINUE and REJECT require policy")
 
     # Argument parse
     firewalld_conf = params["firewalld_conf"]
@@ -3563,8 +4093,8 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=(
-            ("state", "present", ("zone", "target", "service"), True),
-            ("state", "absent", ("zone", "target", "service"), True),
+            ("state", "present", ("zone", "target", "service", "policy"), True),
+            ("state", "absent", ("zone", "target", "service", "policy"), True),
         ),
     )
 
