@@ -1756,13 +1756,15 @@ class InMemoryBackend:
             self.changed = True
 
     def _reload_runtime_from_permanent(self):
-        """Model reload, retaining interfaces but discarding runtime-only sources.
+        """Model reload using FlushAllOnReload for runtime interface retention.
 
-        Sources are loaded from permanent configuration on reload; unlike
-        interfaces, runtime source assignments are not restored by firewalld.
+        Sources are always loaded from permanent configuration on reload.
+        Runtime interfaces are retained only when FlushAllOnReload is false.
         """
         previous = self.working_config_runtime
         self.working_config_runtime = copy.deepcopy(self.working_config_permanent)
+        if self.firewalld_conf.get("flush_all_on_reload", False):
+            return
         new_zones = self.working_config_runtime.setdefault("zones", {})
         default_zone = new_zones.setdefault(self.default_zone, {})
         for zone_name, zone_config in previous.get("zones", {}).items():
