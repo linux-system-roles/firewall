@@ -19,6 +19,7 @@ except ImportError:
     from mock import call, MagicMock, Mock, patch
 
 import firewall_lib
+from ansible.module_utils.common.validation import check_type_list
 
 # offline API does not support everything, marker for these
 NOT_SUPPORTED = "not-supported"
@@ -1807,6 +1808,9 @@ class TestPolicies:
             rich_rule=[],
         )
         params.update(kwargs)
+        for key in ("ingress_zone", "egress_zone"):
+            if params.get(key) is not None:
+                params[key] = check_type_list(params[key])
         return params
 
     def run_config(self, module, params, backend=None, online=True):
@@ -1828,6 +1832,50 @@ class TestPolicies:
         }
         with patch.object(firewall_lib, "config_to_dict", return_value=config):
             return firewall_lib.InMemoryBackend(module, online)
+
+    @pytest.mark.parametrize("nested", [False, True])
+    @pytest.mark.parametrize(
+        "ingress, expected_ingress",
+        [("public", ["public"]), (["public", "internal"], ["public", "internal"])],
+    )
+    @pytest.mark.parametrize(
+        "egress, expected_egress",
+        [("external", ["external"]), (["external", "dmz"], ["external", "dmz"])],
+    )
+    def test_zone_argument_conversion(
+        self, nested, ingress, expected_ingress, egress, expected_egress
+    ):
+        options = firewall_lib.get_base_argument_spec()
+        params = {"ingress_zone": ingress, "egress_zone": egress}
+        if nested:
+            options = {
+                "config_list": dict(type="list", elements="dict", options=options)
+            }
+            params = {"config_list": [params]}
+        with patch("ansible.module_utils.basic._load_params", return_value=params):
+            module = firewall_lib.AnsibleModule(argument_spec=options)
+        result = module.params["config_list"][0] if nested else module.params
+        assert result["ingress_zone"] == expected_ingress
+        assert result["egress_zone"] == expected_egress
+
+    @pytest.mark.parametrize("zone_key", ["ingress_zone", "egress_zone"])
+    def test_multiple_policy_zones(self, zone_key):
+        module = self.module(True)
+        backend = self.memory(module)
+        params = self.params(**{zone_key: ["public", "internal"]})
+        assert self.run_config(module, params, backend)
+        backend.changed = False
+        assert not self.run_config(module, params, backend)
+        settings = backend.working_config_permanent["policies"]["test-policy"]
+        assert settings[zone_key + "s"] == ["public", "internal"]
+        params["state"] = "disabled"
+        assert self.run_config(module, params, backend)
+        backend.changed = False
+        assert not self.run_config(module, params, backend)
+        assert (
+            backend.working_config_permanent["policies"]["test-policy"][zone_key + "s"]
+            == []
+        )
 
     @pytest.mark.parametrize("online", [True, False])
     def test_memory_lifecycle_and_idempotence(self, online):
@@ -1984,12 +2032,13 @@ class TestPolicies:
             fw.reload.assert_not_called()
 
     @pytest.mark.parametrize("check_mode", [True, False])
-    def test_offline_create(self, check_mode):
+    @pytest.mark.parametrize("ingress", [["HOST"], ["public", "internal"]])
+    def test_offline_create(self, check_mode, ingress):
         module = self.module(check_mode)
         module.run_command.return_value = (0, "", "")
         assert self.run_config(
             module,
-            self.params(ingress_zone="HOST", egress_zone="ANY", target="ACCEPT"),
+            self.params(ingress_zone=ingress, egress_zone="ANY", target="ACCEPT"),
             online=False,
         )
         commands = [c[0][0][1:] for c in module.run_command.call_args_list]
@@ -1998,7 +2047,11 @@ class TestPolicies:
             assert len(commands) == 1
         else:
             assert ["--new-policy=test-policy"] in commands
-            assert ["--policy=test-policy", "--add-ingress-zone=HOST"] in commands
+            for zone in ingress:
+                assert [
+                    "--policy=test-policy",
+                    "--add-ingress-zone=" + zone,
+                ] in commands
             assert ["--policy=test-policy", "--add-egress-zone=ANY"] in commands
             assert ["--policy=test-policy", "--set-target=ACCEPT"] in commands
 
@@ -2278,6 +2331,8 @@ class TestPolicies:
     @pytest.mark.parametrize(
         "first,second,message",
         [
+            ({}, {"ingress_zone": ["HOST", "public"]}, "cannot mix"),
+            ({}, {"egress_zone": ["ANY", "public"]}, "cannot mix"),
             ({"ingress_zone": "HOST"}, {"ingress_zone": "public"}, "cannot mix"),
             ({"egress_zone": "ANY"}, {"egress_zone": "public"}, "cannot mix"),
             ({"ingress_zone": "HOST"}, {"egress_zone": "HOST"}, "both"),

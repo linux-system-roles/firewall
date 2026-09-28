@@ -20,8 +20,8 @@
         icmp_block: [echo-request]
         state: present
       - policy: lsr-test-forward
-        ingress_zone: internal
-        egress_zone: ANY
+        ingress_zone: [internal, public]
+        egress_zone: [ANY]
         forward_port: ['8080/tcp;80;192.0.2.1']
         state: present
       - policy: lsr-test-masq
@@ -36,7 +36,8 @@
         - {policy: 42, state: present}
         - {policy: '', state: present}
         - {policy: 'bad.name', state: present}
-        - {policy: test, ingress_zone: [HOST], state: present}
+        - {policy: test, ingress_zone: [42], state: present}
+        - {policy: test, egress_zone: ['bad.name'], state: present}
         - {policy: test, egress_zone: 42, state: present}
         - {policy: test, target: default, state: present}
         - {policy: test, state: invalid}
@@ -77,7 +78,7 @@
           policy: "{{ 'p' * (__policy_name_limit | int + 1) }}"
           state: present
         __policy_name_limit: >-
-          {{ 128 if (__policy_test_version.stdout | trim is version('2.4.0', '>=')) else 18 }}
+          {{ 96 if (__policy_test_version.stdout | trim is version('2.4.0', '>=')) else 18 }}
       loop: [false, true]
       loop_control:
         loop_var: __policy_validation_check_mode
@@ -93,7 +94,7 @@
           - policy: "{{ 'p' * (__policy_name_limit | int) }}"
             state: present
         __policy_name_limit: >-
-          {{ 128 if (__policy_test_version.stdout | trim is version('2.4.0', '>=')) else 18 }}
+          {{ 96 if (__policy_test_version.stdout | trim is version('2.4.0', '>=')) else 18 }}
 
     - name: Check for policy support
       command: firewall-offline-cmd --get-policies
@@ -122,7 +123,7 @@
                   icmp_blocks: [echo-request]
                   rich_rule: ["{{ __policy_rule }}"]
                 lsr-test-forward:
-                  ingress_zones: [internal]
+                  ingress_zones: [internal, public]
                   egress_zones: [ANY]
                   target: CONTINUE
                   forward_ports: [['8080', tcp, '80', '192.0.2.1']]
@@ -242,7 +243,7 @@
         - name: Check policy forward-port facts in each scope
           assert:
             that:
-              - __policy.ingress_zones == ['internal']
+              - __policy.ingress_zones | sort == ['internal', 'public']
               - __policy.egress_zones == ['ANY']
               - __policy.forward_ports == [['8080', 'tcp', '80', '192.0.2.1']]
           vars:
@@ -330,7 +331,7 @@
                   egress_zones: [ANY]
                   target: CONTINUE
                 lsr-test-forward:
-                  ingress_zones: [internal]
+                  ingress_zones: [internal, public]
                   egress_zones: [ANY]
                   target: CONTINUE
                 lsr-test-masq:
