@@ -2658,9 +2658,13 @@ class TestPolicies:
         )
         assert "test-policy" not in backend.working_config_permanent["policies"]
 
-    def test_reload_discards_runtime_sources_and_preserves_interfaces(self):
+    @pytest.mark.parametrize("flush_all", [None, False, True])
+    def test_reload_respects_flush_all_on_reload(self, flush_all):
         module = self.module()
         backend = self.memory(module)
+        if flush_all is not None:
+            backend.firewalld_conf["flush_all_on_reload"] = flush_all
+        backend.working_config_permanent["zones"]["public"]["interfaces"] = ["eth2"]
         backend.working_config_runtime["zones"]["public"]["interfaces"] = ["eth0"]
         backend.working_config_permanent["zones"]["public"]["sources"] = [
             "198.51.100.0/24"
@@ -2689,7 +2693,12 @@ class TestPolicies:
             "198.51.100.0/24"
         ]
         public = backend.working_config_runtime["zones"]["public"]
-        assert sorted(public["interfaces"]) == ["eth0", "eth1"]
+        expected_interfaces = ["eth2"] if flush_all else ["eth0", "eth1", "eth2"]
+        assert sorted(public["interfaces"]) == expected_interfaces
+        if flush_all:
+            assert diff["runtime"]["removed"]["zones"]["public"]["interfaces"] == [
+                "eth0"
+            ]
         assert public["sources"] == ["198.51.100.0/24"]
         assert "services" not in public
         assert "custom" not in backend.working_config_runtime["zones"]

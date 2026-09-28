@@ -499,7 +499,15 @@ def config_to_dict(module, detailed=None, online=None):
     # get firewalld.conf settings
     fc = firewalld_conf(firewall.config.FIREWALLD_CONF)
     fc.read()
-    config["firewalld_conf"] = {"allow_zone_drifting": fc.get("AllowZoneDrifting")}
+    flush_all_on_reload = fc.get("FlushAllOnReload")
+    if flush_all_on_reload is None:
+        flush_all_on_reload = getattr(
+            firewall.config, "FALLBACK_FLUSH_ALL_ON_RELOAD", False
+        )
+    config["firewalld_conf"] = {
+        "allow_zone_drifting": fc.get("AllowZoneDrifting"),
+        "flush_all_on_reload": str(flush_all_on_reload).lower() in ("yes", "true"),
+    }
     if online:
         fw = FirewallClient()
         if HAS_POLICIES:

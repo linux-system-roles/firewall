@@ -587,3 +587,51 @@ class TestActivePolicies(unittest.TestCase):
                                 "active_policies",
                                 facts.get("custom_runtime_with_defaults", {}),
                             )
+
+
+class TestFlushAllOnReload(unittest.TestCase):
+    """Expose the effective reload setting across firewalld versions."""
+
+    def test_flush_all_on_reload_facts(self):
+        try:
+            from unittest.mock import MagicMock, patch
+        except ImportError:
+            from mock import MagicMock, patch
+        import get_config
+
+        for online in (False, True):
+            for detailed in (False, True):
+                for fallback in (None, False, True):
+                    for configured in (None, "yes", "no", "true", "false", "YES"):
+                        fw_config = type(
+                            "Config", (object,), {"FIREWALLD_CONF": "/unused"}
+                        )()
+                        if fallback is not None:
+                            fw_config.FALLBACK_FLUSH_ALL_ON_RELOAD = fallback
+                        conf = MagicMock()
+                        conf.get.side_effect = lambda key: (
+                            configured if key == "FlushAllOnReload" else None
+                        )
+                        with patch.multiple(
+                            get_config,
+                            create=True,
+                            HAS_POLICIES=False,
+                            FALLBACK_ZONE="public",
+                            firewall=MagicMock(config=fw_config),
+                            firewalld_conf=MagicMock(return_value=conf),
+                            FirewallClient=MagicMock(),
+                            fetch_settings_from_xml_files=MagicMock(return_value={}),
+                            fetch_online_settings=MagicMock(return_value={}),
+                            offline_cmd=MagicMock(return_value="public"),
+                        ):
+                            facts = get_config.config_to_dict(
+                                MagicMock(), detailed=detailed, online=online
+                            )
+                        expected = (
+                            bool(fallback)
+                            if configured is None
+                            else configured.lower() in ("yes", "true")
+                        )
+                        self.assertIs(
+                            facts["firewalld_conf"]["flush_all_on_reload"], expected
+                        )

@@ -85,7 +85,9 @@ dictionary format. The top level of the fact is made up of the following keys:
   detailed and non-detailed facts. Available only when firewalld is running
   and supports policies; an empty list means no policies are active.
 * `default_zone` - the default zone
-* `firewalld_conf` - the firewalld.conf settings
+* `firewalld_conf` - the firewalld.conf settings, including the boolean
+  `flush_all_on_reload`. If `FlushAllOnReload` is absent, this uses firewalld's
+  `FALLBACK_FLUSH_ALL_ON_RELOAD`, or `false` if that constant is unavailable.
 * `fallback_default_zone`- the built-in default zone if there is no
   firewalld.conf
 
@@ -295,9 +297,10 @@ configuration, discarding runtime-only changes. Put runtime-only settings
 later in the configuration list. Existing policy zone memberships and primitives
 support permanent-only, runtime-only, or both scopes without a reload.
 Offline mode supports permanent configuration only. Across a reload, runtime
-interface assignments are retained, while runtime-only source assignments are
-discarded and replaced by permanent sources. Check mode predicts this same
-outcome without modifying firewalld.
+interface assignments are retained only when `FlushAllOnReload` is false;
+otherwise they are replaced by permanent interface assignments. Runtime-only
+source assignments are always discarded and replaced by permanent sources.
+Check mode predicts this same outcome without modifying firewalld.
 `previous: replaced` must be its own list item, as in
 [previous](#previous). A policy entry that includes it is dropped, and only
 the reset is applied.
