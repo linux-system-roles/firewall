@@ -68,7 +68,7 @@ argument_specs:
           default zone is used;
           C(policy) - policy name, requiring firewalld 0.9.0 or later.
           Names are limited to 18 characters before firewalld 2.4.0 and
-          128 characters with firewalld 2.4.0 or later. The role validates
+          96 characters with firewalld 2.4.0 or later. The role validates
           this limit using the installed version, including in check mode.
           Use instead of C(zone), with C(ingress_zone), C(egress_zone),
           C(service), C(port), C(source_port), C(protocol), C(icmp_block),
@@ -98,10 +98,12 @@ argument_specs:
           or creating/deleting policies. Applies to the requested permanent and
           runtime scopes without reloading an existing policy. V(true) requires
           firewalld support for the policy disable flag;
-          C(ingress_zone) - one ingress zone name, or V(HOST) or V(ANY),
-          requiring C(policy);
-          C(egress_zone) - one egress zone name, or V(HOST) or V(ANY),
-          requiring C(policy);
+          C(ingress_zone) - an ingress zone name or list of zone names,
+          requiring C(policy). V(HOST) or V(ANY) must be the only member
+          of its zone set;
+          C(egress_zone) - an egress zone name or list of zone names,
+          requiring C(policy). V(HOST) or V(ANY) must be the only member
+          of its zone set;
           Policy C(target) accepts V(CONTINUE), V(ACCEPT), V(DROP), or V(REJECT).
           State V(absent) or V(disabled) resets it to V(CONTINUE);
           C(set_default_zone) - sets the default firewalld zone to the given

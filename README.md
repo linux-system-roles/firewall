@@ -255,7 +255,7 @@ Manage firewalld policies (requires firewalld 0.9.0 or later) by specifying a
 the same formats as zone rules and service definitions.
 
 Policy names may contain at most 18 characters with firewalld versions before
-2.4.0, or 128 characters with firewalld 2.4.0 and later. The role validates this
+2.4.0, or 96 characters with firewalld 2.4.0 and later. The role validates this
 limit using the installed firewalld version, including in check mode.
 
 * `state: present` creates the policy if needed and adds the supplied settings.
@@ -263,9 +263,9 @@ limit using the installed firewalld version, including in check mode.
   settings, it removes those settings instead.
 * `state: enabled` and `state: disabled` add and remove settings on an existing
   policy.
-* `ingress_zone` and `egress_zone` each accept one zone name, or the symbolic
-  zones `HOST` and `ANY`. Use multiple entries to configure multiple regular
-  zones. A symbolic zone must be the only member of its set; `ANY` excludes
+* `ingress_zone` and `egress_zone` each accept a zone name or a list of zone
+  names, including the symbolic zones `HOST` and `ANY`. For example,
+  `ingress_zone: [internal, public]` configures both regular ingress zones. A symbolic zone must be the only member of its set; `ANY` excludes
   `HOST`, and `HOST` cannot be used on both sides.
 * `service`, `port`, `source_port`, `protocol`, `icmp_block`, `forward_port`,
   and `rich_rule` add entries with `state: present` or `state: enabled` and

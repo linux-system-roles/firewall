@@ -85,10 +85,18 @@
         item.ingress_zone is not defined or item.ingress_zone is none
         or (item.ingress_zone is string
             and item.ingress_zone is match('^[A-Za-z0-9_/-]+$'))
+        or (item.ingress_zone is sequence and item.ingress_zone is not string
+            and item.ingress_zone is not mapping
+            and item.ingress_zone | reject('string') | list | length == 0
+            and item.ingress_zone | reject('match', '^[A-Za-z0-9_/-]+$') | list | length == 0)
       - >-
         item.egress_zone is not defined or item.egress_zone is none
         or (item.egress_zone is string
             and item.egress_zone is match('^[A-Za-z0-9_/-]+$'))
+        or (item.egress_zone is sequence and item.egress_zone is not string
+            and item.egress_zone is not mapping
+            and item.egress_zone | reject('string') | list | length == 0
+            and item.egress_zone | reject('match', '^[A-Za-z0-9_/-]+$') | list | length == 0)
       - item.target | default(none) in [none, 'CONTINUE', 'ACCEPT', 'DROP', 'REJECT']
       - item.state | default(none) in ['present', 'absent', 'enabled', 'disabled']
       - >-

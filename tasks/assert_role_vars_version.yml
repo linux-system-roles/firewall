@@ -18,7 +18,7 @@
       {{ __firewall_policy_name_max_length }} characters.
   vars:
     __firewall_policy_name_max_length: >-
-      {{ 128 if (__firewall_version.stdout | trim is version('2.4.0', '>=')) else 18 }}
+      {{ 96 if (__firewall_version.stdout | trim is version('2.4.0', '>=')) else 18 }}
   loop: "{{ [firewall] if firewall is mapping else (firewall | default([], true)) }}"
   loop_control:
     index_var: idx

@@ -157,7 +157,6 @@ options:
     description:
       The firewalld zone or policy target. Policies use CONTINUE, ACCEPT, DROP, or REJECT.
       If the state is set to C(absent), this resets a zone target to default or a policy target to CONTINUE.
-      Policy targets require permanent configuration.
     required: false
     choices: ["default", "ACCEPT", "DROP", "%%REJECT%%", "CONTINUE", "REJECT"]
     type: str
@@ -169,7 +168,7 @@ options:
     type: str
   is_disabled:
     description:
-      - Whether the policy disable flag is set, independently of state.
+      - Administratively disable a policy preventing it from activating even if prerequisites (zones) are active.
       - Omitted leaves an existing flag unchanged.
       - C(false) removes the flag. C(true) sets it and requires firewalld support for the flag.
       - C(state=absent) with C(is_disabled=true) sets the flag and does not delete the policy.
@@ -177,12 +176,16 @@ options:
     type: bool
   ingress_zone:
     description:
-      - Ingress zone to add or remove from the policy, including HOST or ANY.
-    type: str
+      - Ingress zones to add or remove from the policy. Accepts a string or list of strings.
+      - HOST or ANY must be the only member of its zone set.
+    type: list
+    elements: str
   egress_zone:
     description:
-      - Egress zone to add or remove from the policy, including HOST or ANY.
-    type: str
+      - Egress zones to add or remove from the policy. Accepts a string or list of strings.
+      - HOST or ANY must be the only member of its zone set.
+    type: list
+    elements: str
   zone:
     description:
       The zone name string.
@@ -267,7 +270,7 @@ options:
   protocol:
     description:
       list of protocols supported by managed system.
-      Supported for service configuration or policy rules
+      Supported for zones, service configuration, policy rules
     required: false
     type: list
     elements: str
@@ -442,7 +445,6 @@ options:
         description:
           The firewalld zone or policy target. Policies use CONTINUE, ACCEPT, DROP, or REJECT.
           If the state is set to C(absent), this resets a zone target to default or a policy target to CONTINUE.
-          Policy targets require permanent configuration.
         required: false
         choices: ["default", "ACCEPT", "DROP", "%%REJECT%%", "CONTINUE", "REJECT"]
         type: str
@@ -462,12 +464,16 @@ options:
         type: bool
       ingress_zone:
         description:
-          - Ingress zone to add or remove from the policy, including HOST or ANY.
-        type: str
+          - Ingress zones to add or remove from the policy. Accepts a string or list of strings.
+          - HOST or ANY must be the only member of its zone set.
+        type: list
+        elements: str
       egress_zone:
         description:
-          - Egress zone to add or remove from the policy, including HOST or ANY.
-        type: str
+          - Egress zones to add or remove from the policy. Accepts a string or list of strings.
+          - HOST or ANY must be the only member of its zone set.
+        type: list
+        elements: str
       zone:
         description:
           The zone name string.
@@ -552,7 +558,7 @@ options:
       protocol:
         description:
           List of protocols supported by managed system.
-          Supported for service configuration or policy rules
+          Supported for zones, service configuration, policy rules
         required: false
         type: list
         elements: str
@@ -846,8 +852,6 @@ def policy_settings(settings, params, rich_key="rich_rule"):
         values = params.get(option)
         if not values:
             continue
-        if option in ("ingress_zone", "egress_zone"):
-            values = [values]
         if option == "forward_port" and rich_key == "rich_rules":
             # The D-Bus API uses empty strings; facts/check mode use None.
             values = [tuple(value or "" for value in entry) for entry in values]
@@ -2407,9 +2411,7 @@ class OfflineCLIBackend:
             values = params.get(option)
             if not values:
                 continue
-            if option in ("ingress_zone", "egress_zone"):
-                values = [values]
-            elif option in ("port", "source_port"):
+            if option in ("port", "source_port"):
                 values = ["%s/%s" % entry for entry in values]
             elif option == "forward_port":
                 values = [
@@ -3271,8 +3273,8 @@ def get_base_argument_spec():
         ),
         policy=dict(required=False, type="str", default=None),
         is_disabled=dict(required=False, type="bool", default=None),
-        ingress_zone=dict(required=False, type="str", default=None),
-        egress_zone=dict(required=False, type="str", default=None),
+        ingress_zone=dict(required=False, type="list", elements="str", default=None),
+        egress_zone=dict(required=False, type="list", elements="str", default=None),
         zone=dict(required=False, type="str", default=None),
         set_default_zone=dict(required=False, type="str", default=None),
         ipset=dict(required=False, type="str", default=None),
