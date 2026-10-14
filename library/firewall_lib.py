@@ -678,6 +678,7 @@ try:
     HAS_FIREWALLD = True
 except ImportError:
     FIREWALLD_DIR = "/etc/firewalld"
+    FW_VERSION = None
     HAS_FIREWALLD = False
 
 try:
@@ -1266,6 +1267,7 @@ class OnlineAPIBackend:
     def set_ipset(
         self, ipset, description, short, ipset_type, ipset_entries, ipset_options
     ):
+        requested_options = ipset_options
         ipset_options = check_and_normalize_ipset(
             self.module, ipset, ipset_entries, ipset_options
         )
@@ -1324,6 +1326,9 @@ class OnlineAPIBackend:
                             fw_ipset_settings.removeEntry(entry)
                         self.changed = True
                 for option, value in ipset_options.items():
+                    # family=inet6 inferred from the entries is not a removal request
+                    if option not in requested_options:
+                        continue
                     current_options = fw_ipset_settings.getOptions()
                     if (value is None and option in current_options) or (
                         value is not None and current_options[option] == value
@@ -1688,6 +1693,10 @@ class InMemoryBackend:
                 self._move_interfaces_to_default_zone(
                     self.original_config["custom_runtime_with_defaults"]
                 )
+                if self._reload_retains_runtime_ipsets():
+                    self._retain_runtime_ipsets(
+                        self.original_config["custom_runtime_with_defaults"]
+                    )
         else:
             # start with the current permanent and runtime settings
             self.default_zone = self.original_config.get("default_zone", "public")
@@ -1759,12 +1768,15 @@ class InMemoryBackend:
         """Model reload using FlushAllOnReload for runtime interface retention.
 
         Sources are always loaded from permanent configuration on reload.
-        Runtime interfaces are retained only when FlushAllOnReload is false.
+        Runtime interfaces and ipsets are retained only when FlushAllOnReload
+        is false.
         """
         previous = self.working_config_runtime
         self.working_config_runtime = copy.deepcopy(self.working_config_permanent)
         if self.firewalld_conf.get("flush_all_on_reload", False):
             return
+        if self._reload_retains_runtime_ipsets():
+            self._retain_runtime_ipsets(previous)
         new_zones = self.working_config_runtime.setdefault("zones", {})
         default_zone = new_zones.setdefault(self.default_zone, {})
         for zone_name, zone_config in previous.get("zones", {}).items():
@@ -1773,6 +1785,35 @@ class InMemoryBackend:
                 values = dest.setdefault("interfaces", [])
                 if value not in values:
                     values.append(value)
+
+    def _reload_retains_runtime_ipsets(self):
+        return not self.firewalld_conf.get(
+            "flush_all_on_reload", False
+        ) and reload_restores_runtime_ipsets(FW_VERSION)
+
+    def _retain_runtime_ipsets(self, previous):
+        """Model firewalld restoring runtime ipsets and their entries on reload."""
+        if not previous.get("ipsets"):
+            return
+        ipsets = self.working_config_runtime.setdefault("ipsets", {})
+        for name, old_ipset in previous["ipsets"].items():
+            if name not in ipsets:
+                ipsets[name] = copy.deepcopy(old_ipset)
+                continue
+            for entry in old_ipset.get("entries", []):
+                entries = ipsets[name].setdefault("entries", [])
+                if entry not in entries:
+                    entries.append(entry)
+
+    def retained_runtime_ipsets(self):
+        """Return runtime ipsets with entries that the permanent config lacks."""
+        permanent = self.working_config_permanent.get("ipsets", {})
+        return sorted(
+            name
+            for name, ipset in self.working_config_runtime.get("ipsets", {}).items()
+            if name not in permanent
+            or set(ipset.get("entries", [])) - set(permanent[name].get("entries", []))
+        )
 
     def check_zone_exists(self):
         self.zone_exists = False
@@ -2125,7 +2166,7 @@ class InMemoryBackend:
         ):
             if config_type and working_config is not None:
                 if self.state == "present":
-                    if not existing_ipset:
+                    if ipset not in working_config.get("ipsets", {}):
                         if "ipsets" not in working_config:
                             working_config["ipsets"] = {}
                         working_config["ipsets"][ipset] = self._new_ipset(ipset_type)
@@ -2155,6 +2196,12 @@ class InMemoryBackend:
                             self.changed = True
 
                 elif self.state == "absent" and existing_ipset:
+                    # removal is applied by a reload, which restores runtime ipsets
+                    if (
+                        working_config is self.working_config_runtime
+                        and self._reload_retains_runtime_ipsets()
+                    ):
+                        continue
                     if ipset_entries or ipset_options:
                         # Remove specific entries/options
                         ipset_cfg = working_config["ipsets"][ipset]
@@ -2971,6 +3018,16 @@ def lsr_parse_version(v_str):
         except ValueError:
             v.append(0)
     return v
+
+
+def reload_restores_runtime_ipsets(fw_version):
+    """Return whether reload restores runtime ipsets when FlushAllOnReload is false."""
+    if not fw_version:
+        return False
+    version = lsr_parse_version(fw_version)
+    return version >= lsr_parse_version("0.8.2") or (
+        lsr_parse_version("0.7.4") <= version < lsr_parse_version("0.8.0")
+    )
 
 
 pci_ids = None
@@ -3971,6 +4028,22 @@ def check_for_diffs(
     original_config, permanent_config, runtime_config, default_zone, firewalld_conf = (
         backend.get_configs()
     )
+
+    if (
+        replaced
+        and online
+        and not original_config.get("firewalld_conf", {}).get(
+            "flush_all_on_reload", False
+        )
+        and reload_restores_runtime_ipsets(FW_VERSION)
+    ):
+        retained = backend.retained_runtime_ipsets()
+        if retained:
+            module.warn(
+                "FlushAllOnReload is false, so these runtime ipsets keep entries "
+                "that are not in the permanent configuration until firewalld is "
+                "restarted: %s" % ", ".join(retained)
+            )
 
     custom_permanent_with_defaults = original_config.get(
         "custom_permanent_with_defaults", {}
