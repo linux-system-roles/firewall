@@ -15,6 +15,7 @@ which is available in RHEL-7 and later.
 
 * RHEL-7+, CentOS-7+
 * Fedora
+* SLES 16, openSUSE Leap 15 and 16
 
 ## Requirements
 
@@ -297,9 +298,10 @@ configuration, discarding runtime-only changes. Put runtime-only settings
 later in the configuration list. Existing policy zone memberships and primitives
 support permanent-only, runtime-only, or both scopes without a reload.
 Offline mode supports permanent configuration only. Across a reload, runtime
-interface assignments are retained only when `FlushAllOnReload` is false;
-otherwise they are replaced by permanent interface assignments. Runtime-only
-source assignments are always discarded and replaced by permanent sources.
+interface assignments and ipset entries are retained only when
+`FlushAllOnReload` is false; otherwise they are replaced by permanent interface
+assignments and ipsets. Runtime-only source assignments are always discarded and
+replaced by permanent sources.
 Check mode predicts this same outcome without modifying firewalld.
 `previous: replaced` must be its own list item, as in
 [previous](#previous). A policy entry that includes it is dropped, and only
@@ -919,7 +921,9 @@ If you want to completely wipe out all existing firewall configuration, add
 configuration to be removed and replaced with your given configuration.  This is
 useful if you have existing machines that may have existing firewall
 configuration, and you want to make all of the firewall configuration the same
-across all of the machines.
+across all of the machines. When `FlushAllOnReload` is false, firewalld keeps
+runtime interface assignments and ipset entries across the reload, so they
+remain until firewalld is restarted, and the role warns about retained ipsets.
 
 *WARNING*: When using this option, there's a small time window when firewall is
 being reset and all new connections to the system are rejected.  Existing
