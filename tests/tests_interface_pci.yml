@@ -18,8 +18,9 @@
     - name: Set expected backend
       set_fact:
         nftables_backend: "{{
-          __firewall_is_rh_distro_fedora and
-          ansible_facts['distribution_major_version'] is version('8', '>=') }}"
+          (__firewall_is_rh_distro_fedora and
+           ansible_facts['distribution_major_version'] is version('8', '>=')) or
+          ansible_facts['os_family'] == 'Suse' }}"
 
     - name: Find ethernet interfaces with PCI devices
       shell: |

@@ -1387,6 +1387,45 @@ class FirewallLibMain(unittest.TestCase):
     @patch("firewall_lib.FW_VERSION", "0.9.0", create=True)
     @patch("firewall_lib.FirewallClient", create=True)
     @patch("firewall_lib.FirewallClientIPSetSettings", create=True)
+    def test_remove_ipset_options_ipv6_keeps_family(
+        self, fw_ipset_settings_class, fw_class, am_class
+    ):
+        am = am_class.return_value
+        am.params = {
+            "ipset": "test",
+            "ipset_entries": ["2001:db8::1"],
+            "ipset_options": {"hashsize": None},
+            "state": "absent",
+            "permanent": True,
+        }
+
+        fw = fw_class.return_value
+        fw_ipset_settings = fw_ipset_settings_class.return_value
+
+        fw_config = Mock()
+        fw.config.return_value = fw_config
+        fw_config.getIPSetNames.return_value = ["test"]
+        fw_config.getIPSetByName = Mock()
+
+        fw_ipset = fw_config.getIPSetByName.return_value
+        fw_ipset.update = Mock()
+        fw_ipset.getSettings.return_value = fw_ipset_settings
+
+        fw_ipset_settings.queryEntry = Mock(return_value=True)
+        fw_ipset_settings.getOptions = Mock(
+            return_value={"family": "inet6", "hashsize": "240"}
+        )
+        fw_ipset_settings.removeOption = Mock()
+
+        firewall_lib.main()
+
+        fw_ipset_settings.removeOption.assert_called_once_with("hashsize")
+        fw_ipset.update.assert_called()
+
+    @patch("firewall_lib.HAS_FIREWALLD", True)
+    @patch("firewall_lib.FW_VERSION", "0.9.0", create=True)
+    @patch("firewall_lib.FirewallClient", create=True)
+    @patch("firewall_lib.FirewallClientIPSetSettings", create=True)
     def test_remove_ipset(self, fw_ipset_settings_class, fw_class, am_class):
         am = am_class.return_value
         am.params = {
@@ -2657,6 +2696,118 @@ class TestPolicies:
             module, self.params(state="absent", is_disabled=False), backend
         )
         assert "test-policy" not in backend.working_config_permanent["policies"]
+
+    # (FlushAllOnReload, firewalld version, runtime ipsets survive a reload)
+    IPSET_RELOAD_CASES = [
+        (False, "2.3.2", True),
+        (False, "0.8.2", True),
+        (False, "0.7.4", True),
+        (False, "0.8.1", False),
+        (False, "0.7.3", False),
+        (False, "0.6.3", False),
+        (True, "2.3.2", False),
+    ]
+
+    @pytest.mark.parametrize(
+        "version, expected",
+        [
+            ("2.3.2", True),
+            ("0.9.0", True),
+            ("0.8.2", True),
+            ("0.8.1", False),
+            ("0.8.0", False),
+            ("0.7.5", True),
+            ("0.7.4", True),
+            ("0.7.3", False),
+            ("0.6.3", False),
+        ],
+    )
+    def test_reload_restores_runtime_ipsets(self, version, expected):
+        assert firewall_lib.reload_restores_runtime_ipsets(version) is expected
+
+    @pytest.mark.parametrize("flush_all, version, retained", IPSET_RELOAD_CASES)
+    def test_reload_ipsets_respects_flush_all_on_reload(
+        self, flush_all, version, retained
+    ):
+        module = self.module()
+        backend = self.memory(module)
+        backend.firewalld_conf["flush_all_on_reload"] = flush_all
+        backend.working_config_permanent["ipsets"] = {
+            "kept": {"type": "hash:ip", "entries": ["192.0.2.1"]}
+        }
+        backend.working_config_runtime["ipsets"] = {
+            "kept": {"type": "hash:ip", "entries": ["192.0.2.1", "192.0.2.2"]},
+            "deleted": {"type": "hash:ip", "entries": ["192.0.2.3"]},
+        }
+        with patch.object(firewall_lib, "FW_VERSION", version, create=True):
+            backend._reload_runtime_from_permanent()
+        ipsets = backend.working_config_runtime["ipsets"]
+        if retained:
+            assert ipsets["kept"]["entries"] == ["192.0.2.1", "192.0.2.2"]
+            assert ipsets["deleted"] == {"type": "hash:ip", "entries": ["192.0.2.3"]}
+        else:
+            assert ipsets == {"kept": {"type": "hash:ip", "entries": ["192.0.2.1"]}}
+
+    def replaced_backend(self, flush_all, version, runtime_ipsets):
+        config = {
+            "default_zone": "public",
+            "default": {"zones": {"public": {}}},
+            "custom_permanent_with_defaults": {"zones": {"public": {}}},
+            "custom_runtime_with_defaults": {
+                "zones": {"public": {}},
+                "ipsets": runtime_ipsets,
+            },
+            "firewalld_conf": {"flush_all_on_reload": flush_all},
+        }
+        with patch.object(firewall_lib, "config_to_dict", return_value=config):
+            return firewall_lib.InMemoryBackend(self.module(), True, True)
+
+    @pytest.mark.parametrize("flush_all, version, retained", IPSET_RELOAD_CASES)
+    def test_replaced_ipsets_respects_flush_all_on_reload(
+        self, flush_all, version, retained
+    ):
+        with patch.object(firewall_lib, "FW_VERSION", version, create=True):
+            backend = self.replaced_backend(
+                flush_all,
+                version,
+                {"deleted": {"type": "hash:ip", "entries": ["192.0.2.3"]}},
+            )
+        runtime_ipsets = backend.working_config_runtime.get("ipsets", {})
+        assert ("deleted" in runtime_ipsets) is retained
+        assert backend.retained_runtime_ipsets() == (["deleted"] if retained else [])
+
+    def test_replaced_present_ipset_keeps_retained_runtime_entries(self):
+        with patch.object(firewall_lib, "FW_VERSION", "2.3.2", create=True):
+            backend = self.replaced_backend(
+                False,
+                "2.3.2",
+                {"kept": {"type": "hash:ip", "entries": ["192.0.2.1", "192.0.2.2"]}},
+            )
+            backend.permanent = True
+            backend.runtime = True
+            backend.state = "present"
+            backend.set_ipset("kept", None, None, "hash:ip", ["192.0.2.1"], {})
+        permanent = backend.working_config_permanent["ipsets"]["kept"]
+        runtime = backend.working_config_runtime["ipsets"]["kept"]
+        assert permanent["entries"] == ["192.0.2.1"]
+        assert runtime["entries"] == ["192.0.2.1", "192.0.2.2"]
+
+    @pytest.mark.parametrize("flush_all, version, retained", IPSET_RELOAD_CASES)
+    def test_absent_ipset_runtime_follows_reload(self, flush_all, version, retained):
+        backend = self.memory(self.module())
+        backend.firewalld_conf["flush_all_on_reload"] = flush_all
+        for config in (
+            backend.working_config_permanent,
+            backend.working_config_runtime,
+        ):
+            config["ipsets"] = {"kept": {"type": "hash:ip", "entries": ["192.0.2.1"]}}
+        backend.permanent = True
+        backend.runtime = True
+        backend.state = "absent"
+        with patch.object(firewall_lib, "FW_VERSION", version, create=True):
+            backend.set_ipset("kept", None, None, None, [], {})
+        assert "ipsets" not in backend.working_config_permanent
+        assert ("ipsets" in backend.working_config_runtime) is retained
 
     @pytest.mark.parametrize("flush_all", [None, False, True])
     def test_reload_respects_flush_all_on_reload(self, flush_all):
