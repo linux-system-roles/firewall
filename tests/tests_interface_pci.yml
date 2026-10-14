@@ -15,6 +15,13 @@
     # block/rescue
     __firewall_debug_short_circuit_disable: true
   tasks:
+    # SUSE 15 manages the network with wicked, not NetworkManager
+    - name: Skip test on SUSE 15
+      meta: end_host
+      when:
+        - ansible_facts['os_family'] == 'Suse'
+        - ansible_facts['distribution_major_version'] == '15'
+
     - name: Set expected backend
       set_fact:
         nftables_backend: "{{

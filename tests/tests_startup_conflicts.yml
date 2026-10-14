@@ -19,6 +19,15 @@
         use: "{{ (__firewall_is_ostree | d(false)) |
                 ternary('ansible.posix.rhel_rpm_ostree', omit) }}"
 
+    - name: Get the services
+      service_facts:
+
+    # e.g. SLE 15 ships nftables without nftables.service
+    - name: End test if there is no conflicting service to enable
+      meta: end_host
+      when: ansible_facts.services.get('nftables.service', {}).get('status')
+        in [none, 'not-found']
+
     - name: Enable conflicting service
       service:
         name: nftables
