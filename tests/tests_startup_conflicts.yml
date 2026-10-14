@@ -2,28 +2,15 @@
 - name: Ensure role handles startup issues
   hosts: all
   tasks:
-    - name: Attempt to run role with default parameters (1)
+    - name: Run role to just install firewall and start firewalld
       include_tasks: tasks/run_role_with_clear_facts.yml
+      vars:
+        __sr_public: true  # to get ostree flag
 
     - name: Mask firewalld
       systemd:
         name: firewalld
         masked: true
-
-    - name: Attempt to run role with default parameters (2)
-      include_tasks: tasks/run_role_with_clear_facts.yml
-
-    - name: Determine if system is ostree and set flag
-      when: not __firewall_is_ostree is defined
-      block:
-        - name: Check if system is ostree
-          stat:
-            path: /run/ostree-booted
-          register: __ostree_booted_stat
-
-        - name: Set flag to indicate system is ostree
-          set_fact:
-            __firewall_is_ostree: "{{ __ostree_booted_stat.stat.exists }}"
 
     - name: Install conflicting service
       package:
@@ -37,7 +24,7 @@
         name: nftables
         enabled: true
 
-    - name: Attempt to run role, disabling conflicting services
+    - name: Attempt to run role, disabling conflicting services and unmask firewalld
       include_tasks: tasks/run_role_with_clear_facts.yml
       vars:
         firewall_disable_conflicting_services: true
@@ -49,3 +36,13 @@
       check_mode: true
       register: result
       failed_when: result.changed
+
+    - name: Check firewalld state
+      systemd:
+        name: firewalld
+        masked: false
+      register: __firewalld_mask_state
+
+    - name: Assert firewalld is unmasked
+      assert:
+        that: __firewalld_mask_state is not changed 
