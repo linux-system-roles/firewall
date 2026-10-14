@@ -41,6 +41,7 @@
       systemd:
         name: firewalld
         masked: false
+      check_mode: true
       register: __firewalld_mask_state
 
     - name: Assert firewalld is unmasked
