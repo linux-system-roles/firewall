@@ -19,19 +19,17 @@
         use: "{{ (__firewall_is_ostree | d(false)) |
                 ternary('ansible.posix.rhel_rpm_ostree', omit) }}"
 
-    - name: Get the services
-      service_facts:
-
     # e.g. SLE 15 ships nftables without nftables.service
-    - name: End test if there is no conflicting service to enable
-      meta: end_host
-      when: ansible_facts.services.get('nftables.service', {}).get('status')
-        in [none, 'not-found']
+    - name: Check if there is a conflicting service to enable
+      stat:
+        path: /usr/lib/systemd/system/nftables.service
+      register: __nftables_service_stat
 
     - name: Enable conflicting service
       service:
         name: nftables
         enabled: true
+      when: __nftables_service_stat.stat.exists
 
     - name: Attempt to run role, disabling conflicting services and unmask firewalld
       include_tasks: tasks/run_role_with_clear_facts.yml
@@ -45,6 +43,7 @@
       check_mode: true
       register: result
       failed_when: result.changed
+      when: __nftables_service_stat.stat.exists
 
     - name: Check firewalld state
       systemd:
