@@ -298,10 +298,10 @@ configuration, discarding runtime-only changes. Put runtime-only settings
 later in the configuration list. Existing policy zone memberships and primitives
 support permanent-only, runtime-only, or both scopes without a reload.
 Offline mode supports permanent configuration only. Across a reload, runtime
-interface assignments and ipset entries are retained only when
-`FlushAllOnReload` is false; otherwise they are replaced by permanent interface
-assignments and ipsets. Runtime-only source assignments are always discarded and
-replaced by permanent sources.
+interface assignments are retained only when `FlushAllOnReload` is false;
+otherwise they are replaced by permanent interface assignments. Runtime ipset
+entries follow the rules under [ipset](#ipset). Runtime-only source assignments
+are always discarded and replaced by permanent sources.
 Check mode predicts this same outcome without modifying firewalld.
 `previous: replaced` must be its own list item, as in
 [previous](#previous). A policy entry that includes it is dropped, and only
@@ -539,6 +539,14 @@ firewall:
     state: absent
     permanent: true
 ```
+
+**NOTE**: The role applies ipset changes to runtime by reloading firewalld. When
+`FlushAllOnReload` is false, firewalld 0.7.4 or later, except 0.8.0 and 0.8.1,
+keeps runtime ipset entries across that reload, so ipsets and entries that the
+role removes stay at runtime until firewalld is restarted, and the role warns
+about them. If firewalld would reject a kept entry for the changed ipset, for
+example an overlapping `hash:net` range, the role fails before it changes
+anything, and check mode warns instead.
 
 ### port
 
@@ -922,8 +930,10 @@ configuration to be removed and replaced with your given configuration.  This is
 useful if you have existing machines that may have existing firewall
 configuration, and you want to make all of the firewall configuration the same
 across all of the machines. When `FlushAllOnReload` is false, firewalld keeps
-runtime interface assignments and ipset entries across the reload, so they
-remain until firewalld is restarted, and the role warns about retained ipsets.
+runtime interface assignments across the reload, and runtime ipset entries as
+described under [ipset](#ipset). They remain until firewalld is restarted, or
+reloaded with `FlushAllOnReload` set to yes, and the role warns about retained
+ipsets.
 
 *WARNING*: When using this option, there's a small time window when firewall is
 being reset and all new connections to the system are rejected.  Existing
