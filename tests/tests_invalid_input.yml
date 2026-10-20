@@ -5,6 +5,13 @@
 # that outcome.
 - name: Verify invalid parameters are rejected
   hosts: all
+  vars:
+    __invalid_input_failure_messages: >-
+      {{ ([ansible_failed_result.msg | default(''),
+           ansible_failed_result.msg.msg | default('')]
+          + (ansible_failed_result.results | default([])
+             | map(attribute='msg') | map('default', '') | list))
+         | join(' ') }}
   tasks:
     - name: Run invalid input tests
       block:
@@ -25,6 +32,11 @@
                 - name: Mark invalid firewall_disable_conflicting_services rejected
                   ansible.builtin.set_fact:
                     __invalid_input_disable_cs_type_failed: true
+                  when: >-
+                    "argument 'firewall_disable_conflicting_services' is of type" in
+                    __invalid_input_failure_messages and
+                    'we were unable to convert to bool' in
+                    __invalid_input_failure_messages
 
             - name: Assert invalid firewall_disable_conflicting_services type failed
               ansible.builtin.assert:
@@ -47,6 +59,11 @@
             - name: Mark firewall string rejected
               ansible.builtin.set_fact:
                 __invalid_input_firewall_string_failed: true
+              when: >-
+                'firewall must be a list of dictionaries or a single dictionary, got str'
+                in __invalid_input_failure_messages or
+                'firewall must be a list of dictionaries or a single dictionary, got AnsibleUnicode'
+                in __invalid_input_failure_messages
 
         - name: Assert firewall as string failed validation
           ansible.builtin.assert:
@@ -66,6 +83,9 @@
             - name: Mark firewall integer rejected
               ansible.builtin.set_fact:
                 __invalid_input_firewall_int_failed: true
+              when: >-
+                'firewall must be a list of dictionaries or a single dictionary, got int'
+                in __invalid_input_failure_messages
 
         - name: Assert firewall as integer failed validation
           ansible.builtin.assert:
@@ -89,6 +109,9 @@
             - name: Mark firewall list with string element rejected
               ansible.builtin.set_fact:
                 __invalid_input_firewall_list_str_failed: true
+              when: >-
+                'firewall must be a list of dictionaries or a single dictionary, got list'
+                in __invalid_input_failure_messages
 
         - name: Assert firewall list with non-dict element failed validation
           ansible.builtin.assert:
@@ -110,6 +133,9 @@
             - name: Mark firewall invalid key rejected
               ansible.builtin.set_fact:
                 __invalid_input_firewall_bad_key_failed: true
+              when: >-
+                'firewall[0] contains invalid keys: invalid_key_name'
+                in __invalid_input_failure_messages
 
         - name: Assert firewall dict with invalid key failed validation
           ansible.builtin.assert:
@@ -129,6 +155,11 @@
             - name: Mark invalid transactional_update_reboot_ok rejected
               ansible.builtin.set_fact:
                 __invalid_input_tu_reboot_type_failed: true
+              when: >-
+                'firewall_transactional_update_reboot_ok must be null or a boolean, got str'
+                in __invalid_input_failure_messages or
+                'firewall_transactional_update_reboot_ok must be null or a boolean, got AnsibleUnicode'
+                in __invalid_input_failure_messages
 
         - name: Assert transactional_update_reboot_ok as string failed validation
           ansible.builtin.assert:
@@ -149,6 +180,9 @@
             - name: Mark integer transactional_update_reboot_ok rejected
               ansible.builtin.set_fact:
                 __invalid_input_tu_reboot_int_failed: true
+              when: >-
+                'firewall_transactional_update_reboot_ok must be null or a boolean, got int'
+                in __invalid_input_failure_messages
 
         - name: Assert transactional_update_reboot_ok as integer failed validation
           ansible.builtin.assert:
@@ -172,6 +206,11 @@
             - name: Mark invalid state rejected
               ansible.builtin.set_fact:
                 __invalid_input_state_failed: true
+              when: >-
+                'value of state must be one of: enabled, disabled, present, absent'
+                in __invalid_input_failure_messages and
+                'got: not_a_valid_state found in config_list'
+                in __invalid_input_failure_messages
 
         - name: Assert invalid state failed validation
           ansible.builtin.assert:
@@ -192,6 +231,11 @@
             - name: Mark invalid target rejected
               ansible.builtin.set_fact:
                 __invalid_input_target_failed: true
+              when: >-
+                'value of target must be one of: default, ACCEPT, DROP, %%REJECT%%, CONTINUE, REJECT'
+                in __invalid_input_failure_messages and
+                'got: INVALID_TARGET found in config_list'
+                in __invalid_input_failure_messages
 
         - name: Assert invalid target failed validation
           ansible.builtin.assert:
@@ -211,6 +255,9 @@
             - name: Mark invalid previous rejected
               ansible.builtin.set_fact:
                 __invalid_input_previous_failed: true
+              when: >-
+                'value of previous must be one of: replaced, kept, got: not_a_valid_previous found in config_list'
+                in __invalid_input_failure_messages
 
         - name: Assert invalid previous failed validation
           ansible.builtin.assert:
