@@ -24,8 +24,9 @@ See below
 ### Collection requirements
 
 The role requires external collections only for management of `rpm-ostree`
-nodes. Please run the following command to install them if you need to manage
-`rpm-ostree` nodes:
+nodes and SUSE nodes, where `community.general` provides the `zypper` module.
+Please run the following command to install them if you need to manage
+`rpm-ostree` or SUSE nodes:
 
 ```bash
 ansible-galaxy collection install -vv -r meta/collection-requirements.yml
