@@ -1,6 +1,47 @@
 Changelog
 =========
 
+[1.15.0] - 2026-11-23
+--------------------
+
+### New Features
+
+- feat: support firewalld policies (#400)
+- feat: Add SLE16 and openSUSE Leap 15 support (#409)
+
+### Bug Fixes
+
+- fix: Reboot transactional systems when packages are staged but not live (#408)
+
+### Other Changes
+
+- ci: no CI test by default - implement slash commands for CI tests [citest_skip] (#397)
+- ci: ansible-test-milestone is now version 2.23 - update sanity ignore files (#398)
+- ci: allow lsr org members to run ci tests (#399)
+- ci: [citest_skip] bump github/codeql-action/init from 4.37.9 to 4.38.2 (#401)
+- ci: [citest_skip] bump github/codeql-action/analyze from 4.37.9 to 4.38.2 (#402)
+- ci: [citest_skip] bump github/codeql-action/autobuild from 4.37.9 to 4.38.2 (#403)
+- ci: [citest_skip] bump myrotvorets/set-commit-status-action (#404)
+- ci: [citest_skip] bump codecov/codecov-action from 7.0.0 to 7.1.1 (#405)
+- ci: Run Dependabot monthly and group changes in a single PR (#406)
+- ci: bump tox-lsr version 3.21.0, myrotvorets/set-commit-status-action, support leap-16.0 (#407)
+- test: add check for firewalld is not masked (#410)
+- test: use check mode for masked check (#411)
+- test: check invalid inputs for correct error message (#412)
+- ci: use shared actions and lock workflow dependencies (#413)
+- ci: use shared actions and lock workflow dependencies (#414)
+- ci: Use order 10 for centos vault task so that it runs first (#415)
+- docs: add AI policy; update setup-python, codeql actions (#416)
+- ci: retry centos vault repo failures using new package_retry yum/dnf plugin (#417)
+- docs: tag markdown plain text blocks correctly (#418)
+- ci: Use a fixed 5 minute backoff for CentOS vault repos (#419)
+- ci: support Fedora 45, Ansible 2.22; drop Fedora 43 (#420)
+- ci: use ubuntu 24.04 for test envs that use py39 (#421)
+- ci: use ubuntu 26.04 with podman 5.x and disable apparmor restriction (#422)
+- docs: add AGENTS.md with shared developer conventions from .github (#423)
+- docs: remove extra blank lines from .coderabbit.yaml (#424)
+- ci: update tox-lsr for support for tests/module_utils (#425)
+
 [1.14.0] - 2026-09-17
 --------------------
 
